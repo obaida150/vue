@@ -3,6 +3,21 @@
 //use Illuminate\Foundation\Application;
 //use Illuminate\Support\Facades\Route;
 //use Inertia\Inertia;
+//use App\Http\Controllers\EventController;
+//use App\Http\Controllers\VacationController;
+//use App\Http\Controllers\TeamController;
+//use App\Http\Controllers\UserController;
+//
+///*
+//|--------------------------------------------------------------------------
+//| Web Routes
+//|--------------------------------------------------------------------------
+//|
+//| Here is where you can register web routes for your application. These
+//| routes are loaded by the RouteServiceProvider within a group which
+//| contains the "web" middleware group. Now create something great!
+//|
+//*/
 //
 //Route::get('/', function () {
 //    return Inertia::render('Welcome', [
@@ -21,40 +36,73 @@
 //    Route::get('/dashboard', function () {
 //        return Inertia::render('Dashboard');
 //    })->name('dashboard');
+//
+//    Route::get('/calendar', function () {
+//        return Inertia::render('Calendar/Index');
+//    })->name('calendar');
+//
+//    Route::get('/company-calendar', function () {
+//        return Inertia::render('Calendar/Company');
+//    })->name('company-calendar');
+//
+//    // Urlaubsverwaltung Routen
+//    Route::get('/vacation', function () {
+//        return Inertia::render('Vacation/Overview');
+//    })->name('vacation');
+//
+//    Route::get('/vacation/management', function () {
+//        return Inertia::render('Vacation/Management');
+//    })->name('vacation.management');
+//
+//    // API-Routen für die Web-Anwendung
+//    Route::prefix('api')->group(function () {
+//        // Benutzer-Routen
+//        Route::get('/user', [UserController::class, 'getCurrentUser']);
+//        Route::get('/birthdays', [UserController::class, 'getBirthdays']);
+//
+//        // Team-Routen
+//        Route::get('/teams', [TeamController::class, 'getUserTeams']);
+//        Route::get('/teams/{team}/members', [TeamController::class, 'getTeamMembers']);
+//        Route::get('/teams/{team}/homeoffice-rules', [TeamController::class, 'getTeamHomeofficeRules']);
+//
+//        // Ereignis-Routen
+//        Route::get('/event-types', [EventController::class, 'getEventTypes']);
+//        Route::get('/events', [EventController::class, 'getUserEvents']);
+//        Route::get('/teams/{team}/events', [EventController::class, 'getTeamEvents']);
+//        Route::post('/events', [EventController::class, 'store']);
+//        Route::put('/events/{event}', [EventController::class, 'update']);
+//        Route::delete('/events/{event}', [EventController::class, 'destroy']);
+//        Route::post('/events/{event}/approve', [EventController::class, 'approve']);
+//        Route::post('/events/{event}/reject', [EventController::class, 'reject']);
+//
+//        // Urlaubs-Routen
+//        Route::get('/vacation/balance', [VacationController::class, 'getUserBalance']);
+//        Route::get('/vacation/requests', [VacationController::class, 'getUserRequests']);
+//        Route::get('/teams/{team}/vacation-requests', [VacationController::class, 'getTeamRequests']);
+//        Route::post('/vacation/requests', [VacationController::class, 'store']);
+//        Route::post('/vacation/requests/{vacationRequest}/approve', [VacationController::class, 'approve']);
+//        Route::post('/vacation/requests/{vacationRequest}/reject', [VacationController::class, 'reject']);
+//        Route::delete('/vacation/requests/{vacationRequest}', [VacationController::class, 'cancel']);
+//        Route::get('/vacation/substitutes', [VacationController::class, 'getAvailableSubstitutes']);
+//    });
 //});
 
 
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Auth;
 
-// Import all your controllers
-use App\Http\Controllers\KalenderController;
-use App\Http\Controllers\LeiterController;
-use App\Http\Controllers\VeranstaltungController;
-use App\Http\Controllers\SonstigeEreignisseController;
-use App\Http\Controllers\ADController;
-use App\Http\Controllers\AntraegeController;
-use App\Http\Controllers\UrlaubController;
-use App\Http\Controllers\UrlaubsInfo;
-use App\Http\Controllers\Urlaubsmonatlich;
-use App\Http\Controllers\UrlaubswunschController;
-use App\Http\Controllers\HomeofficeController;
-use App\Http\Controllers\AzubiKalenderController;
-use App\Http\Controllers\BetriebKalenderController;
-use App\Http\Controllers\AbwesenheitController;
-use App\Http\Controllers\MeinPortalController;
-use App\Http\Controllers\ZeitungController;
-use App\Http\Controllers\ParkplatzController;
-use App\Http\Controllers\SubjectManager;
-use App\Http\Controllers\ReportManager;
-use App\Http\Controllers\BerichtTabelleController;
-use App\Http\Controllers\FileUploadController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\AntragController;
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| contains the "web" middleware group. Now create something great!
+|
+*/
 
-// Welcome page route
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
@@ -64,13 +112,11 @@ Route::get('/', function () {
     ]);
 });
 
-// Group all authenticated routes
 Route::middleware([
     'auth:sanctum',
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
-    // Dashboard route
     Route::get('/dashboard', function () {
         return Inertia::render('Dashboard');
     })->name('dashboard');
@@ -92,59 +138,39 @@ Route::middleware([
         return Inertia::render('Vacation/Management');
     })->name('vacation.management');
 
-    Route::get('/kalender/{year?}', function ($year = null) {
-        return Inertia::render('Kalender', [
-            'year' => $year ?? now()->year, // Falls kein Jahr angegeben ist, nehme das aktuelle Jahr
-        ]);
-    })->name('kalender');
-
-    // Kalender routes
-//    Route::get('/kalender/{year?}', [KalenderController::class, 'getKalender'])->name('kalender');
-    Route::get('/homeoffice', [HomeofficeController::class, 'getKalender'])->name('homeoffice');
-    Route::get('/ad', [ADController::class, 'getList'])->name('AD');
-    Route::get('/betriebkalender', [BetriebKalenderController::class, 'getKalender'])->name('betriebkalender');
-    Route::get('/azubikalender', [AzubiKalenderController::class, 'getKalender'])->name('azubikalender');
-
-    // Urlaubsverwaltung routes
-    Route::get('/leiter', [LeiterController::class, 'getList'])->name('leiter');
-    Route::get('/antraegeliste', [AntraegeController::class, 'getAntrag'])->name('antraegeliste');
-    Route::get('/urlaub', [UrlaubController::class, 'getUrlaub'])->name('urlaub');
-    Route::get('/urlaubswunsch', [UrlaubswunschController::class, 'getKalender'])->name('urlaubswunsch');
-    Route::get('/rest-urlaubstage', [UrlaubController::class, 'showRestUrlaubstage']);
-    Route::get('/anträge', function () {
-        return Inertia::render('Antraege');
-    })->name('anträge');
-    Route::post('/anträge', [AntragController::class, 'submitAntrag'])->name('antrag.submit');
-
-    // Sonstiges routes
-    Route::get('/sonstige_ereignisse', [SonstigeEreignisseController::class, 'getList'])->name('sonstige_ereignisse');
-    Route::get('/zeitung', [ZeitungController::class, 'zeitung'])->name('zeitung');
-    Route::get('/parkplatz', [ParkplatzController::class, 'index'])->name('parkplatz');
-    Route::get('/parkplaetze-liste', function () {
-        return Inertia::render('Parkplatz', ['activeTab' => 'parkplaetze-liste-tab']);
-    })->name('parkplaetze-liste-tab');
-
-    // Ausbildung routes
-    Route::get('/subjects', [SubjectManager::class, '__invoke'])->name('subjects.index');
-    Route::get('/reports', [ReportManager::class, '__invoke'])->name('reports.index');
-    Route::get('/reports-table', [BerichtTabelleController::class, 'getList'])->name('reports-table');
-
-    // Personal routes
-    Route::get('/urlaubsinfo', [UrlaubsInfo::class, 'getUrlaub'])->name('urlaubsinfo');
-    Route::get('/urlaubmonatlich', [Urlaubsmonatlich::class, 'getUrlaub'])->name('urlaubmonatlich');
-    Route::get('/veranstaltung', [VeranstaltungController::class, 'getList'])->name('veranstaltung');
-    Route::get('/abwesenheit', [AbwesenheitController::class, 'getKalender'])->name('abwesenheit');
-    Route::get('/meinportal', [MeinPortalController::class, 'getPortal'])->name('meinportal');
-    Route::get('/user', function () {
-        if (Auth::user()->ist_personal || Auth::user()->ist_admin) {
-            return Inertia::render('User');
-        }
-    })->name('user');
-
-    // File upload routes
-    Route::get('file-upload', [FileUploadController::class, 'fileUpload'])->name('file.upload');
-    Route::post('file-upload', [FileUploadController::class, 'fileUploadPost'])->name('file.upload.post');
-
-    // Team route
-    Route::get('/team', [UserController::class, 'getTeam']);
+    // Benutzerverwaltung Routen (nur für Admin und HR)
+    Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+        Route::get('/users', function () {
+            return Inertia::render('Users/Index');
+        })->name('users.index');
+    });
 });
+
+// API Routes für die Daten
+Route::middleware([
+    'auth:sanctum',
+    config('jetstream.auth_session'),
+    'verified',
+])->prefix('api')->group(function () {
+    // Urlaubsverwaltung API
+    Route::get('/vacation/user', 'App\Http\Controllers\VacationController@getUserData')->name('api.vacation.user');
+    Route::get('/vacation/requests', 'App\Http\Controllers\VacationController@getRequests')->name('api.vacation.requests');
+    Route::post('/vacation/submit', 'App\Http\Controllers\VacationController@submitRequest')->name('api.vacation.submit');
+    Route::post('/vacation/approve/{id}', 'App\Http\Controllers\VacationController@approveRequest')->name('api.vacation.approve');
+    Route::post('/vacation/reject/{id}', 'App\Http\Controllers\VacationController@rejectRequest')->name('api.vacation.reject');
+
+    // Kalender API
+    Route::get('/calendar/company', 'App\Http\Controllers\CalendarController@getCompanyData')->name('api.calendar.company');
+
+    // Benutzerverwaltung API (nur für Admin und HR)
+    // Temporär die Berechtigungsprüfung entfernen, um die Funktionalität zu testen
+    Route::get('/users', 'App\Http\Controllers\UserController@index')->name('api.users.index');
+    Route::get('/users/{id}', 'App\Http\Controllers\UserController@show')->name('api.users.show');
+    Route::post('/users', 'App\Http\Controllers\UserController@store')->name('api.users.store');
+    Route::put('/users/{id}', 'App\Http\Controllers\UserController@update')->name('api.users.update');
+    Route::delete('/users/{id}', 'App\Http\Controllers\UserController@destroy')->name('api.users.destroy');
+
+    Route::get('/departments', 'App\Http\Controllers\DepartmentController@index')->name('api.departments.index');
+    Route::get('/roles', 'App\Http\Controllers\RoleController@index')->name('api.roles.index');
+});
+

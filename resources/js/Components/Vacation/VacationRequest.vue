@@ -194,6 +194,7 @@ import Toast from 'primevue/toast';
 import ProgressBar from 'primevue/progressbar';
 import Tag from 'primevue/tag';
 import { useToast } from 'primevue/usetoast';
+import VacationService from '@/Services/VacationService';
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -232,9 +233,9 @@ const vacationPeriods = ref([
     }
 ]);
 
-// Urlaubskontingent (würde normalerweise vom Server geladen)
-const totalVacationDays = ref(30);
-const usedVacationDays = ref(5);
+// Urlaubskontingent (wird vom Server geladen)
+const totalVacationDays = ref(0);
+const usedVacationDays = ref(0);
 const remainingVacationDays = computed(() => totalVacationDays.value - usedVacationDays.value);
 
 // Berechnung des Prozentsatzes der verbrauchten Urlaubstage
@@ -355,6 +356,25 @@ const formatDate = (date) => {
     return dayjs(date).format('DD.MM.YYYY');
 };
 
+// Daten vom Server laden
+const fetchVacationData = async () => {
+    try {
+        const response = await VacationService.getUserVacationData();
+        totalVacationDays.value = response.data.stats.total;
+        usedVacationDays.value = response.data.stats.used;
+        bookedVacationDates.value = response.data.bookedDates;
+        availableSubstitutes.value = response.data.substitutes;
+    } catch (error) {
+        console.error('Fehler beim Laden der Urlaubsdaten:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Urlaubsdaten konnten nicht geladen werden.',
+            life: 3000
+        });
+    }
+};
+
 // Urlaubsantrag absenden
 const submitVacationRequest = async () => {
     // Validierung zurücksetzen
@@ -395,10 +415,21 @@ const submitVacationRequest = async () => {
     loading.value = true;
 
     try {
-        // Hier würde normalerweise der API-Aufruf stattfinden
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Daten für den API-Aufruf vorbereiten
+        const requestData = {
+            periods: vacationPeriods.value.map(period => ({
+                startDate: period.startDate,
+                endDate: period.endDate,
+                days: period.days
+            })),
+            substitute: vacationRequest.value.substitute ? vacationRequest.value.substitute.id : null,
+            notes: vacationRequest.value.notes
+        };
 
-        // Erfolgreiche Antwort simulieren
+        // API-Aufruf
+        await VacationService.submitVacationRequest(requestData);
+
+        // Erfolgreiche Antwort
         toast.add({
             severity: 'success',
             summary: 'Erfolg',
@@ -446,7 +477,7 @@ watch(vacationPeriods, () => {
 
 // Komponente initialisieren
 onMounted(() => {
-    // Hier könnten Daten vom Server geladen werden
+    fetchVacationData();
 });
 </script>
 
@@ -460,6 +491,7 @@ onMounted(() => {
     background-color: var(--surface-card);
     border-radius: var(--border-radius);
     box-shadow: var(--card-shadow);
+    margin-bottom: 1.5rem;
 }
 
 :deep(.p-calendar) {
@@ -476,7 +508,11 @@ onMounted(() => {
 
 .vacation-period {
     border: 1px solid var(--surface-border);
+    border-radius: var(--border-radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
     transition: all 0.3s ease;
+    background-color: var(--surface-section);
 }
 
 .vacation-period:hover {
@@ -491,10 +527,12 @@ onMounted(() => {
 
 .summary-header {
     font-weight: bold;
+    background-color: var(--surface-section);
 }
 
 .summary-row {
     transition: background-color 0.2s;
+    padding: 0.75rem 0.5rem;
 }
 
 .summary-row:hover {
@@ -503,6 +541,36 @@ onMounted(() => {
 
 .summary-footer {
     font-weight: bold;
+    background-color: var(--surface-section);
+}
+
+.vacation-summary {
+    background-color: var(--surface-section);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.date-range {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .date-range {
+        grid-template-columns: 1fr;
+    }
+
+    .grid {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .col-12 {
+        width: 100%;
+        padding: 0.5rem;
+    }
 }
 
 .dark-mode .vacation-summary {

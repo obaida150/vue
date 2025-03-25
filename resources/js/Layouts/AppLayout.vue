@@ -7,7 +7,6 @@
 <!--import DropdownLink from '@/Components/DropdownLink.vue';-->
 <!--import NavLink from '@/Components/NavLink.vue';-->
 <!--import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';-->
-<!--import Kalender from "@/Pages/Kalender.vue";-->
 
 <!--defineProps({-->
 <!--    title: String,-->
@@ -72,177 +71,6 @@
 <!--                                <NavLink :href="route('dashboard')" :active="route().current('dashboard')">-->
 <!--                                    Dashboard-->
 <!--                                </NavLink>-->
-<!--                                <NavLink :href="route('kalender', { year: new Date().getFullYear() })"-->
-<!--                                         :active="route().current('kalender') || route().current().startsWith('kalender')">-->
-<!--                                    Kalender-->
-<!--                                </NavLink>-->
-
-<!--&lt;!&ndash;                                <NavLink :href="route('kalender')" :active="route().current('kalender')">&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Kalender&ndash;&gt;-->
-<!--&lt;!&ndash;                                </NavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <Dropdown align="right" width="60">&ndash;&gt;-->
-<!--&lt;!&ndash;                                    <template #trigger>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <span class="inline-flex rounded-md">&ndash;&gt;-->
-<!--&lt;!&ndash;                                          <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-bold rounded-md text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700 active:bg-gray-50 dark:active:bg-gray-700 transition ease-in-out duration-150">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            Kalender&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">&ndash;&gt;-->
-<!--&lt;!&ndash;                                              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </svg>&ndash;&gt;-->
-<!--&lt;!&ndash;                                          </button>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </span>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                    <template #content>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <div class="w-60">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Kalender&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Homeoffice&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Außendienst&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Betrieb-Kalender&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Azubikalender&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-<!--&lt;!&ndash;                                </Dropdown>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                <Dropdown align="right" width="60">&ndash;&gt;-->
-<!--&lt;!&ndash;                                    <template #trigger>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <span class="inline-flex rounded-md">&ndash;&gt;-->
-<!--&lt;!&ndash;                                          <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-bold rounded-md text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700 active:bg-gray-50 dark:active:bg-gray-700 transition ease-in-out duration-150">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            Urlaubsverwaltung&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">&ndash;&gt;-->
-<!--&lt;!&ndash;                                              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </svg>&ndash;&gt;-->
-<!--&lt;!&ndash;                                          </button>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </span>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                    <template #content>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <div class="w-60">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Anträge bearbeiten&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Anträge&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Übersichtsliste&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Antragshistorie&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Urlaubswunsch&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-<!--&lt;!&ndash;                                </Dropdown>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <Dropdown align="right" width="60">&ndash;&gt;-->
-<!--&lt;!&ndash;                                    <template #trigger>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <span class="inline-flex rounded-md">&ndash;&gt;-->
-<!--&lt;!&ndash;                                          <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-bold rounded-md text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700 active:bg-gray-50 dark:active:bg-gray-700 transition ease-in-out duration-150">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            Sonstiges&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">&ndash;&gt;-->
-<!--&lt;!&ndash;                                              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </svg>&ndash;&gt;-->
-<!--&lt;!&ndash;                                          </button>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </span>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                    <template #content>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <div class="w-60">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Sonstige Ereignisse&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                                MA-Zeitung&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                                MA-Parkplatz&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Elektronische Personalakte&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-<!--&lt;!&ndash;                                </Dropdown>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                &lt;!&ndash; Ausbildung Dropdown (conditional) &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;                                <Dropdown >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    <template #trigger>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <span class="inline-flex rounded-md">&ndash;&gt;-->
-<!--&lt;!&ndash;                                          <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-bold rounded-md text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700 active:bg-gray-50 dark:active:bg-gray-700 transition ease-in-out duration-150">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            Ausbildung&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">&ndash;&gt;-->
-<!--&lt;!&ndash;                                              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </svg>&ndash;&gt;-->
-<!--&lt;!&ndash;                                          </button>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </span>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                    <template #content>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <div class="w-60">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Fächer verwalten&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Berichte verwalten&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Tabelle&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Azubikalender&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-<!--&lt;!&ndash;                                </Dropdown>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                &lt;!&ndash; Personal Dropdown (conditional) &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;                                <Dropdown >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    <template #trigger>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <span class="inline-flex rounded-md">&ndash;&gt;-->
-<!--&lt;!&ndash;                                          <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-bold rounded-md text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700 active:bg-gray-50 dark:active:bg-gray-700 transition ease-in-out duration-150">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            Personal&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">&ndash;&gt;-->
-<!--&lt;!&ndash;                                              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </svg>&ndash;&gt;-->
-<!--&lt;!&ndash;                                          </button>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </span>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                                    <template #content>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        <div class="w-60">&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Urlaubinfo-Liste&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Liste&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Veranstaltungsübersicht&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                User-Liste&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                            <DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                                Abwesenheiten&ndash;&gt;-->
-<!--&lt;!&ndash;                                            </DropdownLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                        </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                                    </template>&ndash;&gt;-->
-<!--&lt;!&ndash;                                </Dropdown>&ndash;&gt;-->
 <!--                            </div>-->
 <!--                        </div>-->
 
@@ -440,107 +268,6 @@
 <!--                        <ResponsiveNavLink >-->
 <!--                            Dashboard-->
 <!--                        </ResponsiveNavLink>-->
-
-<!--&lt;!&ndash;                        <div :class="{'block': showingNavigationDropdown, 'hidden': ! showingNavigationDropdown}" class="sm:hidden">&ndash;&gt;-->
-<!--&lt;!&ndash;                            &lt;!&ndash; ... existing responsive navigation ... &ndash;&gt;&ndash;&gt;-->
-
-<!--&lt;!&ndash;                            &lt;!&ndash; Kalender Links &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;                            <div class="pt-2 pb-3 space-y-1">&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Kalender&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Homeoffice&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Außendienst&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                            </div>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                            &lt;!&ndash; Urlaubsverwaltung Links &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;                            <div class="pt-2 pb-3 space-y-1 border-t border-gray-200 dark:border-gray-600">&ndash;&gt;-->
-<!--&lt;!&ndash;                                <div class="block px-4 py-2 text-xs text-gray-400">&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Urlaubsverwaltung&ndash;&gt;-->
-<!--&lt;!&ndash;                                </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Anträge bearbeiten&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Anträge&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Übersichtsliste&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Antragshistorie&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Urlaubswunsch&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                            </div>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                            &lt;!&ndash; Sonstiges Links &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;                            <div class="pt-2 pb-3 space-y-1 border-t border-gray-200 dark:border-gray-600">&ndash;&gt;-->
-<!--&lt;!&ndash;                                <div class="block px-4 py-2 text-xs text-gray-400">&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Sonstiges&ndash;&gt;-->
-<!--&lt;!&ndash;                                </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Sonstige Ereignisse&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    MA-Zeitung&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    MA-Parkplatz&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Elektronische Personalakte&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                            </div>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                            &lt;!&ndash; Ausbildung Links (conditional) &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;                            <div >&ndash;&gt;-->
-<!--&lt;!&ndash;                                <div class="block px-4 py-2 text-xs text-gray-400">&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Ausbildung&ndash;&gt;-->
-<!--&lt;!&ndash;                                </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Fächer verwalten&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Berichte verwalten&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Tabelle&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Azubikalender&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                            </div>&ndash;&gt;-->
-
-<!--&lt;!&ndash;                            &lt;!&ndash; Personal Links (conditional) &ndash;&gt;&ndash;&gt;-->
-<!--&lt;!&ndash;                            <div >&ndash;&gt;-->
-<!--&lt;!&ndash;                                <div class="block px-4 py-2 text-xs text-gray-400">&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Personal&ndash;&gt;-->
-<!--&lt;!&ndash;                                </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Urlaubinfo-Liste&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Liste&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Veranstaltungsübersicht&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    User-Liste&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                                <ResponsiveNavLink >&ndash;&gt;-->
-<!--&lt;!&ndash;                                    Abwesenheiten&ndash;&gt;-->
-<!--&lt;!&ndash;                                </ResponsiveNavLink>&ndash;&gt;-->
-<!--&lt;!&ndash;                            </div>&ndash;&gt;-->
-<!--&lt;!&ndash;                        </div>&ndash;&gt;-->
-
-
 <!--                    </div>-->
 
 <!--                    &lt;!&ndash; Responsive Settings Options &ndash;&gt;-->
@@ -667,15 +394,20 @@
                                 <NavLink :href="route('vacation')" :active="route().current('vacation')">
                                     Mein Urlaub
                                 </NavLink>
-                                <NavLink  :href="route('vacation.management')" :active="route().current('vacation.management')">
+                                <NavLink :href="route('vacation.management')" :active="route().current('vacation.management')">
                                     Urlaubsverwaltung
+                                </NavLink>
+                                <!-- Temporär deaktivieren oder durch einen direkten Link ersetzen -->
+                                <NavLink href="/users" :active="$page.component === 'Users/Index'">
+                                    Benutzerverwaltung
                                 </NavLink>
                             </div>
                         </div>
 
                         <div class="hidden sm:flex sm:items-center sm:ml-6">
                             <div class="ml-3 relative">
-                                <!-- Teams Dropdown -->
+                                <!-- Teams Dropdown (temporär deaktiviert) -->
+                                <!--
                                 <Dropdown v-if="$page.props.jetstream.hasTeamFeatures" align="right" width="60">
                                     <template #trigger>
                                         <span class="inline-flex rounded-md">
@@ -691,14 +423,12 @@
 
                                     <template #content>
                                         <div class="w-60">
-                                            <!-- Team Management -->
                                             <template v-if="$page.props.jetstream.hasTeamFeatures">
                                                 <div class="block px-4 py-2 text-xs text-gray-400">
                                                     Manage Team
                                                 </div>
 
-                                                <!-- Team Settings -->
-                                                <DropdownLink :href="route('teams.show', $page.props.auth.user.current_team)">
+                                                <DropdownLink :href="$page.props.auth.user.current_team ? route('teams.show', $page.props.auth.user.current_team) : '#'">
                                                     Team Settings
                                                 </DropdownLink>
 
@@ -708,7 +438,6 @@
 
                                                 <div class="border-t border-gray-200 dark:border-gray-600" />
 
-                                                <!-- Team Switcher -->
                                                 <div class="block px-4 py-2 text-xs text-gray-400">
                                                     Switch Teams
                                                 </div>
@@ -730,6 +459,7 @@
                                         </div>
                                     </template>
                                 </Dropdown>
+                                -->
                             </div>
 
                             <!-- Settings Dropdown -->
@@ -822,8 +552,12 @@
                         <ResponsiveNavLink :href="route('vacation')" :active="route().current('vacation')">
                             Mein Urlaub
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink  :href="route('vacation.management')" :active="route().current('vacation.management')">
+                        <ResponsiveNavLink :href="route('vacation.management')" :active="route().current('vacation.management')">
                             Urlaubsverwaltung
+                        </ResponsiveNavLink>
+                        <!-- Temporär deaktivieren oder durch einen direkten Link ersetzen -->
+                        <ResponsiveNavLink href="/users" :active="$page.component === 'Users/Index'">
+                            Benutzerverwaltung
                         </ResponsiveNavLink>
                     </div>
 
@@ -860,7 +594,8 @@
                                 </ResponsiveNavLink>
                             </form>
 
-                            <!-- Team Management -->
+                            <!-- Team Management (temporär deaktiviert) -->
+                            <!--
                             <template v-if="$page.props.jetstream.hasTeamFeatures">
                                 <div class="border-t border-gray-200 dark:border-gray-600" />
 
@@ -868,8 +603,7 @@
                                     Manage Team
                                 </div>
 
-                                <!-- Team Settings -->
-                                <ResponsiveNavLink :href="route('teams.show', $page.props.auth.user.current_team)" :active="route().current('teams.show')">
+                                <ResponsiveNavLink :href="$page.props.auth.user.current_team ? route('teams.show', $page.props.auth.user.current_team) : '#'" :active="route().current('teams.show', { team: $page.props.auth.user.current_team })">
                                     Team Settings
                                 </ResponsiveNavLink>
 
@@ -879,7 +613,6 @@
 
                                 <div class="border-t border-gray-200 dark:border-gray-600" />
 
-                                <!-- Team Switcher -->
                                 <div class="block px-4 py-2 text-xs text-gray-400">
                                     Switch Teams
                                 </div>
@@ -897,6 +630,7 @@
                                     </form>
                                 </template>
                             </template>
+                            -->
                         </div>
                     </div>
                 </div>

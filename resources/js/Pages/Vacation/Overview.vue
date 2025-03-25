@@ -257,6 +257,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import deLocale from '@fullcalendar/core/locales/de';
+import VacationService from '@/Services/VacationService';
 
 dayjs.locale('de');
 
@@ -283,12 +284,12 @@ const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
-// Urlaubsstatistik (würde normalerweise vom Server geladen)
+// Urlaubsstatistik
 const vacationStats = ref({
-    total: 30,
-    used: 5,
-    planned: 10,
-    remaining: 15
+    total: 0,
+    used: 0,
+    planned: 0,
+    remaining: 0
 });
 
 // Berechneter Prozentsatz der verbrauchten Urlaubstage
@@ -299,42 +300,7 @@ const vacationUsagePercentage = computed(() => {
 });
 
 // Beispieldaten für Urlaubsanträge (würden normalerweise vom Server geladen)
-const myVacationRequests = ref([
-    {
-        id: 1,
-        startDate: new Date(2025, 3, 15),
-        endDate: new Date(2025, 3, 20),
-        days: 5,
-        substitute: { id: 2, name: 'Sarah Becker' },
-        requestDate: new Date(2025, 3, 1),
-        notes: 'Familienurlaub',
-        status: 'pending'
-    },
-    {
-        id: 2,
-        startDate: new Date(2025, 2, 10),
-        endDate: new Date(2025, 2, 14),
-        days: 5,
-        substitute: { id: 4, name: 'Nina Hoffmann' },
-        requestDate: new Date(2025, 1, 25),
-        approvedBy: 'Michael Fischer',
-        approvedDate: new Date(2025, 1, 27),
-        notes: 'Genehmigt',
-        status: 'approved'
-    },
-    {
-        id: 3,
-        startDate: new Date(2025, 7, 1),
-        endDate: new Date(2025, 7, 5),
-        days: 5,
-        substitute: null,
-        requestDate: new Date(2025, 6, 15),
-        rejectedBy: 'Anna Schmidt',
-        rejectedDate: new Date(2025, 6, 17),
-        rejectionReason: 'Wichtige Marketingkampagne in diesem Zeitraum',
-        status: 'rejected'
-    }
-]);
+const myVacationRequests = ref([]);
 
 // Kalender-Konfiguration
 const calendarOptions = ref({
@@ -421,28 +387,8 @@ const cancelRequest = async (request) => {
 
 const handleVacationRequestSubmitted = () => {
     showVacationRequestForm.value = false;
-
-    // Hier würden normalerweise die Daten neu geladen werden
-    // Für das Beispiel fügen wir einen neuen Antrag hinzu
-    const newRequest = {
-        id: myVacationRequests.value.length + 1,
-        startDate: new Date(2025, 8, 1),
-        endDate: new Date(2025, 8, 5),
-        days: 5,
-        substitute: { id: 3, name: 'Thomas Müller' },
-        requestDate: new Date(),
-        notes: '',
-        status: 'pending'
-    };
-
-    myVacationRequests.value.push(newRequest);
-
-    // Urlaubsstatistik aktualisieren
-    vacationStats.value.planned += newRequest.days;
-    vacationStats.value.remaining -= newRequest.days;
-
-    // Kalender aktualisieren
-    updateCalendarEvents();
+    // Daten neu laden
+    fetchVacationData();
 };
 
 // Kalender-Funktionen
@@ -485,18 +431,30 @@ onBeforeUnmount(() => {
     }
 });
 
+// Daten vom Server laden
+const fetchVacationData = async () => {
+    loading.value = true;
+    try {
+        const response = await VacationService.getUserVacationData();
+        vacationStats.value = response.data.stats;
+        myVacationRequests.value = response.data.requests;
+        updateCalendarEvents();
+    } catch (error) {
+        console.error('Fehler beim Laden der Urlaubsdaten:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Urlaubsdaten konnten nicht geladen werden.',
+            life: 3000
+        });
+    } finally {
+        loading.value = false;
+    }
+};
+
 // Komponente initialisieren
 onMounted(() => {
-    // Hier könnten Daten vom Server geladen werden
-    loading.value = true;
-
-    setTimeout(() => {
-        // Simuliere Laden der Daten
-        loading.value = false;
-
-        // Kalender-Events initialisieren
-        updateCalendarEvents();
-    }, 500);
+    fetchVacationData();
 });
 </script>
 

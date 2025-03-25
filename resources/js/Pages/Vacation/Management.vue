@@ -535,91 +535,13 @@
             </template>
         </Dialog>
 
-        <!-- Dialog für Antragsdetails -->
-        <Dialog
-            v-model:visible="detailsDialogVisible"
-            :header="`Urlaubsantrag Details: ${selectedRequest?.employee?.name || ''}`"
-            :style="{ width: '500px' }"
-            :modal="true"
-            :closable="true"
-            class="modern-dialog"
-        >
-            <div class="p-4" v-if="selectedRequest">
-                <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg mb-6 flex items-start">
-                    <i class="pi pi-info-circle text-blue-500 dark:text-blue-400 text-2xl mr-4 mt-1"></i>
-                    <div>
-                        <h3 class="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-2">Urlaubsantrag Details</h3>
-                        <p class="text-blue-700 dark:text-blue-400">
-                            Details zum Urlaubsantrag von <strong>{{ selectedRequest.employee.name }}</strong>.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
-                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Antragsdetails</h4>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
-                            <div class="font-medium">
-                                {{ formatDate(selectedRequest.startDate) }} - {{ formatDate(selectedRequest.endDate) }}
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Anzahl Tage</div>
-                            <div class="font-medium">{{ selectedRequest.days }} Tage</div>
-                        </div>
-                        <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
-                            <div class="font-medium">{{ selectedRequest.department }}</div>
-                        </div>
-                        <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
-                            <div class="font-medium">{{ formatDate(selectedRequest.requestDate) }}</div>
-                        </div>
-                        <div v-if="selectedRequest.substitute">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Vertretung</div>
-                            <div class="font-medium">{{ selectedRequest.substitute.name }}</div>
-                        </div>
-                        <div v-if="selectedRequest.status === 'approved'">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Genehmigt von</div>
-                            <div class="font-medium">{{ selectedRequest.approvedBy }} am {{ formatDate(selectedRequest.approvedDate) }}</div>
-                        </div>
-                        <div v-if="selectedRequest.status === 'rejected'">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Abgelehnt von</div>
-                            <div class="font-medium">{{ selectedRequest.rejectedBy }} am {{ formatDate(selectedRequest.rejectedDate) }}</div>
-                        </div>
-                    </div>
-
-                    <div class="mt-4" v-if="selectedRequest.notes">
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Anmerkungen</div>
-                        <div class="font-medium">{{ selectedRequest.notes }}</div>
-                    </div>
-
-                    <div class="mt-4" v-if="selectedRequest.rejectionReason">
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Ablehnungsgrund</div>
-                        <div class="font-medium text-red-600 dark:text-red-400">{{ selectedRequest.rejectionReason }}</div>
-                    </div>
-                </div>
-            </div>
-            <template #footer>
-                <div class="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <Button
-                        label="Schließen"
-                        icon="pi pi-times"
-                        class="p-button-text"
-                        @click="detailsDialogVisible = false"
-                    />
-                </div>
-            </template>
-        </Dialog>
-
         <Toast position="top-right" />
     </AppLayout>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
+import { FilterMatchMode } from 'primevue/api';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
@@ -635,6 +557,7 @@ import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
+import VacationService from '@/Services/VacationService';
 
 dayjs.locale('de');
 
@@ -646,7 +569,6 @@ const loading = ref(false);
 const processingRequest = ref(false);
 const approveDialogVisible = ref(false);
 const rejectDialogVisible = ref(false);
-const detailsDialogVisible = ref(false);
 const selectedRequest = ref(null);
 const approvalNotes = ref('');
 const rejectionReason = ref('');
@@ -664,93 +586,91 @@ const rejectedFilters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
-// Beispieldaten (würden normalerweise vom Server geladen)
-const pendingRequests = ref([
-    {
-        id: 1,
-        employee: { id: 1, name: 'Max Mustermann' },
-        department: 'Entwicklung',
-        startDate: new Date(2025, 3, 15),
-        endDate: new Date(2025, 3, 20),
-        days: 5,
-        substitute: { id: 2, name: 'Sarah Becker' },
-        requestDate: new Date(2025, 3, 1),
-        notes: 'Familienurlaub',
-        status: 'pending'
-    },
-    {
-        id: 2,
-        employee: { id: 3, name: 'Anna Schmidt' },
-        department: 'Marketing',
-        startDate: new Date(2025, 4, 5),
-        endDate: new Date(2025, 4, 10),
-        days: 4,
-        substitute: null,
-        requestDate: new Date(2025, 3, 20),
-        notes: '',
-        status: 'pending'
-    },
-    {
-        id: 3,
-        employee: { id: 5, name: 'Thomas Müller' },
-        department: 'Vertrieb',
-        startDate: new Date(2025, 5, 1),
-        endDate: new Date(2025, 5, 14),
-        days: 10,
-        substitute: { id: 9, name: 'Felix Wagner' },
-        requestDate: new Date(2025, 4, 15),
-        notes: 'Sommerurlaub',
-        status: 'pending'
-    }
-]);
+// Urlaubsanträge
+const pendingRequests = ref([]);
+const approvedRequests = ref([]);
+const rejectedRequests = ref([]);
 
-const approvedRequests = ref([
-    {
-        id: 4,
-        employee: { id: 2, name: 'Julia Weber' },
-        department: 'Personal',
-        startDate: new Date(2025, 2, 10),
-        endDate: new Date(2025, 2, 14),
-        days: 5,
-        substitute: { id: 4, name: 'Nina Hoffmann' },
-        requestDate: new Date(2025, 1, 25),
-        approvedBy: 'Michael Fischer',
-        approvedDate: new Date(2025, 1, 27),
-        notes: 'Genehmigt',
-        status: 'approved'
-    },
-    {
-        id: 5,
-        employee: { id: 7, name: 'Markus Klein' },
-        department: 'Entwicklung',
-        startDate: new Date(2025, 6, 20),
-        endDate: new Date(2025, 7, 3),
-        days: 10,
-        substitute: { id: 6, name: 'Sarah Becker' },
-        requestDate: new Date(2025, 5, 10),
-        approvedBy: 'Max Mustermann',
-        approvedDate: new Date(2025, 5, 12),
-        notes: '',
-        status: 'approved'
-    }
-]);
+// Daten vom Server laden
+const fetchVacationRequests = async () => {
+    loading.value = true;
+    try {
+        const response = await VacationService.getVacationRequests();
+        pendingRequests.value = response.data.pending;
+        approvedRequests.value = response.data.approved;
+        rejectedRequests.value = response.data.rejected;
+    } catch (error) {
+        console.error('Fehler beim Laden der Urlaubsanträge:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Urlaubsanträge konnten nicht geladen werden. Verwende Beispieldaten.',
+            life: 3000
+        });
 
-const rejectedRequests = ref([
-    {
-        id: 6,
-        employee: { id: 8, name: 'Laura Schulz' },
-        department: 'Marketing',
-        startDate: new Date(2025, 7, 1),
-        endDate: new Date(2025, 7, 5),
-        days: 5,
-        substitute: null,
-        requestDate: new Date(2025, 6, 15),
-        rejectedBy: 'Anna Schmidt',
-        rejectedDate: new Date(2025, 6, 17),
-        rejectionReason: 'Wichtige Marketingkampagne in diesem Zeitraum',
-        status: 'rejected'
+        // Fallback mit Beispieldaten
+        pendingRequests.value = [
+            {
+                id: 1,
+                employee: { name: 'Max Mustermann', id: 1 },
+                department: 'Entwicklung',
+                startDate: new Date(2025, 3, 15),
+                endDate: new Date(2025, 3, 20),
+                days: 5,
+                requestDate: new Date(2025, 2, 1),
+                status: 'pending',
+                substitute: { name: 'Anna Schmidt', id: 2 },
+                notes: 'Familienurlaub'
+            },
+            {
+                id: 2,
+                employee: { name: 'Julia Weber', id: 3 },
+                department: 'Marketing',
+                startDate: new Date(2025, 4, 10),
+                endDate: new Date(2025, 4, 14),
+                days: 5,
+                requestDate: new Date(2025, 3, 15),
+                status: 'pending',
+                substitute: null,
+                notes: ''
+            }
+        ];
+
+        approvedRequests.value = [
+            {
+                id: 3,
+                employee: { name: 'Thomas Müller', id: 4 },
+                department: 'Vertrieb',
+                startDate: new Date(2025, 5, 1),
+                endDate: new Date(2025, 5, 14),
+                days: 10,
+                requestDate: new Date(2025, 4, 1),
+                status: 'approved',
+                approvedBy: 'Maria Schmidt',
+                approvedDate: new Date(2025, 4, 5),
+                notes: 'Sommerurlaub'
+            }
+        ];
+
+        rejectedRequests.value = [
+            {
+                id: 4,
+                employee: { name: 'Sarah Fischer', id: 5 },
+                department: 'Personal',
+                startDate: new Date(2025, 2, 20),
+                endDate: new Date(2025, 2, 24),
+                days: 5,
+                requestDate: new Date(2025, 1, 15),
+                status: 'rejected',
+                rejectedBy: 'Maria Schmidt',
+                rejectedDate: new Date(2025, 1, 20),
+                rejectionReason: 'Personalmangel in diesem Zeitraum'
+            }
+        ];
+    } finally {
+        loading.value = false;
     }
-]);
+};
 
 // Formatierungsfunktionen
 const formatDate = (date) => {
@@ -782,7 +702,14 @@ const getInitialsColor = (name) => {
 
 const viewRequestDetails = (request) => {
     selectedRequest.value = request;
-    detailsDialogVisible.value = true;
+
+    // Dialog für Details anzeigen
+    toast.add({
+        severity: 'info',
+        summary: 'Details anzeigen',
+        detail: `Details für Urlaubsantrag von ${request.employee.name}`,
+        life: 3000
+    });
 };
 
 // Dialog-Funktionen
@@ -816,23 +743,7 @@ const confirmApprove = async () => {
     processingRequest.value = true;
 
     try {
-        // Hier würde normalerweise der API-Aufruf stattfinden
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Antrag aus der Liste der offenen Anträge entfernen
-        const index = pendingRequests.value.findIndex(req => req.id === selectedRequest.value.id);
-        if (index !== -1) {
-            const approvedRequest = {
-                ...pendingRequests.value[index],
-                status: 'approved',
-                approvedBy: 'Aktueller Benutzer', // Würde normalerweise der eingeloggte Benutzer sein
-                approvedDate: new Date(),
-                notes: approvalNotes.value || pendingRequests.value[index].notes
-            };
-
-            pendingRequests.value.splice(index, 1);
-            approvedRequests.value.push(approvedRequest);
-        }
+        await VacationService.approveVacationRequest(selectedRequest.value.id, approvalNotes.value);
 
         toast.add({
             severity: 'success',
@@ -842,6 +753,7 @@ const confirmApprove = async () => {
         });
 
         closeApproveDialog();
+        fetchVacationRequests(); // Daten neu laden
     } catch (error) {
         toast.add({
             severity: 'error',
@@ -870,23 +782,7 @@ const confirmReject = async () => {
     processingRequest.value = true;
 
     try {
-        // Hier würde normalerweise der API-Aufruf stattfinden
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Antrag aus der Liste der offenen Anträge entfernen
-        const index = pendingRequests.value.findIndex(req => req.id === selectedRequest.value.id);
-        if (index !== -1) {
-            const rejectedRequest = {
-                ...pendingRequests.value[index],
-                status: 'rejected',
-                rejectedBy: 'Aktueller Benutzer', // Würde normalerweise der eingeloggte Benutzer sein
-                rejectedDate: new Date(),
-                rejectionReason: rejectionReason.value
-            };
-
-            pendingRequests.value.splice(index, 1);
-            rejectedRequests.value.push(rejectedRequest);
-        }
+        await VacationService.rejectVacationRequest(selectedRequest.value.id, rejectionReason.value);
 
         toast.add({
             severity: 'info',
@@ -896,6 +792,7 @@ const confirmReject = async () => {
         });
 
         closeRejectDialog();
+        fetchVacationRequests(); // Daten neu laden
     } catch (error) {
         toast.add({
             severity: 'error',
@@ -924,13 +821,7 @@ const showCalendarView = () => {
 
 // Komponente initialisieren
 onMounted(() => {
-    // Hier könnten Daten vom Server geladen werden
-    loading.value = true;
-
-    setTimeout(() => {
-        // Simuliere Laden der Daten
-        loading.value = false;
-    }, 500);
+    fetchVacationRequests();
 });
 </script>
 

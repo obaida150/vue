@@ -2,7 +2,7 @@
     <div class="company-calendar" :class="{ 'dark-mode': isDarkMode }">
         <div class="calendar-header">
             <div class="calendar-controls">
-                <Button icon="pi pi-chevron-left" @click="previousPeriod" class="p-button-rounded p-button-text" />
+                <Button icon="pi pi pi-chevron-left" @click="previousPeriod" class="p-button-rounded p-button-text" />
                 <h2 class="period-title">
                     <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
                     <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
@@ -54,7 +54,7 @@
             <div class="flex justify-between items-center w-full gap-4">
                 <div class="search-box flex-1">
           <span class="p-input-icon-left w-full">
-<!--            <i class="pi pi-search" />-->
+            <i class="pi pi-search" />
             <InputText v-model="searchQuery" placeholder="Mitarbeiter suchen..." class="w-full" />
           </span>
                 </div>
@@ -393,6 +393,7 @@ import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import MultiSelect from 'primevue/multiselect';
 import Dialog from 'primevue/dialog';
+import VacationService from '@/Services/VacationService';
 
 // Initialize dayjs plugins
 dayjs.extend(weekOfYear);
@@ -418,301 +419,70 @@ const statusDialogVisible = ref(false);
 const selectedDepartment = ref('');
 const selectedStatus = ref(null);
 
-// Event types with corresponding colors
-const eventTypes = [
-    { name: 'Homeoffice', value: 'homeoffice', color: '#4CAF50' },
-    { name: 'Büro', value: 'office', color: '#2196F3' },
-    { name: 'Außendienst', value: 'field', color: '#FF9800' },
-    { name: 'Krank', value: 'sick', color: '#F44336' },
-    { name: 'Urlaub', value: 'vacation', color: '#9C27B0' },
-    { name: 'Sonstiges', value: 'other', color: '#607D8B' },
-    { name: 'Urlaub (genehmigt)', value: 'vacation_approved', color: '#9C27B0' },
-    { name: 'Urlaub (ausstehend)', value: 'vacation_pending', color: '#f59e0b' },
-];
-
-// Verfügbare Abteilungen
-const availableDepartments = [
-    { name: 'Entwicklung', code: 'dev' },
-    { name: 'Marketing', code: 'marketing' },
-    { name: 'Vertrieb', code: 'sales' },
-    { name: 'Personal', code: 'hr' },
-    { name: 'Finanzen', code: 'finance' }
-];
-
 // Sample employees data (would be fetched from API in real implementation)
-// Erweitert auf mehr Mitarbeiter für realistischere Darstellung
-const employees = ref([
-    {
-        id: 1,
-        name: 'Max Mustermann',
-        department: 'Entwicklung',
-        events: [
+const employees = ref([]);
+const availableDepartments = ref([]);
+const eventTypes = ref([]);
+
+// Daten vom Server laden
+const fetchCalendarData = async () => {
+    try {
+        const response = await VacationService.getCompanyCalendarData();
+        employees.value = response.data.employees;
+        availableDepartments.value = response.data.departments;
+        eventTypes.value = response.data.eventTypes;
+    } catch (error) {
+        console.error('Fehler beim Laden der Kalenderdaten:', error);
+
+        // Fallback-Daten
+        eventTypes.value = [
+            { name: 'Homeoffice', value: 'homeoffice', color: '#4CAF50' },
+            { name: 'Büro', value: 'office', color: '#2196F3' },
+            { name: 'Außendienst', value: 'field', color: '#FF9800' },
+            { name: 'Krank', value: 'sick', color: '#F44336' },
+            { name: 'Urlaub', value: 'vacation', color: '#9C27B0' },
+            { name: 'Sonstiges', value: 'other', color: '#607D8B' }
+        ];
+
+        availableDepartments.value = [
+            { id: 1, name: 'Entwicklung' },
+            { id: 2, name: 'Marketing' },
+            { id: 3, name: 'Vertrieb' },
+            { id: 4, name: 'Personal' },
+            { id: 5, name: 'Finanzen' }
+        ];
+
+        employees.value = [
             {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: 'Arbeite am Projekt XYZ'
+                id: 1,
+                name: 'Max Mustermann',
+                department: 'Entwicklung',
+                events: [
+                    { date: dayjs().format('YYYY-MM-DD'), type: eventTypes.value[0], notes: 'Arbeitet an Projekt A' },
+                    { date: dayjs().add(1, 'day').format('YYYY-MM-DD'), type: eventTypes.value[0], notes: 'Arbeitet an Projekt A' }
+                ]
             },
             {
-                date: dayjs().add(1, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Team Meeting um 10 Uhr'
+                id: 2,
+                name: 'Anna Schmidt',
+                department: 'Marketing',
+                events: [
+                    { date: dayjs().format('YYYY-MM-DD'), type: eventTypes.value[1], notes: 'Meeting mit Kunden' },
+                    { date: dayjs().add(1, 'day').format('YYYY-MM-DD'), type: eventTypes.value[2], notes: 'Kundenbesuch' }
+                ]
             },
             {
-                date: dayjs().add(2, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Kundenpräsentation'
-            },
-            {
-                date: dayjs().add(3, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: ''
-            },
-            {
-                date: dayjs().add(4, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[2], // Außendienst
-                notes: 'Kundenbesuch in München'
-            },
-            {
-                date: dayjs().add(10, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[6], // Urlaub (genehmigt)
-                notes: 'Genehmigter Urlaub'
-            },
-            {
-                date: dayjs().add(11, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[6], // Urlaub (genehmigt)
-                notes: 'Genehmigter Urlaub'
-            },
-            {
-                date: dayjs().add(12, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[6], // Urlaub (genehmigt)
-                notes: 'Genehmigter Urlaub'
+                id: 3,
+                name: 'Thomas Müller',
+                department: 'Vertrieb',
+                events: [
+                    { date: dayjs().format('YYYY-MM-DD'), type: eventTypes.value[2], notes: 'Kundenakquise' },
+                    { date: dayjs().add(2, 'day').format('YYYY-MM-DD'), type: eventTypes.value[1], notes: 'Teammeeting' }
+                ]
             }
-        ]
-    },
-    {
-        id: 2,
-        name: 'Anna Schmidt',
-        department: 'Marketing',
-        events: [
-            {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Marketing Meeting'
-            },
-            {
-                date: dayjs().add(1, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: 'Content Erstellung'
-            },
-            {
-                date: dayjs().add(2, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: ''
-            },
-            {
-                date: dayjs().add(3, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Teammeeting'
-            },
-            {
-                date: dayjs().add(4, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[4], // Urlaub
-                notes: 'Brückentag'
-            },
-            {
-                date: dayjs().add(15, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[7], // Urlaub (ausstehend)
-                notes: 'Urlaubsantrag ausstehend'
-            },
-            {
-                date: dayjs().add(16, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[7], // Urlaub (ausstehend)
-                notes: 'Urlaubsantrag ausstehend'
-            }
-        ]
-    },
-    {
-        id: 3,
-        name: 'Thomas Müller',
-        department: 'Vertrieb',
-        events: [
-            {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[2], // Außendienst
-                notes: 'Kundenbesuch in Hamburg'
-            },
-            {
-                date: dayjs().add(1, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[2], // Außendienst
-                notes: 'Kundenbesuch in Berlin'
-            },
-            {
-                date: dayjs().add(2, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Vertriebsmeeting'
-            },
-            {
-                date: dayjs().add(3, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: 'Angebotserstellung'
-            },
-            {
-                date: dayjs().add(4, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: ''
-            }
-        ]
-    },
-    {
-        id: 4,
-        name: 'Julia Weber',
-        department: 'Personal',
-        events: [
-            {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Bewerbungsgespräche'
-            },
-            {
-                date: dayjs().add(1, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Onboarding neuer Mitarbeiter'
-            },
-            {
-                date: dayjs().add(2, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: 'Personalplanung'
-            },
-            {
-                date: dayjs().add(3, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[3], // Krank
-                notes: 'Erkältet'
-            },
-            {
-                date: dayjs().add(4, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[3], // Krank
-                notes: 'Erkältet'
-            }
-        ]
-    },
-    {
-        id: 5,
-        name: 'Michael Fischer',
-        department: 'Finanzen',
-        events: [
-            {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: 'Monatsabschluss'
-            },
-            {
-                date: dayjs().add(1, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: 'Budgetplanung'
-            },
-            {
-                date: dayjs().add(2, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Meeting mit Steuerberater'
-            },
-            {
-                date: dayjs().add(3, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Finanzmeeting'
-            },
-            {
-                date: dayjs().add(4, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[4], // Urlaub
-                notes: 'Brückentag'
-            }
-        ]
-    },
-    {
-        id: 6,
-        name: 'Sarah Becker',
-        department: 'Entwicklung',
-        events: [
-            {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: 'Entwicklung neuer Features'
-            },
-            {
-                date: dayjs().add(1, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[0], // Homeoffice
-                notes: 'Code Review'
-            }
-        ]
-    },
-    {
-        id: 7,
-        name: 'Markus Klein',
-        department: 'Entwicklung',
-        events: [
-            {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Scrum Meeting'
-            },
-            {
-                date: dayjs().add(2, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[3], // Krank
-                notes: 'Grippe'
-            }
-        ]
-    },
-    {
-        id: 8,
-        name: 'Laura Schulz',
-        department: 'Marketing',
-        events: [
-            {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[2], // Außendienst
-                notes: 'Messebesuch'
-            },
-            {
-                date: dayjs().add(3, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Kampagnenplanung'
-            }
-        ]
-    },
-    {
-        id: 9,
-        name: 'Felix Wagner',
-        department: 'Vertrieb',
-        events: [
-            {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[2], // Außendienst
-                notes: 'Kundentermin'
-            },
-            {
-                date: dayjs().add(1, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[2], // Außendienst
-                notes: 'Kundentermin'
-            }
-        ]
-    },
-    {
-        id: 10,
-        name: 'Nina Hoffmann',
-        department: 'Personal',
-        events: [
-            {
-                date: dayjs().format('YYYY-MM-DD'),
-                type: eventTypes[1], // Büro
-                notes: 'Mitarbeitergespräche'
-            },
-            {
-                date: dayjs().add(4, 'day').format('YYYY-MM-DD'),
-                type: eventTypes[4], // Urlaub
-                notes: 'Urlaub'
-            }
-        ]
+        ];
     }
-]);
+};
 
 // Computed properties for calendar display
 const currentYear = computed(() => currentDate.value.year());
@@ -809,13 +579,15 @@ const statusSummary = computed(() => {
     const statuses = {};
 
     // Initialisiere alle Status
-    eventTypes.forEach(type => {
-        statuses[type.value] = {
-            type: type,
-            count: 0,
-            employees: []
-        };
-    });
+    if (Array.isArray(eventTypes.value)) {
+        eventTypes.value.forEach(type => {
+            statuses[type.value] = {
+                type: type,
+                count: 0,
+                employees: []
+            };
+        });
+    }
 
     // Zähle Mitarbeiter pro Status
     employees.value.forEach(employee => {
@@ -1136,8 +908,8 @@ onMounted(() => {
         });
     }
 
-    // In a real application, you would fetch employees and their events from your API here
-    // fetchEmployeesData();
+    // Fetch data from the server
+    fetchCalendarData();
 });
 </script>
 
@@ -1817,10 +1589,11 @@ onMounted(() => {
 }
 
 /* Responsive Styles */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .calendar-header {
         flex-direction: column;
         align-items: flex-start;
+        gap: 1rem;
     }
 
     .view-controls {
@@ -1828,6 +1601,30 @@ onMounted(() => {
         justify-content: space-between;
     }
 
+    .filter-controls {
+        flex-direction: column;
+    }
+
+    .search-box,
+    .department-filter {
+        width: 100%;
+    }
+
+    .summary-section {
+        flex-direction: column;
+    }
+
+    .department-cards,
+    .status-cards {
+        flex-direction: column;
+    }
+
+    .summary-card {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
     .employee-name {
         flex-direction: column;
         align-items: flex-start;
@@ -1849,12 +1646,14 @@ onMounted(() => {
         gap: 0.5rem;
     }
 
-    .summary-cards {
-        flex-direction: column;
-    }
-
     .dialog-employee-header {
         flex-wrap: wrap;
+    }
+
+    .day-view,
+    .week-view,
+    .month-view {
+        overflow-x: auto;
     }
 }
 

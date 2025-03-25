@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,8 +14,6 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     use HasApiTokens;
-
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory;
     use HasProfilePhoto;
     use HasTeams;
@@ -28,9 +26,18 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
+        'first_name',
+        'last_name',
         'name',
         'email',
         'password',
+        'birth_date',
+        'role_id',
+        'vacation_days_per_year',
+        'initials',
+        'entry_date',
+        'employee_number',
+        'is_active',
     ];
 
     /**
@@ -46,6 +53,17 @@ class User extends Authenticatable
     ];
 
     /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'birth_date' => 'date',
+        'entry_date' => 'date',
+    ];
+
+    /**
      * The accessors to append to the model's array form.
      *
      * @var array<int, string>
@@ -54,16 +72,59 @@ class User extends Authenticatable
         'profile_photo_url',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    public function role()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        return $this->belongsTo(Role::class);
+    }
+
+    public function vacationBalances()
+    {
+        return $this->hasMany(VacationBalance::class);
+    }
+
+    public function vacationRequests()
+    {
+        return $this->hasMany(VacationRequest::class);
+    }
+
+    public function events()
+    {
+        return $this->hasMany(Event::class);
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function isAdmin()
+    {
+        return $this->role_id === 1;
+    }
+
+    public function isPersonal()
+    {
+        return $this->role_id === 2;
+    }
+
+    public function isManager()
+    {
+        return $this->role_id === 3;
+    }
+
+    public function isEmployee()
+    {
+        return $this->role_id === 4;
+    }
+
+    public function getFullNameAttribute()
+    {
+        return $this->first_name . ' ' . $this->last_name;
+    }
+
+    public function getCurrentVacationBalance()
+    {
+        $currentYear = date('Y');
+        return $this->vacationBalances()->where('year', $currentYear)->first();
     }
 }
