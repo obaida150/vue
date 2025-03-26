@@ -9,6 +9,11 @@ class VacationRequest extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'user_id',
         'team_id',
@@ -25,6 +30,11 @@ class VacationRequest extends Model
         'rejection_reason',
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
@@ -32,43 +42,44 @@ class VacationRequest extends Model
         'rejected_date' => 'datetime',
     ];
 
+    /**
+     * Get the user that owns the vacation request.
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Get the team (department) that the vacation request belongs to.
+     */
     public function team()
     {
         return $this->belongsTo(Team::class);
     }
 
+    /**
+     * Get the substitute user for the vacation request.
+     */
     public function substitute()
     {
         return $this->belongsTo(User::class, 'substitute_id');
     }
 
+    /**
+     * Get the user who approved the vacation request.
+     */
     public function approver()
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function rejecter()
+    /**
+     * Get the user who rejected the vacation request.
+     */
+    public function rejector()
     {
         return $this->belongsTo(User::class, 'rejected_by');
     }
-
-    public function isPending()
-    {
-        return $this->status === 'pending';
-    }
-
-    public function isApproved()
-    {
-        return $this->status === 'approved';
-    }
-
-    public function isRejected()
-    {
-        return $this->status === 'rejected';
-    }
 }
+

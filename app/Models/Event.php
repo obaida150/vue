@@ -9,6 +9,11 @@ class Event extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'user_id',
         'team_id',
@@ -27,6 +32,11 @@ class Event extends Model
         'created_by',
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
@@ -35,48 +45,52 @@ class Event extends Model
         'rejected_date' => 'datetime',
     ];
 
+    /**
+     * Get the user that owns the event.
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Get the team (department) that the event belongs to.
+     */
     public function team()
     {
         return $this->belongsTo(Team::class);
     }
 
+    /**
+     * Get the event type for the event.
+     */
     public function eventType()
     {
         return $this->belongsTo(EventType::class);
     }
 
+    /**
+     * Get the user who approved the event.
+     */
     public function approver()
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function rejecter()
+    /**
+     * Get the user who rejected the event.
+     */
+    public function rejector()
     {
         return $this->belongsTo(User::class, 'rejected_by');
     }
 
+    /**
+     * Get the user who created the event.
+     */
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
-
-    public function isPending()
-    {
-        return $this->status === 'pending';
-    }
-
-    public function isApproved()
-    {
-        return $this->status === 'approved';
-    }
-
-    public function isRejected()
-    {
-        return $this->status === 'rejected';
-    }
 }
+

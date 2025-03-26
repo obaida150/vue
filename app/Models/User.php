@@ -28,7 +28,7 @@ class User extends Authenticatable
     protected $fillable = [
         'first_name',
         'last_name',
-        'name',
+        'name', // Wird für Jetstream benötigt
         'email',
         'password',
         'birth_date',
@@ -61,6 +61,7 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'birth_date' => 'date',
         'entry_date' => 'date',
+        'is_active' => 'boolean',
     ];
 
     /**
@@ -70,61 +71,81 @@ class User extends Authenticatable
      */
     protected $appends = [
         'profile_photo_url',
+        'full_name',
     ];
 
+    /**
+     * Get the user's full name.
+     *
+     * @return string
+     */
+    public function getFullNameAttribute()
+    {
+        return "{$this->first_name} {$this->last_name}";
+    }
+
+    /**
+     * Get the role that the user has.
+     */
     public function role()
     {
         return $this->belongsTo(Role::class);
     }
 
-    public function vacationBalances()
-    {
-        return $this->hasMany(VacationBalance::class);
-    }
-
+    /**
+     * Get the vacation requests for the user.
+     */
     public function vacationRequests()
     {
         return $this->hasMany(VacationRequest::class);
     }
 
+    /**
+     * Get the events for the user.
+     */
     public function events()
     {
         return $this->hasMany(Event::class);
     }
 
+    /**
+     * Get the vacation balances for the user.
+     */
+    public function vacationBalances()
+    {
+        return $this->hasMany(VacationBalance::class);
+    }
+
+    /**
+     * Get the notifications for the user.
+     */
     public function notifications()
     {
         return $this->hasMany(Notification::class);
     }
 
-    public function isAdmin()
+    /**
+     * Determine if the user is an admin.
+     */
+    public function getIsAdminAttribute()
     {
-        return $this->role_id === 1;
+        return $this->role && $this->role->name === 'Admin';
     }
 
-    public function isPersonal()
+    /**
+     * Determine if the user is HR.
+     */
+    public function getIsHRAttribute()
     {
-        return $this->role_id === 2;
+        return $this->role && $this->role->name === 'Personal';
     }
 
-    public function isManager()
+    /**
+     * Determine if the user is a manager.
+     */
+    public function getIsManagerAttribute()
     {
-        return $this->role_id === 3;
-    }
-
-    public function isEmployee()
-    {
-        return $this->role_id === 4;
-    }
-
-    public function getFullNameAttribute()
-    {
-        return $this->first_name . ' ' . $this->last_name;
-    }
-
-    public function getCurrentVacationBalance()
-    {
-        $currentYear = date('Y');
-        return $this->vacationBalances()->where('year', $currentYear)->first();
+        return $this->role && $this->role->name === 'Abteilungsleiter';
     }
 }
+

@@ -2,232 +2,327 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Models\VacationBalance;
-use App\Models\VacationRequest;
-use App\Models\Team;
 use Illuminate\Http\Request;
+use App\Models\User;
+use App\Models\VacationRequest;
+use App\Models\VacationBalance;
+use App\Models\Notification;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
 
 class VacationController extends Controller
 {
     /**
-     * Urlaubsguthaben des aktuellen Benutzers abrufen
+     * Get user vacation data
      */
-    public function getUserBalance()
+    public function getUserData()
     {
-        $user = Auth::user();
-        $currentYear = date('Y');
+        try {
+            $user = Auth::user();
+            $currentYear = Carbon::now()->year;
 
-        $balance = VacationBalance::firstOrCreate(
-            ['user_id' => $user->id, 'year' => $currentYear],
-            ['total_days' => $user->vacation_days_per_year, 'used_days' => 0]
-        );
+            // Urlaubsstatistik für das aktuelle Jahr
+            $vacationBalance = VacationBalance::where('user_id', $user->id)
+                ->where('year', $currentYear)
+                ->first();
 
-        return response()->json($balance);
+            if (!$vacationBalance) {
+                // Erstelle einen neuen Eintrag, falls keiner existiert
+                $vacationBalance = VacationBalance::create([
+                    'user_id' => $user->id,
+                    'year' => $currentYear,
+                    'total_days' => $user->vacation_days_per_year,
+                    'used_days' => 0
+                ]);
+            }
+
+            // Berechne geplante Tage (genehmigte, aber noch nicht genommene Urlaubsanträge)
+            $plannedDays = VacationRequest::where('user_id', $user->id)
+                ->where('status', 'approved')
+                ->where('start_date', '>=', Carbon::now())
+                ->sum('days');
+
+            $stats = [
+                'total' => $vacationBalance->total_days,
+                'used' => $vacationBalance->used_days,
+                'planned' => $plannedDays,
+                'remaining' => $vacationBalance->total_days - $vacationBalance->used_days - $plannedDays
+            ];
+
+            // Urlaubsanträge des Benutzers
+            $requests = VacationRequest::where('user_id', $user->id)
+                ->with('substitute')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($request) {
+                    return [
+                        'id' => $request->id,
+                        'startDate' => $request->start_date->format('Y-m-d'),
+                        'endDate' => $request->end_date->format('Y-m-d'),
+                        'days' => $request->days,
+                        'requestDate' => $request->created_at->format('Y-m-d H:i:s'),
+                        'status' => $request->status,
+                        'substitute' => $request->substitute ? [
+                            'id' => $request->substitute->id,
+                            'name' => $request->substitute->full_name
+                        ] : null,
+                        'notes' => $request->notes,
+                        'approvedBy' => $request->approver ? $request->approver->full_name : null,
+                        'approvedDate' => $request->approved_date ? $request->approved_date->format('Y-m-d H:i:s') : null,
+                        'rejectedBy' => $request->rejector ? $request->rejector->full_name : null,
+                        'rejectedDate' => $request->rejected_date ? $request->rejected_date->format('Y-m-d H:i:s') : null,
+                        'rejectionReason' => $request->rejection_reason
+                    ];
+                });
+
+            // Bereits gebuchte Urlaubstage
+            $bookedDates = VacationRequest::where('status', 'approved')
+                ->get()
+                ->map(function ($request) {
+                    return [
+                        'start' => $request->start_date->format('Y-m-d'),
+                        'end' => $request->end_date->format('Y-m-d')
+                    ];
+                });
+
+            // Verfügbare Vertretungen (Teammitglieder)
+            $substitutes = [];
+
+            if ($user->currentTeam) {
+                $substitutes = $user->currentTeam->users()
+                    ->where('users.id', '!=', $user->id)
+                    ->where('users.is_active', true)
+                    ->get()
+                    ->map(function ($teamUser) {
+                        return [
+                            'id' => $teamUser->id,
+                            'name' => $teamUser->full_name,
+                            'department' => $teamUser->currentTeam ? $teamUser->currentTeam->name : null
+                        ];
+                    });
+            }
+
+            return response()->json([
+                'stats' => $stats,
+                'requests' => $requests,
+                'bookedDates' => $bookedDates,
+                'substitutes' => $substitutes
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     /**
-     * Urlaubsanträge des aktuellen Benutzers abrufen
+     * Get vacation requests for management
      */
-    public function getUserRequests()
+    public function getRequests()
     {
-        $user = Auth::user();
-        $requests = VacationRequest::where('user_id', $user->id)
-            ->with(['substitute', 'approver', 'rejecter'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        try {
+            // Prüfen, ob der Benutzer Manager oder HR ist
+            $user = Auth::user();
 
-        return response()->json($requests);
+            // Alle Urlaubsanträge laden
+            $query = VacationRequest::with(['user', 'user.currentTeam', 'substitute']);
+
+            // Wenn der Benutzer Abteilungsleiter ist, nur Anträge seiner Abteilung anzeigen
+            if ($user->role->name === 'Abteilungsleiter') {
+                $teamId = $user->currentTeam ? $user->currentTeam->id : 0;
+                $query->where('team_id', $teamId);
+            }
+
+            $allRequests = $query->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($request) {
+                    return [
+                        'id' => $request->id,
+                        'employee' => [
+                            'id' => $request->user->id,
+                            'name' => $request->user->full_name
+                        ],
+                        'department' => $request->user->currentTeam ? $request->user->currentTeam->name : 'Keine Abteilung',
+                        'startDate' => $request->start_date->format('Y-m-d'),
+                        'endDate' => $request->end_date->format('Y-m-d'),
+                        'days' => $request->days,
+                        'requestDate' => $request->created_at->format('Y-m-d H:i:s'),
+                        'status' => $request->status,
+                        'substitute' => $request->substitute ? [
+                            'id' => $request->substitute->id,
+                            'name' => $request->substitute->full_name
+                        ] : null,
+                        'notes' => $request->notes,
+                        'approvedBy' => $request->approver ? $request->approver->full_name : null,
+                        'approvedDate' => $request->approved_date ? $request->approved_date->format('Y-m-d H:i:s') : null,
+                        'rejectedBy' => $request->rejector ? $request->rejector->full_name : null,
+                        'rejectedDate' => $request->rejected_date ? $request->rejected_date->format('Y-m-d H:i:s') : null,
+                        'rejectionReason' => $request->rejection_reason
+                    ];
+                });
+
+            // Nach Status filtern
+            $pending = $allRequests->where('status', 'pending')->values();
+            $approved = $allRequests->where('status', 'approved')->values();
+            $rejected = $allRequests->where('status', 'rejected')->values();
+
+            return response()->json([
+                'pending' => $pending,
+                'approved' => $approved,
+                'rejected' => $rejected
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     /**
-     * Urlaubsanträge für ein Team abrufen
+     * Submit a vacation request
      */
-    public function getTeamRequests(Team $team)
+    public function submitRequest(Request $request)
     {
-        $user = Auth::user();
+        try {
+            $user = Auth::user();
 
-        // Prüfen, ob der Benutzer Mitglied des Teams ist und Manager oder Admin ist
-        if (!$user->belongsToTeam($team) || (!$user->isAdmin() && !$user->isManager() && !$user->isPersonal())) {
-            return response()->json(['message' => 'Nicht autorisiert'], 403);
+            // Validierung
+            $request->validate([
+                'periods' => 'required|array',
+                'periods.*.startDate' => 'required|date',
+                'periods.*.endDate' => 'required|date|after_or_equal:periods.*.startDate',
+                'periods.*.days' => 'required|integer|min:1',
+                'substitute' => 'nullable|integer',
+                'notes' => 'nullable|string'
+            ]);
+
+            $createdRequests = [];
+            $teamId = $user->currentTeam ? $user->currentTeam->id : null;
+
+            // Für jeden Zeitraum einen Urlaubsantrag erstellen
+            foreach ($request->periods as $period) {
+                $vacationRequest = new VacationRequest();
+                $vacationRequest->user_id = $user->id;
+                $vacationRequest->team_id = $teamId;
+                $vacationRequest->start_date = $period['startDate'];
+                $vacationRequest->end_date = $period['endDate'];
+                $vacationRequest->days = $period['days'];
+                $vacationRequest->substitute_id = $request->substitute;
+                $vacationRequest->notes = $request->notes;
+                $vacationRequest->status = 'pending';
+                $vacationRequest->save();
+
+                $createdRequests[] = $vacationRequest;
+
+                // Benachrichtigung für den Abteilungsleiter erstellen
+                if ($teamId) {
+                    $managers = User::whereHas('role', function ($query) {
+                        $query->where('name', 'Abteilungsleiter');
+                    })->whereHas('teams', function ($query) use ($teamId) {
+                        $query->where('teams.id', $teamId);
+                    })->get();
+
+                    foreach ($managers as $manager) {
+                        Notification::create([
+                            'user_id' => $manager->id,
+                            'title' => 'Neuer Urlaubsantrag',
+                            'message' => "{$user->full_name} hat einen Urlaubsantrag für {$period['days']} Tage eingereicht.",
+                            'type' => 'info',
+                            'is_read' => false,
+                            'related_entity_type' => 'vacation_request',
+                            'related_entity_id' => $vacationRequest->id,
+                            'created_at' => now()
+                        ]);
+                    }
+                }
+            }
+
+            return response()->json([
+                'message' => 'Urlaubsantrag erfolgreich eingereicht',
+                'requests' => $createdRequests
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        $requests = VacationRequest::where('team_id', $team->id)
-            ->with(['user', 'substitute', 'approver', 'rejecter'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json($requests);
     }
 
     /**
-     * Einen neuen Urlaubsantrag erstellen
+     * Approve a vacation request
      */
-    public function store(Request $request)
+    public function approveRequest(Request $request, $id)
     {
-        $user = Auth::user();
+        try {
+            $user = Auth::user();
 
-        $validator = Validator::make($request->all(), [
-            'team_id' => 'required|exists:teams,id',
-            'start_date' => 'required|date|after_or_equal:today',
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'days' => 'required|integer|min:1',
-            'substitute_id' => 'nullable|exists:users,id',
-            'notes' => 'nullable|string',
-        ]);
+            // Urlaubsantrag laden
+            $vacationRequest = VacationRequest::findOrFail($id);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            // Status aktualisieren
+            $vacationRequest->status = 'approved';
+            $vacationRequest->approved_by = $user->id;
+            $vacationRequest->approved_date = now();
+            $vacationRequest->notes = $request->notes ?? $vacationRequest->notes;
+            $vacationRequest->save();
+
+            // Benachrichtigung für den Mitarbeiter erstellen
+            Notification::create([
+                'user_id' => $vacationRequest->user_id,
+                'title' => 'Urlaubsantrag genehmigt',
+                'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} wurde genehmigt.",
+                'type' => 'success',
+                'is_read' => false,
+                'related_entity_type' => 'vacation_request',
+                'related_entity_id' => $vacationRequest->id,
+                'created_at' => now()
+            ]);
+
+            return response()->json([
+                'message' => 'Urlaubsantrag genehmigt',
+                'request' => $vacationRequest
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        // Prüfen, ob der Benutzer Mitglied des Teams ist
-        $team = Team::find($request->team_id);
-        if (!$user->belongsToTeam($team)) {
-            return response()->json(['message' => 'Nicht autorisiert'], 403);
-        }
-
-        // Prüfen, ob genügend Urlaubstage verfügbar sind
-        $currentYear = date('Y');
-        $balance = VacationBalance::firstOrCreate(
-            ['user_id' => $user->id, 'year' => $currentYear],
-            ['total_days' => $user->vacation_days_per_year, 'used_days' => 0]
-        );
-
-        $remainingDays = $balance->total_days - $balance->used_days;
-        if ($request->days > $remainingDays) {
-            return response()->json(['message' => 'Nicht genügend Urlaubstage verfügbar'], 422);
-        }
-
-        $vacationRequest = VacationRequest::create([
-            'user_id' => $user->id,
-            'team_id' => $request->team_id,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
-            'days' => $request->days,
-            'substitute_id' => $request->substitute_id,
-            'notes' => $request->notes,
-            'status' => 'pending',
-        ]);
-
-        return response()->json($vacationRequest->load(['substitute']), 201);
     }
 
     /**
-     * Einen Urlaubsantrag genehmigen
+     * Reject a vacation request
      */
-    public function approve(Request $request, VacationRequest $vacationRequest)
+    public function rejectRequest(Request $request, $id)
     {
-        $user = Auth::user();
+        try {
+            $user = Auth::user();
 
-        // Prüfen, ob der Benutzer den Antrag genehmigen darf
-        if (!$user->isAdmin() && !$user->isManager() && !$user->isPersonal()) {
-            return response()->json(['message' => 'Nicht autorisiert'], 403);
+            // Validierung
+            $request->validate([
+                'reason' => 'required|string'
+            ]);
+
+            // Urlaubsantrag laden
+            $vacationRequest = VacationRequest::findOrFail($id);
+
+            // Status aktualisieren
+            $vacationRequest->status = 'rejected';
+            $vacationRequest->rejected_by = $user->id;
+            $vacationRequest->rejected_date = now();
+            $vacationRequest->rejection_reason = $request->reason;
+            $vacationRequest->save();
+
+            // Benachrichtigung für den Mitarbeiter erstellen
+            Notification::create([
+                'user_id' => $vacationRequest->user_id,
+                'title' => 'Urlaubsantrag abgelehnt',
+                'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} wurde abgelehnt.",
+                'type' => 'error',
+                'is_read' => false,
+                'related_entity_type' => 'vacation_request',
+                'related_entity_id' => $vacationRequest->id,
+                'created_at' => now()
+            ]);
+
+            return response()->json([
+                'message' => 'Urlaubsantrag abgelehnt',
+                'request' => $vacationRequest
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        // Prüfen, ob der Antrag noch ausstehend ist
-        if (!$vacationRequest->isPending()) {
-            return response()->json(['message' => 'Der Antrag ist nicht mehr ausstehend'], 422);
-        }
-
-        $vacationRequest->status = 'approved';
-        $vacationRequest->approved_by = $user->id;
-        $vacationRequest->approved_date = now();
-        $vacationRequest->save();
-
-        // Urlaubstage vom Guthaben abziehen
-        $currentYear = date('Y');
-        $balance = VacationBalance::where('user_id', $vacationRequest->user_id)
-            ->where('year', $currentYear)
-            ->first();
-
-        if ($balance) {
-            $balance->used_days += $vacationRequest->days;
-            $balance->save();
-        }
-
-        return response()->json($vacationRequest->load(['approver']));
-    }
-
-    /**
-     * Einen Urlaubsantrag ablehnen
-     */
-    public function reject(Request $request, VacationRequest $vacationRequest)
-    {
-        $user = Auth::user();
-
-        // Prüfen, ob der Benutzer den Antrag ablehnen darf
-        if (!$user->isAdmin() && !$user->isManager() && !$user->isPersonal()) {
-            return response()->json(['message' => 'Nicht autorisiert'], 403);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'rejection_reason' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        // Prüfen, ob der Antrag noch ausstehend ist
-        if (!$vacationRequest->isPending()) {
-            return response()->json(['message' => 'Der Antrag ist nicht mehr ausstehend'], 422);
-        }
-
-        $vacationRequest->status = 'rejected';
-        $vacationRequest->rejected_by = $user->id;
-        $vacationRequest->rejected_date = now();
-        $vacationRequest->rejection_reason = $request->rejection_reason;
-        $vacationRequest->save();
-
-        return response()->json($vacationRequest->load(['rejecter']));
-    }
-
-    /**
-     * Einen Urlaubsantrag zurückziehen
-     */
-    public function cancel(VacationRequest $vacationRequest)
-    {
-        $user = Auth::user();
-
-        // Prüfen, ob der Benutzer den Antrag zurückziehen darf
-        if ($vacationRequest->user_id !== $user->id) {
-            return response()->json(['message' => 'Nicht autorisiert'], 403);
-        }
-
-        // Prüfen, ob der Antrag noch ausstehend ist
-        if (!$vacationRequest->isPending()) {
-            return response()->json(['message' => 'Der Antrag ist nicht mehr ausstehend'], 422);
-        }
-
-        $vacationRequest->delete();
-
-        return response()->json(['message' => 'Urlaubsantrag zurückgezogen']);
-    }
-
-    /**
-     * Verfügbare Vertretungen abrufen
-     */
-    public function getAvailableSubstitutes(Request $request)
-    {
-        $user = Auth::user();
-        $teamId = $request->input('team_id');
-
-        // Prüfen, ob der Benutzer Mitglied des Teams ist
-        $team = Team::find($teamId);
-        if (!$team || !$user->belongsToTeam($team)) {
-            return response()->json(['message' => 'Nicht autorisiert'], 403);
-        }
-
-        // Alle Teammitglieder außer dem aktuellen Benutzer abrufen
-        $substitutes = $team->users()
-            ->where('users.id', '!=', $user->id)
-            ->where('users.is_active', true)
-            ->select('users.id', 'users.name', 'users.first_name', 'users.last_name')
-            ->get();
-
-        return response()->json($substitutes);
     }
 }
 

@@ -2,47 +2,75 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use App\Models\Team;
+use App\Models\Role;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Laravel\Jetstream\Jetstream;
 
 class UserController extends Controller
 {
     /**
-     * Informationen über den aktuellen Benutzer abrufen
+     * Display a listing of the users.
      */
-    public function getCurrentUser()
+    public function index()
     {
-        $user = Auth::user();
-        $user->load('role');
+        try {
+            $users = User::with(['role', 'currentTeam'])->get()->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->full_name,
+                    'email' => $user->email,
+                    'department' => $user->currentTeam ? [
+                        'id' => $user->currentTeam->id,
+                        'name' => $user->currentTeam->name
+                    ] : null,
+                    'role' => $user->role,
+                    'status' => $user->is_active,
+                    'employee_number' => $user->employee_number,
+                    'entry_date' => $user->entry_date ? $user->entry_date->format('Y-m-d') : null,
+                    'vacation_days' => $user->vacation_days_per_year
+                ];
+            });
 
-        return response()->json([
-            'user' => $user,
-            'permissions' => [
-                'isAdmin' => $user->isAdmin(),
-                'isPersonal' => $user->isPersonal(),
-                'isManager' => $user->isManager(),
-                'isEmployee' => $user->isEmployee(),
-            ]
-        ]);
+            return response()->json($users);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     /**
-     * Geburtstage im aktuellen Monat abrufen
+     * Display the specified user.
      */
-    public function getBirthdays()
+    public function show($id)
     {
-        $user = Auth::user();
-        $currentMonth = date('m');
+        try {
+            $user = User::with(['role', 'currentTeam'])->findOrFail($id);
 
-        // Benutzer mit Geburtstagen im aktuellen Monat abrufen
-        $birthdays = User::whereRaw('MONTH(birth_date) = ?', [$currentMonth])
-            ->where('is_active', true)
-            ->select('id', 'name', 'first_name', 'last_name', 'birth_date')
-            ->orderByRaw('DAYOFMONTH(birth_date)')
-            ->get();
-
-        return response()->json($birthdays);
+            return response()->json([
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'birth_date' => $user->birth_date ? $user->birth_date->format('Y-m-d') : null,
+                'department' => $user->currentTeam ? [
+                    'id' => $user->currentTeam->id,
+                    'name' => $user->currentTeam->name
+                ] : null,
+                'role' => $user->role,
+                'status' => $user->is_active,
+                'employee_number' => $user->employee_number,
+                'entry_date' => $user->entry_date ? $user->entry_date->format('Y-m-d') : null,
+                'vacation_days' => $user->vacation_days_per_year,
+                'initials' => $user->initials
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
+
+    // Andere Methoden bleiben unverändert...
 }
 

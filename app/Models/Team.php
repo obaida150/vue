@@ -45,4 +45,29 @@ class Team extends JetstreamTeam
             'personal_team' => 'boolean',
         ];
     }
+
+    /**
+     * Get the events for the team.
+     */
+    public function events()
+    {
+        return $this->hasMany(Event::class);
+    }
+
+    /**
+     * Get the vacation requests for the team.
+     */
+    public function vacationRequests()
+    {
+        return $this->hasMany(VacationRequest::class);
+    }
+
+    /**
+     * Get the homeoffice rules for the team.
+     */
+    public function homeofficeRules()
+    {
+        return $this->hasMany(HomeofficeRule::class);
+    }
 }
+

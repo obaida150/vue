@@ -63,7 +63,8 @@
 
               <Column field="department.name" header="Abteilung" :sortable="true">
                 <template #body="{ data }">
-                  <Tag :value="data.department.name" :severity="getDepartmentSeverity(data.department.name)" />
+                  <Tag v-if="data.department" :value="data.department.name" :severity="getDepartmentSeverity(data.department.name)" />
+                  <Tag v-else value="Keine Abteilung" severity="secondary" />
                 </template>
                 <template #filter="{ filterModel, filterCallback }">
                   <Dropdown

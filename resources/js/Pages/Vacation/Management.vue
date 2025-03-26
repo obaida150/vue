@@ -541,7 +541,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { FilterMatchMode } from 'primevue/api';
+import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
