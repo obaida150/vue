@@ -8,7 +8,7 @@
                     <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
                     <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
                 </h2>
-                <Button icon="pi pi-chevron-right" @click="nextPeriod" class="p-button-rounded p-button-text" />
+                <Button icon="pi pi pi-chevron-right" @click="nextPeriod" class="p-button-rounded p-button-text" />
             </div>
             <div class="view-controls">
                 <div class="theme-toggle">
@@ -387,13 +387,15 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/de';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
-import isSameOrBefore from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import MultiSelect from 'primevue/multiselect';
 import Dialog from 'primevue/dialog';
 import VacationService from '@/Services/VacationService';
+import { useToast } from 'primevue/usetoast';
+import axios from 'axios';
 
 // Initialize dayjs plugins
 dayjs.extend(weekOfYear);
@@ -424,15 +426,71 @@ const employees = ref([]);
 const availableDepartments = ref([]);
 const eventTypes = ref([]);
 
+const toast = useToast();
+
 // Daten vom Server laden
 const fetchCalendarData = async () => {
     try {
+        // Reguläre Kalenderdaten laden
         const response = await VacationService.getCompanyCalendarData();
-        employees.value = response.data.employees;
-        availableDepartments.value = response.data.departments;
-        eventTypes.value = response.data.eventTypes;
+
+        // Urlaubsanträge laden
+        const vacationResponse = await axios.get('/api/vacation/all-requests');
+
+        // Mitarbeiter und Abteilungen aus der regulären Antwort extrahieren
+        const employeesData = response.data.employees || [];
+        availableDepartments.value = Array.isArray(response.data.departments) ? response.data.departments : [];
+        eventTypes.value = Array.isArray(response.data.eventTypes) ? response.data.eventTypes : [];
+
+        // Sicherstellen, dass eventTypes ein Array ist und Urlaub enthält
+        if (!eventTypes.value.some(type => type.value === 'vacation')) {
+            eventTypes.value.push({ name: 'Urlaub', value: 'vacation', color: '#9C27B0' });
+        }
+
+        // Urlaubsanträge in das richtige Format umwandeln
+        const vacationEvents = vacationResponse.data
+            .filter(vacation => vacation.status === 'approved') // Nur genehmigte Urlaubsanträge
+            .map(vacation => {
+                return {
+                    user_id: vacation.user_id,
+                    date: vacation.start_date,
+                    start_date: vacation.start_date,
+                    end_date: vacation.end_date,
+                    type: {
+                        name: 'Urlaub',
+                        value: 'vacation',
+                        color: '#9C27B0'
+                    },
+                    notes: vacation.notes || 'Genehmigter Urlaub',
+                    employee_name: vacation.employee_name,
+                    department: vacation.department
+                };
+            });
+
+        // Urlaubsanträge den entsprechenden Mitarbeitern zuordnen
+        employeesData.forEach(employee => {
+            // Finde alle Urlaubsanträge für diesen Mitarbeiter
+            const employeeVacations = vacationEvents.filter(vacation =>
+                vacation.user_id === employee.id
+            );
+
+            // Füge die Urlaubsanträge zu den Events des Mitarbeiters hinzu
+            if (employeeVacations.length > 0) {
+                employee.events = [...(employee.events || []), ...employeeVacations];
+            }
+        });
+
+        // Aktualisiere die Mitarbeiterliste
+        employees.value = employeesData;
+
     } catch (error) {
         console.error('Fehler beim Laden der Kalenderdaten:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Kalenderdaten konnten nicht geladen werden. Verwende Fallback-Daten.',
+            life: 3000
+        });
 
         // Fallback-Daten
         eventTypes.value = [
@@ -442,14 +500,6 @@ const fetchCalendarData = async () => {
             { name: 'Krank', value: 'sick', color: '#F44336' },
             { name: 'Urlaub', value: 'vacation', color: '#9C27B0' },
             { name: 'Sonstiges', value: 'other', color: '#607D8B' }
-        ];
-
-        availableDepartments.value = [
-            { id: 1, name: 'Entwicklung' },
-            { id: 2, name: 'Marketing' },
-            { id: 3, name: 'Vertrieb' },
-            { id: 4, name: 'Personal' },
-            { id: 5, name: 'Finanzen' }
         ];
 
         employees.value = [
@@ -480,6 +530,14 @@ const fetchCalendarData = async () => {
                     { date: dayjs().add(2, 'day').format('YYYY-MM-DD'), type: eventTypes.value[1], notes: 'Teammeeting' }
                 ]
             }
+        ];
+
+        availableDepartments.value = [
+            { id: 1, name: 'Entwicklung' },
+            { id: 2, name: 'Marketing' },
+            { id: 3, name: 'Vertrieb' },
+            { id: 4, name: 'Personal' },
+            { id: 5, name: 'Finanzen' }
         ];
     }
 };
@@ -545,6 +603,11 @@ const filteredEmployees = computed(() => {
     if (selectedDepartments.value.length > 0) {
         const departments = selectedDepartments.value.map(d => d.name);
         result = result.filter(employee => departments.includes(employee.department));
+    }
+
+    // In der Tagesansicht nur Mitarbeiter mit Einträgen anzeigen
+    if (calendarView.value === 'day') {
+        result = result.filter(employee => getEmployeeStatusForDay(employee, currentDate.value) !== null);
     }
 
     return result;
@@ -618,12 +681,14 @@ const departmentStatusSummary = computed(() => {
     const statuses = {};
 
     // Initialisiere alle Status
-    eventTypes.forEach(type => {
-        statuses[type.value] = {
-            type: type,
-            count: 0
-        };
-    });
+    if (Array.isArray(eventTypes.value)) {
+        eventTypes.value.forEach(type => {
+            statuses[type.value] = {
+                type: type,
+                count: 0
+            };
+        });
+    }
 
     // Zähle Mitarbeiter pro Status in der ausgewählten Abteilung
     departmentEmployees.value.forEach(employee => {
@@ -653,16 +718,26 @@ const statusDepartmentSummary = computed(() => {
     const departments = {};
 
     // Initialisiere alle Abteilungen
-    availableDepartments.forEach(dept => {
-        departments[dept.name] = {
-            name: dept.name,
-            count: 0
-        };
-    });
+    if (Array.isArray(availableDepartments.value)) {
+        availableDepartments.value.forEach(dept => {
+            departments[dept.name] = {
+                name: dept.name,
+                count: 0
+            };
+        });
+    }
 
     // Zähle Mitarbeiter pro Abteilung mit dem ausgewählten Status
     statusEmployees.value.forEach(employee => {
-        departments[employee.department].count++;
+        if (departments[employee.department]) {
+            departments[employee.department].count++;
+        } else {
+            // Falls die Abteilung nicht in der Liste ist, füge sie hinzu
+            departments[employee.department] = {
+                name: employee.department,
+                count: 1
+            };
+        }
     });
 
     return Object.values(departments).filter(dept => dept.count > 0);
@@ -740,9 +815,39 @@ const getInitialsColor = (name) => {
 };
 
 const getEmployeeStatusForDay = (employee, date) => {
+    // Prüfen, ob es ein Wochenende ist
+    const isWeekend = date.day() === 0 || date.day() === 6; // 0 = Sonntag, 6 = Samstag
+
     const dateStr = date.format('YYYY-MM-DD');
-    const event = employee.events.find(e => e.date === dateStr);
-    return event ? event.type : null;
+
+    // First check for exact date match
+    const exactEvent = employee.events.find(e => e.date === dateStr);
+    if (exactEvent) {
+        // Wenn es ein Wochenende ist und der Event-Typ Urlaub ist, dann ignorieren
+        if (isWeekend && exactEvent.type.value === 'vacation') {
+            return null;
+        }
+        return exactEvent.type;
+    }
+
+    // Then check for events that span multiple days
+    for (const event of employee.events || []) {
+        // Wenn es ein Wochenende ist und der Event-Typ Urlaub ist, dann ignorieren
+        if (isWeekend && event.type && event.type.value === 'vacation') {
+            continue;
+        }
+
+        // If this is a multi-day event (has start_date and end_date)
+        if (event.start_date && event.end_date) {
+            const startDate = dayjs(event.start_date);
+            const endDate = dayjs(event.end_date);
+            if (date.isSameOrAfter(startDate, 'day') && date.isSameOrBefore(endDate, 'day')) {
+                return event.type;
+            }
+        }
+    }
+
+    return null;
 };
 
 const getEmployeeStatusForMonthDay = (employee, dayNum) => {
@@ -1733,6 +1838,71 @@ onMounted(() => {
 
 .dark-mode .dialog-day-indicator {
     border-color: #555;
+}
+
+/* Verbesserte Responsive Styles */
+@media (max-width: 640px) {
+    .calendar-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .view-controls {
+        margin-top: 1rem;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .filter-controls {
+        flex-direction: column;
+    }
+
+    .search-box,
+    .department-filter {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .employee-row {
+        flex-direction: column;
+    }
+
+    .employee-status,
+    .employee-notes {
+        margin-top: 0.5rem;
+        padding-left: 0;
+    }
+
+    .day-cell,
+    .month-day-cell {
+        min-width: 40px;
+    }
+
+    .employee-name {
+        min-width: 150px;
+    }
+
+    .legend-items {
+        flex-wrap: wrap;
+    }
+}
+
+/* Hervorhebung des aktuellen Tages */
+.day-cell.today,
+.month-day-cell.today,
+.day-header.today,
+.day-number-header.today {
+    background-color: rgba(var(--primary-rgb, 59, 130, 246), 0.15);
+    font-weight: bold;
+    border: 1px solid rgba(var(--primary-rgb, 59, 130, 246), 0.5);
+}
+
+.dark-mode .day-cell.today,
+.dark-mode .month-day-cell.today,
+.dark-mode .day-header.today,
+.dark-mode .day-number-header.today {
+    background-color: rgba(var(--primary-rgb, 59, 130, 246), 0.25);
+    border-color: rgba(var(--primary-rgb, 59, 130, 246), 0.6);
 }
 </style>
 

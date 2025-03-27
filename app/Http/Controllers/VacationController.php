@@ -175,6 +175,77 @@ class VacationController extends Controller
     }
 
     /**
+     * Get all vacation requests for calendar
+     */
+    public function getAllRequests()
+    {
+        try {
+            $requests = VacationRequest::with(['user', 'user.currentTeam'])
+                ->where('status', 'approved')
+                ->get()
+                ->map(function ($request) {
+                    return [
+                        'id' => $request->id,
+                        'user_id' => $request->user_id,
+                        'start_date' => $request->start_date->format('Y-m-d'),
+                        'end_date' => $request->end_date->format('Y-m-d'),
+                        'days' => $request->days,
+                        'notes' => $request->notes,
+                        'status' => $request->status,
+                        'employee_name' => $request->user->full_name,
+                        'department' => $request->user->currentTeam ? $request->user->currentTeam->name : 'Keine Abteilung'
+                    ];
+                });
+
+            return response()->json($requests);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get vacation requests for the current user
+     */
+    public function getUserRequests(Request $request)
+    {
+        try {
+            $user = Auth::user();
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
+
+            $query = VacationRequest::where('user_id', $user->id)
+                ->where('status', 'approved');
+
+            if ($startDate && $endDate) {
+                $query->where(function($q) use ($startDate, $endDate) {
+                    $q->whereBetween('start_date', [$startDate, $endDate])
+                        ->orWhereBetween('end_date', [$startDate, $endDate])
+                        ->orWhere(function($q2) use ($startDate, $endDate) {
+                            $q2->where('start_date', '<=', $startDate)
+                                ->where('end_date', '>=', $endDate);
+                        });
+                });
+            }
+
+            $requests = $query->get()
+                ->map(function ($request) {
+                    return [
+                        'id' => $request->id,
+                        'start_date' => $request->start_date->format('Y-m-d'),
+                        'end_date' => $request->end_date->format('Y-m-d'),
+                        'days' => $request->days,
+                        'notes' => $request->notes,
+                        'status' => $request->status
+                    ];
+                });
+
+            return response()->json($requests);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Submit a vacation request
      */
     public function submitRequest(Request $request)

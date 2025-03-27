@@ -1,58 +1,56 @@
 <template>
-    <div class="staff-calendar">
-        <div class="calendar-header">
-            <div class="calendar-controls">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 w-full overflow-x-auto">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div class="flex items-center gap-4">
                 <Button icon="pi pi-chevron-left" @click="previousPeriod" />
-                <h2 class="month-title">
+                <h2 class="text-xl font-semibold capitalize m-0">
                     <span v-if="calendarView === 'month'">{{ currentMonthName }} {{ currentYear }}</span>
                     <span v-else>{{ currentYear }}</span>
                 </h2>
                 <Button icon="pi pi-chevron-right" @click="nextPeriod" />
             </div>
-            <div class="view-controls">
-                <div class="flex items-center gap-4">
-                    <!-- Buttons für die Ansichtsumschaltung -->
-                    <div class="view-toggle">
-                        <Button
-                            :class="{ 'p-button-primary': calendarView === 'month', 'p-button-outlined': calendarView !== 'month' }"
-                            label="Monat"
-                            @click="calendarView = 'month'"
-                        />
-                        <Button
-                            :class="{ 'p-button-primary': calendarView === 'year', 'p-button-outlined': calendarView !== 'year' }"
-                            label="Jahr"
-                            @click="calendarView = 'year'"
-                        />
-                    </div>
+            <div class="flex items-center gap-4 flex-wrap">
+                <!-- Buttons für die Ansichtsumschaltung -->
+                <div class="flex gap-1">
+                    <Button
+                        :class="{ 'p-button-primary': calendarView === 'month', 'p-button-outlined': calendarView !== 'month' }"
+                        label="Monat"
+                        @click="calendarView = 'month'"
+                    />
+                    <Button
+                        :class="{ 'p-button-primary': calendarView === 'year', 'p-button-outlined': calendarView !== 'year' }"
+                        label="Jahr"
+                        @click="calendarView = 'year'"
+                    />
+                </div>
 
-                    <!-- Buttons für das Jahres-Layout -->
-                    <div v-if="calendarView === 'year'" class="year-layout-controls">
-                        <Button
-                            :class="{ 'p-button-primary': yearLayout === '6x2', 'p-button-outlined': yearLayout !== '6x2' }"
-                            label="6×2"
-                            @click="yearLayout = '6x2'"
-                        />
-                        <Button
-                            :class="{ 'p-button-primary': yearLayout === '4x3', 'p-button-outlined': yearLayout !== '4x3' }"
-                            label="4×3"
-                            @click="yearLayout = '4x3'"
-                        />
-                    </div>
+                <!-- Buttons für das Jahres-Layout -->
+                <div v-if="calendarView === 'year'" class="flex gap-1">
+                    <Button
+                        :class="{ 'p-button-primary': yearLayout === '6x2', 'p-button-outlined': yearLayout !== '6x2' }"
+                        label="6×2"
+                        @click="yearLayout = '6x2'"
+                    />
+                    <Button
+                        :class="{ 'p-button-primary': yearLayout === '4x3', 'p-button-outlined': yearLayout !== '4x3' }"
+                        label="4×3"
+                        @click="yearLayout = '4x3'"
+                    />
                 </div>
             </div>
         </div>
 
         <!-- Monthly Calendar View -->
-        <div v-if="calendarView === 'month'" class="month-view">
-            <div class="weekdays-row">
-                <div class="week-number-header">KW</div>
-                <div v-for="day in weekdays" :key="day" class="weekday">{{ day }}</div>
+        <div v-if="calendarView === 'month'" class="w-full overflow-x-auto">
+            <div class="flex w-full border-b border-gray-200 dark:border-gray-700 mb-2 min-w-[700px]">
+                <div class="w-[50px] min-w-[50px] font-bold text-center py-2">KW</div>
+                <div v-for="day in weekdays" :key="day" class="flex-1 text-center font-bold py-2 min-w-[80px]">{{ day }}</div>
             </div>
 
-            <div class="calendar-body">
-                <div v-for="(week, weekIndex) in getWeeksInMonth()" :key="'week-' + weekIndex" class="week-row">
+            <div class="flex flex-col w-full min-w-[700px]">
+                <div v-for="(week, weekIndex) in getWeeksInMonth()" :key="'week-' + weekIndex" class="flex w-full mb-[2px]">
                     <div
-                        class="week-number"
+                        class="w-[50px] min-w-[50px] flex items-center justify-center font-bold text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 cursor-pointer transition-colors hover:bg-blue-50 dark:hover:bg-blue-900 hover:text-blue-600 dark:hover:text-blue-400"
                         @click="openWeekPlanDialog(week.weekNumber, week.days)"
                     >
                         {{ week.weekNumber }}
@@ -61,20 +59,21 @@
                     <div
                         v-for="(day, dayIndex) in week.days"
                         :key="'day-' + dayIndex"
-                        class="day-cell"
+                        class="flex-1 min-w-[80px] border border-gray-200 dark:border-gray-700 p-2 min-h-[100px] cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
                         :class="{
-              'other-month': !day.currentMonth,
-              'today': day.isToday,
-              'has-events': hasEvents(day.date)
-            }"
+            'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500': !day.currentMonth,
+            'bg-blue-50 dark:bg-blue-900/20 font-bold border border-blue-300 dark:border-blue-700': day.isToday,
+            'relative': hasEvents(day.date),
+            'bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400': day.isWeekend
+          }"
                         @click="openEventDialog(day.date)"
                     >
-                        <div class="day-number">{{ day.dayNumber }}</div>
-                        <div class="day-events">
+                        <div class="text-center mb-2">{{ day.dayNumber }}</div>
+                        <div class="flex flex-col gap-1">
                             <div
                                 v-for="event in getEventsForDay(day.date)"
                                 :key="event.id"
-                                class="event-indicator"
+                                class="px-1 py-0.5 rounded text-xs text-white whitespace-nowrap overflow-hidden text-ellipsis"
                                 :style="{ backgroundColor: event.color }"
                                 :title="event.title"
                             >
@@ -89,32 +88,32 @@
         <!-- Yearly Calendar View -->
         <div
             v-else-if="calendarView === 'year'"
-            class="year-view"
+            class="grid gap-4 w-full"
             :class="{
-        'grid-6x2': yearLayout === '6x2',
-        'grid-4x3': yearLayout === '4x3'
-      }"
+      'grid-cols-6 md:grid-cols-6 sm:grid-cols-3 xs:grid-cols-2': yearLayout === '6x2',
+      'grid-cols-4 md:grid-cols-4 sm:grid-cols-3 xs:grid-cols-2': yearLayout === '4x3'
+    }"
         >
             <div
                 v-for="month in 12"
                 :key="month"
-                class="mini-month"
+                class="border border-gray-200 dark:border-gray-700 rounded-lg p-2 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
                 @click="goToMonth(month - 1)"
             >
-                <h3>{{ getMonthName(month - 1) }}</h3>
-                <div class="mini-weekdays-row">
-                    <div class="mini-week-number-header">KW</div>
-                    <div v-for="day in weekdaysShort" :key="day" class="mini-weekday">{{ day }}</div>
+                <h3 class="text-center font-medium mb-2">{{ getMonthName(month - 1) }}</h3>
+                <div class="flex w-full border-b border-gray-200 dark:border-gray-700 mb-1">
+                    <div class="w-[30px] text-[10px] font-bold text-center p-0.5">KW</div>
+                    <div v-for="day in weekdaysShort" :key="day" class="flex-1 text-center text-[10px] p-0.5">{{ day }}</div>
                 </div>
 
-                <div class="mini-calendar-body">
+                <div class="flex flex-col w-full">
                     <div
                         v-for="(week, weekIndex) in getWeeksInMonthForMini(month - 1)"
                         :key="'mini-week-' + weekIndex"
-                        class="mini-week-row"
+                        class="flex w-full mb-[1px]"
                     >
                         <div
-                            class="mini-week-number"
+                            class="w-[30px] flex items-center justify-center text-[10px] text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 cursor-pointer transition-colors hover:bg-blue-50 dark:hover:bg-blue-900 hover:text-blue-600 dark:hover:text-blue-400"
                             @click.stop="openWeekPlanDialog(week.weekNumber, week.days)"
                         >
                             {{ week.weekNumber }}
@@ -123,14 +122,19 @@
                         <div
                             v-for="(day, dayIndex) in week.days"
                             :key="'mini-day-' + dayIndex"
-                            class="mini-day"
+                            class="flex-1 flex flex-col items-center justify-center h-5 text-[11px] text-center relative"
                             :class="{
-                'other-month': !day.currentMonth,
-                'today': day.isToday,
-                'has-events': hasEvents(day.date)
-              }"
+              'text-gray-400 dark:text-gray-500': !day.currentMonth,
+              'bg-blue-500 text-white rounded-full font-bold': day.isToday,
+              'text-gray-400 dark:text-gray-500': day.isWeekend
+            }"
                         >
-                            {{ day.dayNumber }}
+                            <div class="z-10">{{ day.dayNumber }}</div>
+                            <div
+                                v-if="hasEvents(day.date)"
+                                class="absolute inset-0 opacity-70 z-0"
+                                :style="{ backgroundColor: getEventColorForDay(day.date) }"
+                            ></div>
                         </div>
                     </div>
                 </div>
@@ -145,14 +149,14 @@
             :modal="true"
             class="event-dialog"
         >
-            <div class="event-form">
-                <div class="field">
-                    <label for="event-title">Titel</label>
+            <div class="flex flex-col gap-4">
+                <div>
+                    <label for="event-title" class="block mb-2 font-medium">Titel</label>
                     <InputText id="event-title" v-model="newEvent.title" class="w-full" />
                 </div>
 
-                <div class="field">
-                    <label for="event-type">Ereignistyp</label>
+                <div>
+                    <label for="event-type" class="block mb-2 font-medium">Ereignistyp</label>
                     <Dropdown
                         id="event-type"
                         v-model="newEvent.type"
@@ -163,9 +167,9 @@
                     />
                 </div>
 
-                <div class="field">
-                    <label>Zeitraum</label>
-                    <div class="date-range">
+                <div>
+                    <label class="block mb-2 font-medium">Zeitraum</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <Calendar
                             v-model="newEvent.startDate"
                             dateFormat="dd.mm.yy"
@@ -181,8 +185,8 @@
                     </div>
                 </div>
 
-                <div class="field">
-                    <label for="event-description">Beschreibung</label>
+                <div>
+                    <label for="event-description" class="block mb-2 font-medium">Beschreibung</label>
                     <Textarea
                         id="event-description"
                         v-model="newEvent.description"
@@ -194,7 +198,7 @@
 
             <template #footer>
                 <Button label="Abbrechen" icon="pi pi-times" @click="closeEventDialog" class="p-button-text" />
-                <Button label="Speichern" icon="pi pi-check" @click="saveEvent" autofocus />
+                <Button label="Speichern" icon="pi pi-check" @click="saveEvent" :loading="saving" autofocus />
             </template>
         </Dialog>
 
@@ -206,19 +210,19 @@
             :modal="true"
             class="week-plan-dialog"
         >
-            <div class="week-plan-form">
-                <div class="week-days-grid">
+            <div>
+                <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
                     <div
                         v-for="(day, index) in weekDays"
                         :key="index"
-                        class="week-day-card"
+                        class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
                     >
-                        <div class="week-day-header">
-                            <h3>{{ weekdays[index] }}</h3>
-                            <div class="week-day-date">{{ formatDate(day.date) }}</div>
+                        <div class="bg-gray-100 dark:bg-gray-800 p-2 text-center">
+                            <h3 class="text-base font-medium m-0">{{ weekdays[index] }}</h3>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ formatDate(day.date) }}</div>
                         </div>
 
-                        <div class="week-day-content">
+                        <div class="p-2">
                             <Dropdown
                                 v-model="day.selectedType"
                                 :options="eventTypes"
@@ -239,26 +243,33 @@
 
             <template #footer>
                 <Button label="Abbrechen" icon="pi pi-times" @click="closeWeekPlanDialog" class="p-button-text" />
-                <Button label="Speichern" icon="pi pi-check" @click="saveWeekPlan" autofocus />
+                <Button label="Speichern" icon="pi pi-check" @click="saveWeekPlan" :loading="savingWeekPlan" autofocus />
             </template>
         </Dialog>
+
+        <Toast />
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+// Korrigiere die Imports der dayjs-Plugins
+import { ref, computed, onMounted, watch } from 'vue';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'; // Korrigiert: Richtiger Import für isSameOrBefore
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import axios from 'axios';
 import Button from 'primevue/button';
 import Calendar from 'primevue/calendar';
 import Dialog from 'primevue/dialog';
 import Dropdown from 'primevue/dropdown';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
+import Toast from 'primevue/toast';
+import { useToast } from 'primevue/usetoast';
+import { usePage } from '@inertiajs/vue3';
 
 // Initialize dayjs plugins
 dayjs.extend(weekOfYear);
@@ -267,6 +278,9 @@ dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
 dayjs.locale('de');
 
+// Toast service
+const toast = useToast();
+
 // Calendar view state
 const calendarView = ref('month');
 const yearLayout = ref('4x3');
@@ -274,6 +288,11 @@ const yearLayout = ref('4x3');
 // Current date tracking
 const currentDate = ref(dayjs());
 const selectedDate = ref(null);
+
+// Loading and saving states
+const loading = ref(false);
+const saving = ref(false);
+const savingWeekPlan = ref(false);
 
 // Event dialog state
 const eventDialogVisible = ref(false);
@@ -293,36 +312,30 @@ const selectedWeekNumber = ref(null);
 const weekDays = ref([]);
 
 // Event types with corresponding colors
-const eventTypes = [
-    { name: 'Homeoffice', value: 'homeoffice', color: '#4CAF50' },
-    { name: 'Büro', value: 'office', color: '#2196F3' },
-    { name: 'Außendienst', value: 'field', color: '#FF9800' },
-    { name: 'Krank', value: 'sick', color: '#F44336' },
-    { name: 'Urlaub', value: 'vacation', color: '#9C27B0' },
-    { name: 'Sonstiges', value: 'other', color: '#607D8B' }
-];
+const eventTypes = computed(() => {
+    const types = [
+        { name: 'Homeoffice', value: 'homeoffice', color: '#4CAF50' },
+        { name: 'Büro', value: 'office', color: '#2196F3' },
+        { name: 'Sonstiges', value: 'other', color: '#607D8B' }
+    ];
 
-// Sample events data (would be fetched from API in real implementation)
-const events = ref([
-    {
-        id: 1,
-        title: 'Homeoffice',
-        description: 'Arbeiten von zu Hause',
-        startDate: dayjs().subtract(2, 'day').toDate(),
-        endDate: dayjs().add(1, 'day').toDate(),
-        type: { name: 'Homeoffice', value: 'homeoffice', color: '#4CAF50' },
-        color: '#4CAF50'
-    },
-    {
-        id: 2,
-        title: 'Urlaub',
-        description: 'Sommerurlaub',
-        startDate: dayjs().add(5, 'day').toDate(),
-        endDate: dayjs().add(12, 'day').toDate(),
-        type: { name: 'Urlaub', value: 'vacation', color: '#9C27B0' },
-        color: '#9C27B0'
+    // Prüfen, ob der Benutzer im Team Vertrieb ist (ID=3)
+    const userTeamId = window.Laravel?.user?.current_team_id || null;
+    if (userTeamId === 3) {
+        types.push({ name: 'Außendienst', value: 'field', color: '#FF9800' });
     }
-]);
+
+    // Prüfen, ob der Benutzer im Personal-Team ist
+    const userRole = window.Laravel?.user?.role || null;
+    if (userRole === 'HR' || userRole === 'Admin') {
+        types.push({ name: 'Krank', value: 'sick', color: '#F44336' });
+    }
+
+    return types;
+});
+
+// Events data
+const events = ref([]);
 
 // Computed properties for calendar display
 const currentYear = computed(() => currentDate.value.year());
@@ -354,11 +367,14 @@ const getWeeksInMonth = () => {
         // Generate 7 days for each week
         for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
             const date = weekStartDay.add(dayIndex, 'day');
+            const isWeekend = date.day() === 0 || date.day() === 6; // 0 = Sonntag, 6 = Samstag
+
             days.push({
                 date: date,
                 dayNumber: date.date(),
                 currentMonth: date.month() === currentDate.value.month(),
-                isToday: date.format('YYYY-MM-DD') === today.format('YYYY-MM-DD')
+                isToday: date.format('YYYY-MM-DD') === today.format('YYYY-MM-DD'),
+                isWeekend: isWeekend
             });
         }
 
@@ -394,11 +410,14 @@ const getWeeksInMonthForMini = (monthIndex) => {
         // Generate 7 days for each week
         for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
             const date = weekStartDay.add(dayIndex, 'day');
+            const isWeekend = date.day() === 0 || date.day() === 6; // 0 = Sonntag, 6 = Samstag
+
             days.push({
                 date: date,
                 dayNumber: date.date(),
                 currentMonth: date.month() === monthIndex,
-                isToday: date.format('YYYY-MM-DD') === today.format('YYYY-MM-DD')
+                isToday: date.format('YYYY-MM-DD') === today.format('YYYY-MM-DD'),
+                isWeekend: isWeekend
             });
         }
 
@@ -418,6 +437,7 @@ const previousPeriod = () => {
     } else {
         currentDate.value = currentDate.value.subtract(1, 'year');
     }
+    fetchEvents();
 };
 
 const nextPeriod = () => {
@@ -426,11 +446,13 @@ const nextPeriod = () => {
     } else {
         currentDate.value = currentDate.value.add(1, 'year');
     }
+    fetchEvents();
 };
 
 const goToMonth = (monthIndex) => {
     currentDate.value = dayjs().year(currentYear.value).month(monthIndex);
     calendarView.value = 'month';
+    fetchEvents();
 };
 
 const getMonthName = (monthIndex) => {
@@ -470,34 +492,79 @@ const closeEventDialog = () => {
     };
 };
 
-const saveEvent = () => {
+const saveEvent = async () => {
     if (!newEvent.value.title || !newEvent.value.type) {
-        // Handle validation (would use proper validation in real implementation)
-        alert('Bitte füllen Sie alle erforderlichen Felder aus.');
+        toast.add({
+            severity: 'error',
+            summary: 'Validierungsfehler',
+            detail: 'Bitte füllen Sie alle erforderlichen Felder aus.',
+            life: 3000
+        });
         return;
     }
 
-    const eventToSave = {
-        ...newEvent.value,
-        id: newEvent.value.id || Date.now(), // Generate ID if new event
-        color: newEvent.value.type.color
-    };
+    saving.value = true;
 
-    if (newEvent.value.id) {
-        // Update existing event
-        const index = events.value.findIndex(e => e.id === newEvent.value.id);
-        if (index !== -1) {
-            events.value[index] = eventToSave;
+    try {
+        const eventData = {
+            title: newEvent.value.title,
+            description: newEvent.value.description,
+            start_date: dayjs(newEvent.value.startDate).format('YYYY-MM-DD'),
+            end_date: dayjs(newEvent.value.endDate).format('YYYY-MM-DD'),
+            event_type_id: getEventTypeId(newEvent.value.type.value),
+            is_all_day: true
+        };
+
+        // CSRF-Token aus dem Meta-Tag holen
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        // Axios-Konfiguration
+        const config = {
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            withCredentials: true
+        };
+
+        let response;
+
+        if (newEvent.value.id) {
+            // Update existing event
+            response = await axios.put(`/api/events/${newEvent.value.id}`, eventData, config);
+            toast.add({
+                severity: 'success',
+                summary: 'Erfolg',
+                detail: 'Ereignis wurde aktualisiert',
+                life: 3000
+            });
+        } else {
+            // Create new event
+            response = await axios.post('/api/events', eventData, config);
+            toast.add({
+                severity: 'success',
+                summary: 'Erfolg',
+                detail: 'Ereignis wurde erstellt',
+                life: 3000
+            });
         }
-    } else {
-        // Add new event
-        events.value.push(eventToSave);
+
+        // Refresh events
+        fetchEvents();
+        closeEventDialog();
+    } catch (error) {
+        console.error('Fehler beim Speichern des Ereignisses:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Das Ereignis konnte nicht gespeichert werden.',
+            life: 3000
+        });
+    } finally {
+        saving.value = false;
     }
-
-    // In a real application, you would send this to your backend API
-    // axios.post('/api/events', eventToSave);
-
-    closeEventDialog();
 };
 
 // Week plan methods
@@ -513,7 +580,9 @@ const openWeekPlanDialog = (weekNumber, days) => {
             date: day.date,
             dayName: weekdays[day.date.day() === 0 ? 6 : day.date.day() - 1],
             selectedType: existingEvent ? existingEvent.type : null,
-            notes: existingEvent ? existingEvent.description : ''
+            notes: existingEvent ? existingEvent.description : '',
+            eventId: existingEvent ? existingEvent.id : null,
+            isWeekend: day.isWeekend
         };
     });
 
@@ -526,46 +595,71 @@ const closeWeekPlanDialog = () => {
     weekDays.value = [];
 };
 
-const saveWeekPlan = () => {
-    // For each day in the week, create or update an event
-    weekDays.value.forEach(day => {
-        if (day.selectedType) {
-            // Check if there's already an event for this day
-            const existingEvents = getEventsForDay(day.date);
-            const existingEvent = existingEvents.length > 0 ? existingEvents[0] : null;
+const saveWeekPlan = async () => {
+    savingWeekPlan.value = true;
 
-            const eventData = {
-                title: day.selectedType.name,
-                description: day.notes || '',
-                startDate: day.date.toDate(),
-                endDate: day.date.toDate(),
-                type: day.selectedType,
-                color: day.selectedType.color
-            };
+    try {
+        // CSRF-Token aus dem Meta-Tag holen
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-            if (existingEvent) {
-                // Update existing event
-                const index = events.value.findIndex(e => e.id === existingEvent.id);
-                if (index !== -1) {
-                    events.value[index] = {
-                        ...eventData,
-                        id: existingEvent.id
-                    };
+        // Axios-Konfiguration für alle Anfragen
+        const config = {
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            withCredentials: true // Wichtig: Stellt sicher, dass Cookies gesendet werden
+        };
+
+        // Create an array of promises for all API calls
+        const promises = weekDays.value.map(async (day) => {
+            if (day.selectedType && !day.isWeekend) { // Keine Events für Wochenenden speichern
+                const eventData = {
+                    title: day.selectedType.name,
+                    description: day.notes || '',
+                    start_date: day.date.format('YYYY-MM-DD'),
+                    end_date: day.date.format('YYYY-MM-DD'),
+                    event_type_id: getEventTypeId(day.selectedType.value),
+                    is_all_day: true
+                };
+
+                if (day.eventId) {
+                    // Update existing event
+                    return axios.put(`/api/events/${day.eventId}`, eventData, config);
+                } else {
+                    // Create new event
+                    return axios.post('/api/events', eventData, config);
                 }
-            } else {
-                // Add new event
-                events.value.push({
-                    ...eventData,
-                    id: Date.now() + Math.floor(Math.random() * 1000) // Generate unique ID
-                });
             }
-        }
-    });
+            return Promise.resolve(); // No action needed if no type selected or weekend
+        });
 
-    // In a real application, you would send this to your backend API
-    // axios.post('/api/week-plan', { weekNumber: selectedWeekNumber.value, days: weekDays.value });
+        // Wait for all API calls to complete
+        await Promise.all(promises);
 
-    closeWeekPlanDialog();
+        toast.add({
+            severity: 'success',
+            summary: 'Erfolg',
+            detail: 'Wochenplanung wurde gespeichert',
+            life: 3000
+        });
+
+        // Refresh events
+        fetchEvents();
+        closeWeekPlanDialog();
+    } catch (error) {
+        console.error('Fehler beim Speichern der Wochenplanung:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Wochenplanung konnte nicht gespeichert werden.',
+            life: 3000
+        });
+    } finally {
+        savingWeekPlan.value = false;
+    }
 };
 
 // Helper methods for events
@@ -574,11 +668,27 @@ const hasEvents = (date) => {
 };
 
 const getEventsForDay = (date) => {
+    // Prüfen, ob es ein Wochenende ist
+    const isWeekend = date.day() === 0 || date.day() === 6; // 0 = Sonntag, 6 = Samstag
+
     return events.value.filter(event => {
+        // Wenn es ein Wochenende ist und der Event-Typ Urlaub ist, dann ignorieren
+        if (isWeekend && event.type && event.type.value === 'vacation') {
+            return false;
+        }
+
         const eventStart = dayjs(event.startDate);
         const eventEnd = dayjs(event.endDate);
         return date.isSameOrAfter(eventStart, 'day') && date.isSameOrBefore(eventEnd, 'day');
     });
+};
+
+const getEventColorForDay = (date) => {
+    const dayEvents = getEventsForDay(date);
+    if (dayEvents.length > 0) {
+        return dayEvents[0].color; // Return the color of the first event
+    }
+    return null;
 };
 
 const truncateText = (text, maxLength) => {
@@ -586,419 +696,142 @@ const truncateText = (text, maxLength) => {
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 };
 
+// Get event type ID from value
+const getEventTypeId = (value) => {
+    // This would typically come from your backend
+    // For now, we'll use a simple mapping
+    const eventTypeMap = {
+        'homeoffice': 1,
+        'office': 2,
+        'field': 3,
+        'sick': 4,
+        'vacation': 5,
+        'other': 6
+    };
+
+    return eventTypeMap[value] || 1;
+};
+
+const fetchEvents = async () => {
+    loading.value = true;
+
+    try {
+        // Calculate date range based on current view
+        let startDate, endDate;
+
+        if (calendarView.value === 'month') {
+            // For month view, fetch events for the visible month plus padding weeks
+            const firstDay = currentDate.value.startOf('month').subtract(7, 'day');
+            const lastDay = currentDate.value.endOf('month').add(7, 'day');
+            startDate = firstDay.format('YYYY-MM-DD');
+            endDate = lastDay.format('YYYY-MM-DD');
+        } else {
+            // For year view, fetch events for the entire year
+            startDate = currentDate.value.startOf('year').format('YYYY-MM-DD');
+            endDate = currentDate.value.endOf('year').format('YYYY-MM-DD');
+        }
+
+        // CSRF-Token aus dem Meta-Tag holen
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        // Axios-Konfiguration
+        const config = {
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            withCredentials: true,
+            params: {
+                start_date: startDate,
+                end_date: endDate
+            }
+        };
+
+        // Fetch regular events
+        const eventsResponse = await axios.get('/api/events', config);
+
+        // Fetch vacation requests
+        const vacationResponse = await axios.get('/api/vacation/user-requests', config);
+
+        // Transform API response for regular events
+        const regularEvents = eventsResponse.data.map(event => {
+            // Find the corresponding event type
+            const eventTypeValue = typeof event.event_type === 'object' ?
+                event.event_type.name.toLowerCase() :
+                (typeof event.event_type === 'string' ? event.event_type.toLowerCase() : 'other');
+
+            const eventType = eventTypes.value.find(type => type.value === eventTypeValue) ||
+                { name: 'Sonstiges', value: 'other', color: '#607D8B' }; // Default to 'other'
+
+            return {
+                id: event.id,
+                title: event.title,
+                description: event.description,
+                startDate: new Date(event.start_date),
+                endDate: new Date(event.end_date),
+                type: eventType,
+                color: eventType.color,
+                source: 'event'
+            };
+        });
+
+        // Transform vacation requests
+        const vacationEvents = vacationResponse.data.map(vacation => {
+            // Create a vacation event type
+            const vacationType = { name: 'Urlaub', value: 'vacation', color: '#9C27B0' };
+
+            return {
+                id: `vacation-${vacation.id}`,
+                title: 'Urlaub',
+                description: vacation.notes || 'Genehmigter Urlaub',
+                startDate: new Date(vacation.start_date),
+                endDate: new Date(vacation.end_date),
+                type: vacationType,
+                color: vacationType.color,
+                source: 'vacation',
+                status: vacation.status
+            };
+        }).filter(vacation => vacation.status === 'approved'); // Nur genehmigte Urlaubsanträge anzeigen
+
+        // Combine both types of events
+        events.value = [...regularEvents, ...vacationEvents];
+    } catch (error) {
+        console.error('Fehler beim Laden der Ereignisse:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Ereignisse konnten nicht geladen werden.',
+            life: 3000
+        });
+    } finally {
+        loading.value = false;
+    }
+};
+
+// Axios konfigurieren
+const setupAxios = () => {
+    // Globale Axios-Konfiguration
+    axios.defaults.withCredentials = true;
+    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+
+    // CSRF-Token aus dem Meta-Tag holen
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (csrfToken) {
+        axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+    }
+};
+
+// Watch for changes in calendar view to refresh events
+watch(calendarView, () => {
+    fetchEvents();
+});
+
 // Initialize component
 onMounted(() => {
-    // In a real application, you would fetch events from your API here
-    // fetchEvents();
+    setupAxios();
+    fetchEvents();
 });
 </script>
-
-<style scoped>
-.staff-calendar {
-    font-family: var(--font-family);
-    background-color: var(--surface-a);
-    border-radius: var(--border-radius);
-    box-shadow: var(--card-shadow);
-    padding: 1.5rem;
-    width: 100%;
-    overflow-x: auto;
-}
-
-.calendar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.calendar-controls {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.month-title {
-    margin: 0;
-    font-size: 1.5rem;
-    text-transform: capitalize;
-}
-
-/* View Controls Styles */
-.view-toggle, .year-layout-controls {
-    display: flex;
-    gap: 0.25rem;
-}
-
-/* Month View Styles */
-.month-view {
-    width: 100%;
-    overflow-x: auto;
-}
-
-.weekdays-row {
-    display: flex;
-    width: 100%;
-    border-bottom: 1px solid var(--surface-d);
-    margin-bottom: 0.5rem;
-    min-width: 700px; /* Ensure minimum width for small screens */
-}
-
-.week-number-header {
-    width: 50px;
-    min-width: 50px;
-    font-weight: bold;
-    text-align: center;
-    padding: 0.5rem;
-}
-
-.weekday {
-    flex: 1;
-    text-align: center;
-    font-weight: bold;
-    padding: 0.5rem;
-    min-width: 80px; /* Ensure minimum width for each day */
-}
-
-.calendar-body {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    min-width: 700px; /* Ensure minimum width for small screens */
-}
-
-.week-row {
-    display: flex;
-    width: 100%;
-    margin-bottom: 2px;
-}
-
-.week-number {
-    width: 50px;
-    min-width: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    color: var(--text-color-secondary);
-    border-right: 1px solid var(--surface-d);
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.week-number:hover {
-    background-color: var(--primary-50);
-    color: var(--primary-color);
-}
-
-.day-cell {
-    flex: 1;
-    min-width: 80px; /* Ensure minimum width for each day */
-    border: 1px solid var(--surface-d);
-    padding: 0.5rem;
-    min-height: 100px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.day-cell:hover {
-    background-color: var(--surface-hover);
-}
-
-.day-cell.other-month {
-    background-color: var(--surface-c);
-    color: var(--text-color-secondary);
-}
-
-.day-cell.today {
-    background-color: var(--primary-50);
-    font-weight: bold;
-}
-
-.day-cell.has-events {
-    position: relative;
-}
-
-.day-number {
-    font-size: 1rem;
-    margin-bottom: 0.5rem;
-    text-align: center;
-}
-
-.day-events {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.event-indicator {
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-size: 0.75rem;
-    color: white;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Year View Styles */
-.year-view {
-    display: grid;
-    gap: 1rem;
-    width: 100%;
-}
-
-.year-view.grid-6x2 {
-    grid-template-columns: repeat(6, 1fr);
-    grid-template-rows: repeat(2, auto);
-}
-
-.year-view.grid-4x3 {
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(3, auto);
-}
-
-/* Responsive grid for year view */
-@media (max-width: 1200px) {
-    .year-view.grid-6x2 {
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(4, auto);
-    }
-
-    .year-view.grid-4x3 {
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(4, auto);
-    }
-}
-
-@media (max-width: 768px) {
-    .year-view.grid-6x2,
-    .year-view.grid-4x3 {
-        grid-template-columns: repeat(2, 1fr);
-        grid-template-rows: repeat(6, auto);
-    }
-}
-
-@media (max-width: 480px) {
-    .year-view.grid-6x2,
-    .year-view.grid-4x3 {
-        grid-template-columns: 1fr;
-        grid-template-rows: repeat(12, auto);
-    }
-
-    .calendar-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .view-controls {
-        width: 100%;
-    }
-
-    .view-controls .flex {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-}
-
-.mini-month {
-    border: 1px solid var(--surface-d);
-    border-radius: var(--border-radius);
-    padding: 0.5rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.mini-month:hover {
-    background-color: var(--surface-hover);
-}
-
-.mini-month h3 {
-    margin: 0 0 0.5rem 0;
-    text-align: center;
-    font-size: 1rem;
-}
-
-.mini-weekdays-row {
-    display: flex;
-    width: 100%;
-    border-bottom: 1px solid var(--surface-d);
-    margin-bottom: 0.25rem;
-}
-
-.mini-week-number-header {
-    width: 30px;
-    font-size: 0.6rem;
-    font-weight: bold;
-    text-align: center;
-    padding: 2px;
-}
-
-.mini-weekday {
-    flex: 1;
-    text-align: center;
-    font-size: 0.6rem;
-    padding: 2px;
-}
-
-.mini-calendar-body {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-}
-
-.mini-week-row {
-    display: flex;
-    width: 100%;
-    margin-bottom: 1px;
-}
-
-.mini-week-number {
-    width: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.6rem;
-    color: var(--text-color-secondary);
-    border-right: 1px solid var(--surface-d);
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.mini-week-number:hover {
-    background-color: var(--primary-50);
-    color: var(--primary-color);
-}
-
-.mini-day {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 20px;
-    font-size: 0.7rem;
-    text-align: center;
-}
-
-.mini-day.other-month {
-    color: var(--text-color-secondary);
-}
-
-.mini-day.today {
-    background-color: var(--primary-color);
-    color: var(--primary-color-text);
-    border-radius: 50%;
-}
-
-.mini-day.has-events::after {
-    content: '';
-    position: absolute;
-    bottom: 2px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background-color: var(--primary-color);
-}
-
-/* Week Plan Dialog Styles */
-.week-days-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 1rem;
-}
-
-/* Responsive grid for week plan */
-@media (max-width: 1200px) {
-    .week-days-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
-
-@media (max-width: 768px) {
-    .week-days-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 480px) {
-    .week-days-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.week-day-card {
-    border: 1px solid var(--surface-d);
-    border-radius: var(--border-radius);
-    overflow: hidden;
-}
-
-.week-day-header {
-    background-color: var(--surface-c);
-    padding: 0.5rem;
-    text-align: center;
-}
-
-.week-day-header h3 {
-    margin: 0;
-    font-size: 1rem;
-}
-
-.week-day-date {
-    font-size: 0.8rem;
-    color: var(--text-color-secondary);
-}
-
-.week-day-content {
-    padding: 0.5rem;
-}
-
-/* Event Dialog Styles */
-.event-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.field label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-}
-
-.date-range {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-}
-
-@media (max-width: 480px) {
-    .date-range {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Utility Classes */
-.flex {
-    display: flex;
-}
-
-.items-center {
-    align-items: center;
-}
-
-.gap-4 {
-    gap: 1rem;
-}
-
-.w-full {
-    width: 100%;
-}
-
-.mb-2 {
-    margin-bottom: 0.5rem;
-}
-</style>
 

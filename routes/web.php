@@ -155,12 +155,21 @@ Route::middleware([
     // Urlaubsverwaltung API
     Route::get('/vacation/user', 'App\Http\Controllers\VacationController@getUserData')->name('api.vacation.user');
     Route::get('/vacation/requests', 'App\Http\Controllers\VacationController@getRequests')->name('api.vacation.requests');
+    Route::get('/vacation/all-requests', 'App\Http\Controllers\VacationController@getAllRequests')->name('api.vacation.all-requests');
+    Route::get('/vacation/user-requests', 'App\Http\Controllers\VacationController@getUserRequests')->name('api.vacation.user-requests');
     Route::post('/vacation/submit', 'App\Http\Controllers\VacationController@submitRequest')->name('api.vacation.submit');
     Route::post('/vacation/approve/{id}', 'App\Http\Controllers\VacationController@approveRequest')->name('api.vacation.approve');
     Route::post('/vacation/reject/{id}', 'App\Http\Controllers\VacationController@rejectRequest')->name('api.vacation.reject');
 
     // Kalender API
     Route::get('/calendar/company', 'App\Http\Controllers\CalendarController@getCompanyData')->name('api.calendar.company');
+
+    // Events API
+    Route::get('/events', 'App\Http\Controllers\EventController@index')->name('api.events.index');
+    Route::post('/events', 'App\Http\Controllers\EventController@store')->name('api.events.store');
+    Route::get('/events/{id}', 'App\Http\Controllers\EventController@show')->name('api.events.show');
+    Route::put('/events/{id}', 'App\Http\Controllers\EventController@update')->name('api.events.update');
+    Route::delete('/events/{id}', 'App\Http\Controllers\EventController@destroy')->name('api.events.destroy');
 
     // Benutzerverwaltung API (nur für Admin und HR)
     // Temporär die Berechtigungsprüfung entfernen, um die Funktionalität zu testen
@@ -170,7 +179,8 @@ Route::middleware([
     Route::put('/users/{id}', 'App\Http\Controllers\UserController@update')->name('api.users.update');
     Route::delete('/users/{id}', 'App\Http\Controllers\UserController@destroy')->name('api.users.destroy');
 
-    Route::get('/departments', 'App\Http\Controllers\DepartmentController@index')->name('api.departments.index');
+    Route::get('/departments', 'App\Http\Controllers\TeamController@index')->name('api.departments.index');
     Route::get('/roles', 'App\Http\Controllers\RoleController@index')->name('api.roles.index');
 });
+
 

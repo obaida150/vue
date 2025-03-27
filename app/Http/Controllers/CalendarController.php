@@ -23,6 +23,8 @@ class CalendarController extends Controller
                 $events = $user->events->map(function ($event) {
                     return [
                         'date' => $event->start_date->format('Y-m-d'),
+                        'start_date' => $event->start_date->format('Y-m-d'),
+                        'end_date' => $event->end_date->format('Y-m-d'),
                         'type' => [
                             'name' => $event->eventType->name,
                             'value' => strtolower($event->eventType->name),
