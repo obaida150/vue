@@ -1,5 +1,15 @@
 import axios from "axios"
 
+// Konfiguriere Axios für CSRF-Schutz und Authentifizierung
+axios.defaults.withCredentials = true
+axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest"
+
+// CSRF-Token aus dem Meta-Tag holen
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")
+if (csrfToken) {
+    axios.defaults.headers.common["X-CSRF-TOKEN"] = csrfToken
+}
+
 export default {
     // Fetch all users
     getUsers() {
