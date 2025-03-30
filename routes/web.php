@@ -129,7 +129,7 @@ Route::middleware([
         return Inertia::render('Calendar/Company');
     })->name('company-calendar');
 
-    // Urlaubsverwaltung Routen
+// Urlaubsverwaltung Routen
     Route::get('/vacation', function () {
         return Inertia::render('Vacation/Overview');
     })->name('vacation');
@@ -138,7 +138,7 @@ Route::middleware([
         return Inertia::render('Vacation/Management');
     })->name('vacation.management');
 
-    // Benutzerverwaltung Routen (nur für Admin und HR)
+// Benutzerverwaltung Routen (nur für Admin und HR)
     Route::middleware(['auth:sanctum', 'verified'])->group(function () {
         Route::get('/users', function () {
             return Inertia::render('Users/Index');
@@ -152,8 +152,9 @@ Route::middleware([
     config('jetstream.auth_session'),
     'verified',
 ])->prefix('api')->group(function () {
-    // Urlaubsverwaltung API
+// Urlaubsverwaltung API
     Route::get('/vacation/user', 'App\Http\Controllers\VacationController@getUserData')->name('api.vacation.user');
+    Route::get('/vacation/yearly/{year}', 'App\Http\Controllers\VacationController@getYearlyVacationData')->name('api.vacation.yearly');
     Route::get('/vacation/requests', 'App\Http\Controllers\VacationController@getRequests')->name('api.vacation.requests');
     Route::get('/vacation/all-requests', 'App\Http\Controllers\VacationController@getAllRequests')->name('api.vacation.all-requests');
     Route::get('/vacation/user-requests', 'App\Http\Controllers\VacationController@getUserRequests')->name('api.vacation.user-requests');
@@ -161,11 +162,12 @@ Route::middleware([
     Route::post('/vacation/approve/{id}', 'App\Http\Controllers\VacationController@approveRequest')->name('api.vacation.approve');
     Route::post('/vacation/reject/{id}', 'App\Http\Controllers\VacationController@rejectRequest')->name('api.vacation.reject');
 
-    // Kalender API
+// Kalender API
     Route::get('/calendar/company', 'App\Http\Controllers\CalendarController@getCompanyData')->name('api.calendar.company');
 
-    // Events API
+// Events API
     Route::get('/events', 'App\Http\Controllers\EventController@index')->name('api.events.index');
+    Route::post('/events', 'App\Http\Controllers\EventController@index')->name('api.events.index');
     Route::post('/events', 'App\Http\Controllers\EventController@store')->name('api.events.store');
     Route::get('/events/{id}', 'App\Http\Controllers\EventController@show')->name('api.events.show');
     Route::put('/events/{id}', 'App\Http\Controllers\EventController@update')->name('api.events.update');
@@ -182,5 +184,4 @@ Route::middleware([
     Route::get('/departments', 'App\Http\Controllers\TeamController@index')->name('api.departments.index');
     Route::get('/roles', 'App\Http\Controllers\RoleController@index')->name('api.roles.index');
 });
-
 

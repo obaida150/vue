@@ -7,7 +7,7 @@
                 </h2>
                 <div class="flex items-center gap-2">
                     <Button icon="pi pi-calendar" label="Kalenderansicht" class="p-button-outlined" @click="showCalendarView" />
-                    <Button icon="pi pi-download" label="Exportieren" class="p-button-outlined" />
+                    <Button icon="pi pi-download" label="Exportieren" class="p-button-outlined" @click="exportData" />
                 </div>
             </div>
         </template>
@@ -90,7 +90,7 @@
                                             </div>
                                         </template>
 
-                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true">
+                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true" :filter="true" filterMatchMode="contains">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-3">
                                                     <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
@@ -100,9 +100,25 @@
                                                     </div>
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
+                                            </template>
                                         </Column>
 
-                                        <Column field="startDate" header="Zeitraum" :sortable="true">
+                                        <Column field="department" header="Abteilung" :sortable="true" :filter="true" filterMatchMode="equals">
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <Dropdown
+                                                    v-model="filterModel.value"
+                                                    @change="filterCallback()"
+                                                    :options="departmentOptions"
+                                                    placeholder="Alle Abteilungen"
+                                                    class="p-column-filter w-full"
+                                                    :showClear="true"
+                                                />
+                                            </template>
+                                        </Column>
+
+                                        <Column field="startDate" header="Zeitraum" :sortable="true" :filter="true" filterMatchMode="dateRange">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">
@@ -114,9 +130,19 @@
                                                     </div>
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <Calendar
+                                                    v-model="filterModel.value"
+                                                    dateFormat="dd.mm.yy"
+                                                    placeholder="Zeitraum"
+                                                    @date-select="filterCallback()"
+                                                    class="p-column-filter w-full"
+                                                    selectionMode="range"
+                                                />
+                                            </template>
                                         </Column>
 
-                                        <Column field="substitute.name" header="Vertretung" :sortable="true">
+                                        <Column field="substitute.name" header="Vertretung" :sortable="true" :filter="true" filterMatchMode="contains">
                                             <template #body="{ data }">
                                                 <div v-if="data.substitute" class="flex items-center gap-2">
                                                     <Avatar :label="getInitials(data.substitute.name)" shape="circle" size="small" :style="{ backgroundColor: getInitialsColor(data.substitute.name) }" />
@@ -126,18 +152,31 @@
                                                     Keine Vertretung
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Vertretung suchen" class="p-column-filter w-full" />
+                                            </template>
                                         </Column>
 
-                                        <Column field="requestDate" header="Beantragt am" :sortable="true">
+                                        <Column field="requestDate" header="Beantragt am" :sortable="true" :filter="true" filterMatchMode="dateRange">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-2">
                                                     <i class="pi pi-clock text-gray-500 dark:text-gray-400"></i>
                                                     <span>{{ formatDateTime(data.requestDate) }}</span>
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <Calendar
+                                                    v-model="filterModel.value"
+                                                    dateFormat="dd.mm.yy"
+                                                    placeholder="Datum"
+                                                    @date-select="filterCallback()"
+                                                    class="p-column-filter w-full"
+                                                    selectionMode="range"
+                                                />
+                                            </template>
                                         </Column>
 
-                                        <Column field="notes" header="Anmerkungen">
+                                        <Column field="notes" header="Anmerkungen" :filter="true" filterMatchMode="contains">
                                             <template #body="{ data }">
                                                 <div v-if="data.notes" class="max-w-xs truncate" :title="data.notes">
                                                     <i class="pi pi-comment text-gray-500 dark:text-gray-400 mr-2"></i>
@@ -146,6 +185,9 @@
                                                 <div v-else class="text-gray-400 dark:text-gray-500 italic">
                                                     Keine Anmerkungen
                                                 </div>
+                                            </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Anmerkungen suchen" class="p-column-filter w-full" />
                                             </template>
                                         </Column>
 
@@ -214,7 +256,7 @@
                                             </div>
                                         </template>
 
-                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true">
+                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true" :filter="true" filterMatchMode="contains">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-3">
                                                     <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
@@ -224,9 +266,25 @@
                                                     </div>
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
+                                            </template>
                                         </Column>
 
-                                        <Column field="startDate" header="Zeitraum" :sortable="true">
+                                        <Column field="department" header="Abteilung" :sortable="true" :filter="true" filterMatchMode="equals">
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <Dropdown
+                                                    v-model="filterModel.value"
+                                                    @change="filterCallback()"
+                                                    :options="departmentOptions"
+                                                    placeholder="Alle Abteilungen"
+                                                    class="p-column-filter w-full"
+                                                    :showClear="true"
+                                                />
+                                            </template>
+                                        </Column>
+
+                                        <Column field="startDate" header="Zeitraum" :sortable="true" :filter="true" filterMatchMode="dateRange">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">
@@ -238,9 +296,19 @@
                                                     </div>
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <Calendar
+                                                    v-model="filterModel.value"
+                                                    dateFormat="dd.mm.yy"
+                                                    placeholder="Zeitraum"
+                                                    @date-select="filterCallback()"
+                                                    class="p-column-filter w-full"
+                                                    selectionMode="range"
+                                                />
+                                            </template>
                                         </Column>
 
-                                        <Column field="approvedBy" header="Genehmigt von" :sortable="true">
+                                        <Column field="approvedBy" header="Genehmigt von" :sortable="true" :filter="true" filterMatchMode="contains">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.approvedBy }}</div>
@@ -250,9 +318,12 @@
                                                     </div>
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
+                                            </template>
                                         </Column>
 
-                                        <Column field="notes" header="Anmerkungen">
+                                        <Column field="notes" header="Anmerkungen" :filter="true" filterMatchMode="contains">
                                             <template #body="{ data }">
                                                 <div v-if="data.notes" class="max-w-xs truncate" :title="data.notes">
                                                     <i class="pi pi-comment text-gray-500 dark:text-gray-400 mr-2"></i>
@@ -261,6 +332,9 @@
                                                 <div v-else class="text-gray-400 dark:text-gray-500 italic">
                                                     Keine Anmerkungen
                                                 </div>
+                                            </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Anmerkungen suchen" class="p-column-filter w-full" />
                                             </template>
                                         </Column>
 
@@ -313,7 +387,7 @@
                                             </div>
                                         </template>
 
-                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true">
+                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true" :filter="true" filterMatchMode="contains">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-3">
                                                     <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
@@ -323,9 +397,25 @@
                                                     </div>
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
+                                            </template>
                                         </Column>
 
-                                        <Column field="startDate" header="Zeitraum" :sortable="true">
+                                        <Column field="department" header="Abteilung" :sortable="true" :filter="true" filterMatchMode="equals">
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <Dropdown
+                                                    v-model="filterModel.value"
+                                                    @change="filterCallback()"
+                                                    :options="departmentOptions"
+                                                    placeholder="Alle Abteilungen"
+                                                    class="p-column-filter w-full"
+                                                    :showClear="true"
+                                                />
+                                            </template>
+                                        </Column>
+
+                                        <Column field="startDate" header="Zeitraum" :sortable="true" :filter="true" filterMatchMode="dateRange">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">
@@ -337,9 +427,19 @@
                                                     </div>
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <Calendar
+                                                    v-model="filterModel.value"
+                                                    dateFormat="dd.mm.yy"
+                                                    placeholder="Zeitraum"
+                                                    @date-select="filterCallback()"
+                                                    class="p-column-filter w-full"
+                                                    selectionMode="range"
+                                                />
+                                            </template>
                                         </Column>
 
-                                        <Column field="rejectedBy" header="Abgelehnt von" :sortable="true">
+                                        <Column field="rejectedBy" header="Abgelehnt von" :sortable="true" :filter="true" filterMatchMode="contains">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.rejectedBy }}</div>
@@ -349,9 +449,12 @@
                                                     </div>
                                                 </div>
                                             </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
+                                            </template>
                                         </Column>
 
-                                        <Column field="rejectionReason" header="Ablehnungsgrund">
+                                        <Column field="rejectionReason" header="Ablehnungsgrund" :filter="true" filterMatchMode="contains">
                                             <template #body="{ data }">
                                                 <div v-if="data.rejectionReason" class="max-w-xs truncate text-red-600 dark:text-red-400" :title="data.rejectionReason">
                                                     <i class="pi pi-exclamation-circle mr-2"></i>
@@ -360,6 +463,9 @@
                                                 <div v-else class="text-gray-400 dark:text-gray-500 italic">
                                                     Kein Grund angegeben
                                                 </div>
+                                            </template>
+                                            <template #filter="{ filterModel, filterCallback }">
+                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Grund suchen" class="p-column-filter w-full" />
                                             </template>
                                         </Column>
 
@@ -535,6 +641,106 @@
             </template>
         </Dialog>
 
+        <!-- Dialog für Antragsdetails -->
+        <Dialog
+            v-model:visible="detailsDialogVisible"
+            :header="`Urlaubsantrag Details`"
+            :style="{ width: '600px' }"
+            :modal="true"
+            :closable="true"
+            class="modern-dialog"
+        >
+            <div v-if="selectedRequest" class="p-4">
+                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <Avatar :label="getInitials(selectedRequest.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(selectedRequest.employee.name) }" />
+                        <div>
+                            <h3 class="text-xl font-bold">{{ selectedRequest.employee.name }}</h3>
+                            <p class="text-gray-500">{{ selectedRequest.department }}</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
+                            <div class="font-medium">
+                                {{ formatDate(selectedRequest.startDate) }} - {{ formatDate(selectedRequest.endDate) }}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Anzahl Tage</div>
+                            <div class="font-medium">{{ selectedRequest.days }} Tage</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
+                            <div class="font-medium">{{ formatDateTime(selectedRequest.requestDate) }}</div>
+                        </div>
+                        <div v-if="selectedRequest.substitute">
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Vertretung</div>
+                            <div class="font-medium">{{ selectedRequest.substitute.name }}</div>
+                        </div>
+                    </div>
+
+                    <div v-if="selectedRequest.notes" class="mb-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Anmerkungen</div>
+                        <div class="font-medium p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                            {{ selectedRequest.notes }}
+                        </div>
+                    </div>
+
+                    <div v-if="selectedRequest.status === 'approved'" class="p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                        <div class="flex items-center gap-2 text-green-700 dark:text-green-400 font-medium mb-1">
+                            <i class="pi pi-check-circle"></i>
+                            <span>Genehmigt</span>
+                        </div>
+                        <div class="text-sm text-green-600 dark:text-green-300">
+                            Genehmigt von {{ selectedRequest.approvedBy }} am {{ formatDateTime(selectedRequest.approvedDate) }}
+                        </div>
+                    </div>
+
+                    <div v-if="selectedRequest.status === 'rejected'" class="p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+                        <div class="flex items-center gap-2 text-red-700 dark:text-red-400 font-medium mb-1">
+                            <i class="pi pi-times-circle"></i>
+                            <span>Abgelehnt</span>
+                        </div>
+                        <div class="text-sm text-red-600 dark:text-red-300">
+                            Abgelehnt von {{ selectedRequest.rejectedBy }} am {{ formatDateTime(selectedRequest.rejectedDate) }}
+                        </div>
+                        <div v-if="selectedRequest.rejectionReason" class="mt-2">
+                            <div class="text-sm text-red-600 dark:text-red-300">Ablehnungsgrund:</div>
+                            <div class="p-2 bg-white dark:bg-gray-700 rounded border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
+                                {{ selectedRequest.rejectionReason }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <div class="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <Button
+                        label="Schließen"
+                        icon="pi pi-times"
+                        class="p-button-text"
+                        @click="detailsDialogVisible = false"
+                    />
+                    <Button
+                        v-if="selectedRequest && selectedRequest.status === 'pending'"
+                        label="Genehmigen"
+                        icon="pi pi-check"
+                        class="p-button-success"
+                        @click="approveRequest(selectedRequest)"
+                    />
+                    <Button
+                        v-if="selectedRequest && selectedRequest.status === 'pending'"
+                        label="Ablehnen"
+                        icon="pi pi-times"
+                        class="p-button-danger"
+                        @click="rejectRequest(selectedRequest)"
+                    />
+                </div>
+            </template>
+        </Dialog>
+
         <Toast position="top-right" />
     </AppLayout>
 </template>
@@ -558,6 +764,7 @@ import { useToast } from 'primevue/usetoast';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
 import VacationService from '@/Services/VacationService';
+import Dropdown from 'primevue/dropdown';
 
 dayjs.locale('de');
 
@@ -569,21 +776,57 @@ const loading = ref(false);
 const processingRequest = ref(false);
 const approveDialogVisible = ref(false);
 const rejectDialogVisible = ref(false);
+const detailsDialogVisible = ref(false);
 const selectedRequest = ref(null);
 const approvalNotes = ref('');
 const rejectionReason = ref('');
 
 // Filter für DataTable
 const filters = ref({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'employee.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    department: { value: null, matchMode: FilterMatchMode.EQUALS },
+    startDate: { value: null, matchMode: FilterMatchMode.DATE_RANGE },
+    requestDate: { value: null, matchMode: FilterMatchMode.DATE_RANGE },
+    'substitute.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    notes: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
 const approvedFilters = ref({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'employee.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    department: { value: null, matchMode: FilterMatchMode.EQUALS },
+    startDate: { value: null, matchMode: FilterMatchMode.DATE_RANGE },
+    approvedDate: { value: null, matchMode: FilterMatchMode.DATE_RANGE },
+    'approvedBy': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    notes: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
 const rejectedFilters = ref({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'employee.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    department: { value: null, matchMode: FilterMatchMode.EQUALS },
+    startDate: { value: null, matchMode: FilterMatchMode.DATE_RANGE },
+    rejectedDate: { value: null, matchMode: FilterMatchMode.DATE_RANGE },
+    'rejectedBy': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    rejectionReason: { value: null, matchMode: FilterMatchMode.CONTAINS }
+});
+
+const departmentOptions = computed(() => {
+    const uniqueDepartments = new Set();
+
+    // Sammle alle eindeutigen Abteilungen aus allen Anfragen
+    [...pendingRequests.value, ...approvedRequests.value, ...rejectedRequests.value].forEach(request => {
+        if (request.department) {
+            uniqueDepartments.add(request.department);
+        }
+    });
+
+    // Konvertiere in ein Array von Objekten für das Dropdown
+    return Array.from(uniqueDepartments).map(dept => ({
+        label: dept,
+        value: dept
+    }));
 });
 
 // Urlaubsanträge
@@ -702,14 +945,7 @@ const getInitialsColor = (name) => {
 
 const viewRequestDetails = (request) => {
     selectedRequest.value = request;
-
-    // Dialog für Details anzeigen
-    toast.add({
-        severity: 'info',
-        summary: 'Details anzeigen',
-        detail: `Details für Urlaubsantrag von ${request.employee.name}`,
-        life: 3000
-    });
+    detailsDialogVisible.value = true;
 };
 
 // Dialog-Funktionen
@@ -806,17 +1042,69 @@ const confirmReject = async () => {
 };
 
 const showCalendarView = () => {
-    // Hier würde normalerweise die Navigation zur Kalenderansicht erfolgen
-    // Für dieses Beispiel zeigen wir eine Toast-Nachricht an
-    toast.add({
-        severity: 'info',
-        summary: 'Kalenderansicht',
-        detail: 'Wechsel zur Kalenderansicht',
-        life: 3000
+    // Navigiere zur Kalenderansicht
+    window.location.href = route('company-calendar');
+};
+
+const exportData = () => {
+    // Bestimme, welche Daten basierend auf dem aktiven Tab exportiert werden sollen
+    let dataToExport = [];
+    const activeTabIndex = document.querySelector('.p-tabview-selected')?.getAttribute('aria-selected');
+
+    if (activeTabIndex === '0') {
+        dataToExport = pendingRequests.value;
+    } else if (activeTabIndex === '1') {
+        dataToExport = approvedRequests.value;
+    } else {
+        dataToExport = rejectedRequests.value;
+    }
+
+    if (dataToExport.length === 0) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Keine Daten',
+            detail: 'Es sind keine Daten zum Exportieren vorhanden.',
+            life: 3000
+        });
+        return;
+    }
+
+    // Erstelle CSV-Inhalt
+    let csvContent = "data:text/csv;charset=utf-8,";
+
+    // Header
+    const headers = ["Mitarbeiter", "Abteilung", "Startdatum", "Enddatum", "Tage", "Status", "Anmerkungen"];
+    csvContent += headers.join(";") + "\r\n";
+
+    // Daten
+    dataToExport.forEach(item => {
+        const row = [
+            item.employee.name,
+            item.department,
+            formatDate(item.startDate),
+            formatDate(item.endDate),
+            item.days,
+            item.status === 'pending' ? 'Ausstehend' : (item.status === 'approved' ? 'Genehmigt' : 'Abgelehnt'),
+            item.notes || ''
+        ];
+        csvContent += row.join(";") + "\r\n";
     });
 
-    // In einer echten Implementierung würde hier die Navigation erfolgen
-    // z.B. mit router.push('/vacation/calendar') oder ähnlichem
+    // Erstelle einen Download-Link und klicke darauf
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `urlaubsantraege_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.add({
+        severity: 'success',
+        summary: 'Export erfolgreich',
+        detail: 'Die Daten wurden erfolgreich exportiert.',
+        life: 3000
+    });
 };
 
 // Komponente initialisieren

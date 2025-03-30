@@ -6,6 +6,11 @@ export default {
         return axios.get("/api/vacation/user")
     },
 
+    // Fetch yearly vacation data
+    getYearlyVacationData(year) {
+        return axios.get(`/api/vacation/yearly/${year}`)
+    },
+
     // Fetch all vacation requests for management
     getVacationRequests() {
         return axios.get("/api/vacation/requests")

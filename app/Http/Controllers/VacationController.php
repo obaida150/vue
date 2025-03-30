@@ -42,16 +42,28 @@ class VacationController extends Controller
                 ->where('start_date', '>=', Carbon::now())
                 ->sum('days');
 
+            // Berechne übertragene Tage aus dem Vorjahr
+            $previousYearBalance = VacationBalance::where('user_id', $user->id)
+                ->where('year', $currentYear - 1)
+                ->first();
+
+            $carryOver = 0;
+            if ($previousYearBalance) {
+                // Maximal 10 Tage können übertragen werden
+                $carryOver = min(10, $previousYearBalance->total_days - $previousYearBalance->used_days);
+            }
+
             $stats = [
-                'total' => $vacationBalance->total_days,
+                'total' => $vacationBalance->total_days + $carryOver,
                 'used' => $vacationBalance->used_days,
                 'planned' => $plannedDays,
-                'remaining' => $vacationBalance->total_days - $vacationBalance->used_days - $plannedDays
+                'remaining' => $vacationBalance->total_days + $carryOver - $vacationBalance->used_days - $plannedDays,
+                'carryOver' => $carryOver
             ];
 
             // Urlaubsanträge des Benutzers
             $requests = VacationRequest::where('user_id', $user->id)
-                ->with('substitute')
+                ->with(['substitute', 'approver', 'rejector'])
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($request) {
@@ -102,11 +114,197 @@ class VacationController extends Controller
                     });
             }
 
+            // Urlaubshistorie für die letzten Jahre
+            $history = [];
+            $startYear = $currentYear - 5;
+
+            for ($year = $startYear; $year <= $currentYear; $year++) {
+                $balance = VacationBalance::where('user_id', $user->id)
+                    ->where('year', $year)
+                    ->first();
+
+                if ($balance) {
+                    $prevYearBalance = VacationBalance::where('user_id', $user->id)
+                        ->where('year', $year - 1)
+                        ->first();
+
+                    $carryOverFromPrevYear = 0;
+                    if ($prevYearBalance) {
+                        $carryOverFromPrevYear = min(10, $prevYearBalance->total_days - $prevYearBalance->used_days);
+                    }
+
+                    $carryOverToNextYear = 0;
+                    if ($year < $currentYear) {
+                        $carryOverToNextYear = min(10, $balance->total_days - $balance->used_days);
+                    } else {
+                        $carryOverToNextYear = min(10, $stats['remaining']);
+                    }
+
+                    $history[] = [
+                        'year' => $year,
+                        'baseEntitlement' => $balance->total_days,
+                        'carryOver' => $carryOverFromPrevYear,
+                        'totalEntitlement' => $balance->total_days + $carryOverFromPrevYear,
+                        'used' => $balance->used_days,
+                        'remaining' => $balance->total_days + $carryOverFromPrevYear - $balance->used_days,
+                        'carryOverToNextYear' => $carryOverToNextYear
+                    ];
+                }
+            }
+
+            // Jahresstatistik für jedes Jahr
+            $yearlyStats = [];
+            $yearVacationDetails = [];
+            $monthlyStats = [];
+
+            foreach ($history as $yearData) {
+                $year = $yearData['year'];
+
+                // Urlaubsanträge für dieses Jahr
+                $yearRequests = VacationRequest::where('user_id', $user->id)
+                    ->whereYear('start_date', $year)
+                    ->with(['substitute', 'approver', 'rejector'])
+                    ->orderBy('start_date')
+                    ->get();
+
+                // Monatsstatistik initialisieren
+                $monthlyData = array_fill(0, 12, 0);
+
+                // Details für jeden Urlaubsantrag
+                $details = [];
+                foreach ($yearRequests as $request) {
+                    $details[] = [
+                        'period' => $request->start_date->format('d.m.Y') . ' - ' . $request->end_date->format('d.m.Y'),
+                        'days' => $request->days,
+                        'status' => $request->status,
+                        'requestDate' => $request->created_at->format('d.m.Y'),
+                        'notes' => $request->notes
+                    ];
+
+                    // Nur genehmigte Anträge für die Monatsstatistik zählen
+                    if ($request->status === 'approved') {
+                        // Verteile die Tage auf die entsprechenden Monate
+                        $startMonth = $request->start_date->month - 1; // 0-basierter Index
+                        $endMonth = $request->end_date->month - 1;
+
+                        if ($startMonth === $endMonth) {
+                            // Wenn der Urlaub im selben Monat ist
+                            $monthlyData[$startMonth] += $request->days;
+                        } else {
+                            // Wenn der Urlaub über mehrere Monate geht, verteile die Tage
+                            $currentDate = $request->start_date->copy();
+                            while ($currentDate->lte($request->end_date)) {
+                                // Zähle nur Werktage (Mo-Fr)
+                                $dayOfWeek = $currentDate->dayOfWeek;
+                                if ($dayOfWeek !== 0 && $dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
+                                    $monthlyData[$currentDate->month - 1]++;
+                                }
+                                $currentDate->addDay();
+                            }
+                        }
+                    }
+                }
+
+                $yearlyStats[$year] = $yearData;
+                $yearVacationDetails[$year] = $details;
+                $monthlyStats[$year] = $monthlyData;
+            }
+
             return response()->json([
                 'stats' => $stats,
                 'requests' => $requests,
                 'bookedDates' => $bookedDates,
-                'substitutes' => $substitutes
+                'substitutes' => $substitutes,
+                'history' => $history,
+                'yearlyStats' => $yearlyStats,
+                'yearVacationDetails' => $yearVacationDetails,
+                'monthlyStats' => $monthlyStats
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get yearly vacation data
+     */
+    public function getYearlyVacationData($year)
+    {
+        try {
+            $user = Auth::user();
+
+            // Urlaubsstatistik für das angegebene Jahr
+            $vacationBalance = VacationBalance::where('user_id', $user->id)
+                ->where('year', $year)
+                ->first();
+
+            if (!$vacationBalance) {
+                return response()->json([
+                    'stats' => [
+                        'baseEntitlement' => $user->vacation_days_per_year,
+                        'carryOver' => 0,
+                        'totalEntitlement' => $user->vacation_days_per_year,
+                        'used' => 0,
+                        'planned' => 0,
+                        'remaining' => $user->vacation_days_per_year
+                    ],
+                    'details' => []
+                ]);
+            }
+
+            // Berechne übertragene Tage aus dem Vorjahr
+            $previousYearBalance = VacationBalance::where('user_id', $user->id)
+                ->where('year', $year - 1)
+                ->first();
+
+            $carryOver = 0;
+            if ($previousYearBalance) {
+                // Maximal 10 Tage können übertragen werden
+                $carryOver = min(10, $previousYearBalance->total_days - $previousYearBalance->used_days);
+            }
+
+            // Berechne geplante Tage für das angegebene Jahr
+            $plannedDays = 0;
+            $currentYear = Carbon::now()->year;
+
+            if ($year === $currentYear) {
+                $plannedDays = VacationRequest::where('user_id', $user->id)
+                    ->where('status', 'approved')
+                    ->where('start_date', '>=', Carbon::now())
+                    ->sum('days');
+            }
+
+            $stats = [
+                'baseEntitlement' => $vacationBalance->total_days,
+                'carryOver' => $carryOver,
+                'totalEntitlement' => $vacationBalance->total_days + $carryOver,
+                'used' => $vacationBalance->used_days,
+                'planned' => $plannedDays,
+                'remaining' => $vacationBalance->total_days + $carryOver - $vacationBalance->used_days - $plannedDays
+            ];
+
+            // Urlaubsanträge für das angegebene Jahr
+            $yearRequests = VacationRequest::where('user_id', $user->id)
+                ->whereYear('start_date', $year)
+                ->with(['substitute', 'approver', 'rejector'])
+                ->orderBy('start_date')
+                ->get();
+
+            // Details für jeden Urlaubsantrag
+            $details = [];
+            foreach ($yearRequests as $request) {
+                $details[] = [
+                    'period' => $request->start_date->format('d.m.Y') . ' - ' . $request->end_date->format('d.m.Y'),
+                    'days' => $request->days,
+                    'status' => $request->status,
+                    'requestDate' => $request->created_at->format('d.m.Y'),
+                    'notes' => $request->notes
+                ];
+            }
+
+            return response()->json([
+                'stats' => $stats,
+                'details' => $details
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -121,14 +319,27 @@ class VacationController extends Controller
         try {
             // Prüfen, ob der Benutzer Manager oder HR ist
             $user = Auth::user();
+            $role = $user->role ? $user->role->name : null;
 
             // Alle Urlaubsanträge laden
             $query = VacationRequest::with(['user', 'user.currentTeam', 'substitute']);
 
             // Wenn der Benutzer Abteilungsleiter ist, nur Anträge seiner Abteilung anzeigen
-            if ($user->role->name === 'Abteilungsleiter') {
+            if ($role === 'Abteilungsleiter') {
                 $teamId = $user->currentTeam ? $user->currentTeam->id : 0;
-                $query->where('team_id', $teamId);
+                $query->whereHas('user', function($q) use ($teamId) {
+                    $q->whereHas('teams', function($q2) use ($teamId) {
+                        $q2->where('teams.id', $teamId);
+                    });
+                });
+            }
+            // Wenn der Benutzer weder HR noch Admin noch Abteilungsleiter ist, keine Daten zurückgeben
+            elseif ($role !== 'HR' && $role !== 'Admin') {
+                return response()->json([
+                    'pending' => [],
+                    'approved' => [],
+                    'rejected' => []
+                ]);
             }
 
             $allRequests = $query->orderBy('created_at', 'desc')
@@ -330,6 +541,16 @@ class VacationController extends Controller
             $vacationRequest->approved_date = now();
             $vacationRequest->notes = $request->notes ?? $vacationRequest->notes;
             $vacationRequest->save();
+
+            // Urlaubssaldo aktualisieren
+            $year = Carbon::parse($vacationRequest->start_date)->year;
+            $vacationBalance = VacationBalance::firstOrCreate(
+                ['user_id' => $vacationRequest->user_id, 'year' => $year],
+                ['total_days' => $vacationRequest->user->vacation_days_per_year, 'used_days' => 0]
+            );
+
+            $vacationBalance->used_days += $vacationRequest->days;
+            $vacationBalance->save();
 
             // Benachrichtigung für den Mitarbeiter erstellen
             Notification::create([
