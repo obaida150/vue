@@ -434,51 +434,65 @@ const fetchCalendarData = async () => {
         // Reguläre Kalenderdaten laden
         const response = await VacationService.getCompanyCalendarData();
 
-        // Urlaubsanträge laden
-        const vacationResponse = await axios.get('/api/vacation/all-requests');
-
         // Mitarbeiter und Abteilungen aus der regulären Antwort extrahieren
         const employeesData = response.data.employees || [];
         availableDepartments.value = Array.isArray(response.data.departments) ? response.data.departments : [];
         eventTypes.value = Array.isArray(response.data.eventTypes) ? response.data.eventTypes : [];
 
-        // Sicherstellen, dass eventTypes ein Array ist und Urlaub enthält
+        // Sicherstellen, dass eventTypes ein Array ist und Urlaub und Geburtstag enthält
         if (!eventTypes.value.some(type => type.value === 'vacation')) {
             eventTypes.value.push({ name: 'Urlaub', value: 'vacation', color: '#9C27B0' });
         }
 
-        // Urlaubsanträge in das richtige Format umwandeln
-        const vacationEvents = vacationResponse.data
-            .filter(vacation => vacation.status === 'approved') // Nur genehmigte Urlaubsanträge
-            .map(vacation => {
-                return {
-                    user_id: vacation.user_id,
-                    date: vacation.start_date,
-                    start_date: vacation.start_date,
-                    end_date: vacation.end_date,
-                    type: {
-                        name: 'Urlaub',
-                        value: 'vacation',
-                        color: '#9C27B0'
-                    },
-                    notes: vacation.notes || 'Genehmigter Urlaub',
-                    employee_name: vacation.employee_name,
-                    department: vacation.department
-                };
+        if (!eventTypes.value.some(type => type.value === 'birthday')) {
+            eventTypes.value.push({ name: 'Geburtstag', value: 'birthday', color: '#FF4500' });
+        }
+
+        try {
+            // Urlaubsanträge laden
+            const vacationResponse = await axios.get('/api/vacation/all-requests');
+
+            // Urlaubsanträge in das richtige Format umwandeln
+            const vacationEvents = vacationResponse.data
+                .filter(vacation => vacation.status === 'approved') // Nur genehmigte Urlaubsanträge
+                .map(vacation => {
+                    return {
+                        user_id: vacation.user_id,
+                        date: vacation.start_date,
+                        start_date: vacation.start_date,
+                        end_date: vacation.end_date,
+                        type: {
+                            name: 'Urlaub',
+                            value: 'vacation',
+                            color: '#9C27B0'
+                        },
+                        notes: vacation.notes || 'Genehmigter Urlaub',
+                        employee_name: vacation.employee_name,
+                        department: vacation.department
+                    };
+                });
+
+            // Urlaubsanträge den entsprechenden Mitarbeitern zuordnen
+            employeesData.forEach(employee => {
+                // Finde alle Urlaubsanträge für diesen Mitarbeiter
+                const employeeVacations = vacationEvents.filter(vacation =>
+                    vacation.user_id === employee.id
+                );
+
+                // Füge die Urlaubsanträge zu den Events des Mitarbeiters hinzu
+                if (employeeVacations.length > 0) {
+                    employee.events = [...(employee.events || []), ...employeeVacations];
+                }
+
+                // Stelle sicher, dass das birth_date-Feld korrekt gesetzt ist
+                // if (employee.birth_date) {
+                //     console.log(`Mitarbeiter ${employee.name} hat Geburtstag am ${employee.birth_date}`); // Debug-Ausgabe
+                // }
             });
-
-        // Urlaubsanträge den entsprechenden Mitarbeitern zuordnen
-        employeesData.forEach(employee => {
-            // Finde alle Urlaubsanträge für diesen Mitarbeiter
-            const employeeVacations = vacationEvents.filter(vacation =>
-                vacation.user_id === employee.id
-            );
-
-            // Füge die Urlaubsanträge zu den Events des Mitarbeiters hinzu
-            if (employeeVacations.length > 0) {
-                employee.events = [...(employee.events || []), ...employeeVacations];
-            }
-        });
+        } catch (vacationError) {
+            console.error('Fehler beim Laden der Urlaubsanträge:', vacationError);
+            // Wir setzen den Prozess fort, auch wenn die Urlaubsanträge nicht geladen werden konnten
+        }
 
         // Aktualisiere die Mitarbeiterliste
         employees.value = employeesData;
@@ -488,56 +502,21 @@ const fetchCalendarData = async () => {
         toast.add({
             severity: 'error',
             summary: 'Fehler',
-            detail: 'Die Kalenderdaten konnten nicht geladen werden. Verwende Fallback-Daten.',
+            detail: 'Die Kalenderdaten konnten nicht geladen werden.',
             life: 3000
         });
 
-        // Fallback-Daten
+        // Keine Fallback-Daten mehr verwenden, stattdessen leere Arrays
+        employees.value = [];
+        availableDepartments.value = [];
         eventTypes.value = [
             { name: 'Homeoffice', value: 'homeoffice', color: '#4CAF50' },
             { name: 'Büro', value: 'office', color: '#2196F3' },
             { name: 'Außendienst', value: 'field', color: '#FF9800' },
             { name: 'Krank', value: 'sick', color: '#F44336' },
             { name: 'Urlaub', value: 'vacation', color: '#9C27B0' },
+            { name: 'Geburtstag', value: 'birthday', color: '#FF4500' },
             { name: 'Sonstiges', value: 'other', color: '#607D8B' }
-        ];
-
-        employees.value = [
-            {
-                id: 1,
-                name: 'Max Mustermann',
-                department: 'Entwicklung',
-                events: [
-                    { date: dayjs().format('YYYY-MM-DD'), type: eventTypes.value[0], notes: 'Arbeitet an Projekt A' },
-                    { date: dayjs().add(1, 'day').format('YYYY-MM-DD'), type: eventTypes.value[0], notes: 'Arbeitet an Projekt A' }
-                ]
-            },
-            {
-                id: 2,
-                name: 'Anna Schmidt',
-                department: 'Marketing',
-                events: [
-                    { date: dayjs().format('YYYY-MM-DD'), type: eventTypes.value[1], notes: 'Meeting mit Kunden' },
-                    { date: dayjs().add(1, 'day').format('YYYY-MM-DD'), type: eventTypes.value[2], notes: 'Kundenbesuch' }
-                ]
-            },
-            {
-                id: 3,
-                name: 'Thomas Müller',
-                department: 'Vertrieb',
-                events: [
-                    { date: dayjs().format('YYYY-MM-DD'), type: eventTypes.value[2], notes: 'Kundenakquise' },
-                    { date: dayjs().add(2, 'day').format('YYYY-MM-DD'), type: eventTypes.value[1], notes: 'Teammeeting' }
-                ]
-            }
-        ];
-
-        availableDepartments.value = [
-            { id: 1, name: 'Entwicklung' },
-            { id: 2, name: 'Marketing' },
-            { id: 3, name: 'Vertrieb' },
-            { id: 4, name: 'Personal' },
-            { id: 5, name: 'Finanzen' }
         ];
     }
 };
@@ -555,6 +534,8 @@ const daysInMonth = computed(() => {
 
     return Array.from({ length: daysCount }, (_, i) => i + 1);
 });
+
+
 
 // Computed properties for week view
 const weekStart = computed(() => {
@@ -636,6 +617,37 @@ const departmentSummary = computed(() => {
 
     return Object.values(departments).filter(dept => dept.count > 0);
 });
+
+const renderCell = (employee, date) => {
+    const status = getEmployeeStatusForDay(employee, date);
+    const isBirthday = hasBirthdayOnDay(employee, date);
+
+    if (isBirthday) {
+        return {
+            class: 'birthday-cell',
+            style: {
+                backgroundColor: '#FFF0F0',
+                border: '2px solid #FF4500',
+                position: 'relative'
+            },
+            content: `<div class="birthday-icon" style="position: absolute; top: 2px; right: 2px; font-size: 12px;">🎂</div>`
+        };
+    }
+
+    if (status) {
+        return {
+            class: `status-${status.value}`,
+            style: { backgroundColor: status.color },
+            content: ''
+        };
+    }
+
+    return {
+        class: '',
+        style: {},
+        content: ''
+    };
+};
 
 // Zusammenfassung der Status mit Mitarbeiterzahlen für den aktuellen Zeitraum
 const statusSummary = computed(() => {
@@ -817,38 +829,53 @@ const getInitialsColor = (name) => {
 const getEmployeeStatusForDay = (employee, date) => {
     // Prüfen, ob es ein Wochenende ist
     const isWeekend = date.day() === 0 || date.day() === 6; // 0 = Sonntag, 6 = Samstag
-
     const dateStr = date.format('YYYY-MM-DD');
 
     // First check for exact date match
     const exactEvent = employee.events.find(e => e.date === dateStr);
     if (exactEvent) {
-        // Wenn es ein Wochenende ist und der Event-Typ Urlaub ist, dann ignorieren
-        if (isWeekend && exactEvent.type.value === 'vacation') {
-            return null;
+        // Wenn es ein Geburtstag oder ein sonstiges Ereignis ist, zeige es auch am Wochenende an
+        if (exactEvent.type.value === 'birthday' || exactEvent.type.value === 'other' || exactEvent.type.value === 'sonstiges') {
+            return exactEvent.type;
         }
-        return exactEvent.type;
+
+        // Für andere Ereignistypen (wie Urlaub) prüfen, ob es ein Wochenende ist
+        if (!isWeekend) {
+            return exactEvent.type;
+        }
     }
 
     // Then check for events that span multiple days
     for (const event of employee.events || []) {
-        // Wenn es ein Wochenende ist und der Event-Typ Urlaub ist, dann ignorieren
-        if (isWeekend && event.type && event.type.value === 'vacation') {
-            continue;
-        }
-
         // If this is a multi-day event (has start_date and end_date)
         if (event.start_date && event.end_date) {
             const startDate = dayjs(event.start_date);
             const endDate = dayjs(event.end_date);
             if (date.isSameOrAfter(startDate, 'day') && date.isSameOrBefore(endDate, 'day')) {
-                return event.type;
+                // Wenn es ein Geburtstag oder ein sonstiges Ereignis ist, zeige es auch am Wochenende an
+                if (event.type.value === 'birthday' || event.type.value === 'other' || event.type.value === 'sonstiges') {
+                    return event.type;
+                }
+
+                // Für andere Ereignistypen (wie Urlaub) prüfen, ob es ein Wochenende ist
+                if (!isWeekend) {
+                    return event.type;
+                }
             }
         }
     }
 
     return null;
 };
+
+// Füge eine Methode hinzu, um zu prüfen, ob ein Mitarbeiter an einem bestimmten Tag Geburtstag hat
+const hasBirthdayOnDay = (employee, date) => {
+    if (!employee.birth_date) return false;
+
+    const birthDate = dayjs(employee.birth_date);
+    return birthDate.month() === date.month() && birthDate.date() === date.date();
+};
+
 
 const getEmployeeStatusForMonthDay = (employee, dayNum) => {
     const date = getDayInMonth(dayNum);
@@ -1209,6 +1236,32 @@ onMounted(() => {
 /* Day View Styles */
 .day-view {
     width: 100%;
+}
+
+.birthday-cell {
+    position: relative;
+    transition: all 0.2s;
+}
+
+.birthday-cell {
+    position: relative;
+    transition: all 0.2s;
+}
+
+.birthday-cell:hover {
+    transform: scale(1.05);
+    z-index: 10;
+    box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+}
+
+.birthday-icon {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
 }
 
 .date-header {

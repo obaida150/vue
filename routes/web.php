@@ -88,6 +88,7 @@
 //});
 
 
+
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -167,14 +168,13 @@ Route::middleware([
 
 // Events API
     Route::get('/events', 'App\Http\Controllers\EventController@index')->name('api.events.index');
-    Route::post('/events', 'App\Http\Controllers\EventController@index')->name('api.events.index');
     Route::post('/events', 'App\Http\Controllers\EventController@store')->name('api.events.store');
     Route::get('/events/{id}', 'App\Http\Controllers\EventController@show')->name('api.events.show');
     Route::put('/events/{id}', 'App\Http\Controllers\EventController@update')->name('api.events.update');
     Route::delete('/events/{id}', 'App\Http\Controllers\EventController@destroy')->name('api.events.destroy');
 
-    // Benutzerverwaltung API (nur für Admin und HR)
-    // Temporär die Berechtigungsprüfung entfernen, um die Funktionalität zu testen
+// Benutzerverwaltung API (nur für Admin und HR)
+// Temporär die Berechtigungsprüfung entfernen, um die Funktionalität zu testen
     Route::get('/users', 'App\Http\Controllers\UserController@index')->name('api.users.index');
     Route::get('/users/{id}', 'App\Http\Controllers\UserController@show')->name('api.users.show');
     Route::post('/users', 'App\Http\Controllers\UserController@store')->name('api.users.store');
@@ -183,5 +183,9 @@ Route::middleware([
 
     Route::get('/departments', 'App\Http\Controllers\TeamController@index')->name('api.departments.index');
     Route::get('/roles', 'App\Http\Controllers\RoleController@index')->name('api.roles.index');
+
+    // Benachrichtigungen API
+    Route::get('/notifications/birthdays', 'App\Http\Controllers\NotificationController@getBirthdayNotifications')
+        ->name('api.notifications.birthdays');
 });
 

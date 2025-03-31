@@ -1,47 +1,37 @@
 import axios from "axios"
 
-// Konfiguriere Axios für CSRF-Schutz und Authentifizierung
-axios.defaults.withCredentials = true
-axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest"
-
-// CSRF-Token aus dem Meta-Tag holen
-const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")
-if (csrfToken) {
-    axios.defaults.headers.common["X-CSRF-TOKEN"] = csrfToken
-}
-
 export default {
-    // Fetch all users
+    // Alle Benutzer abrufen
     getUsers() {
         return axios.get("/api/users")
     },
 
-    // Get a specific user
+    // Einen bestimmten Benutzer abrufen
     getUser(id) {
         return axios.get(`/api/users/${id}`)
     },
 
-    // Create a new user
+    // Einen neuen Benutzer erstellen
     createUser(userData) {
         return axios.post("/api/users", userData)
     },
 
-    // Update a user
+    // Einen bestehenden Benutzer aktualisieren
     updateUser(id, userData) {
         return axios.put(`/api/users/${id}`, userData)
     },
 
-    // Delete a user
+    // Einen Benutzer löschen (deaktivieren)
     deleteUser(id) {
         return axios.delete(`/api/users/${id}`)
     },
 
-    // Get departments
+    // Alle Abteilungen abrufen
     getDepartments() {
         return axios.get("/api/departments")
     },
 
-    // Get roles
+    // Alle Rollen abrufen
     getRoles() {
         return axios.get("/api/roles")
     },
