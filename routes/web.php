@@ -87,11 +87,22 @@
 //    });
 //});
 
-
-
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\TestMail;
+use App\Mail\NewVacationRequest;
+use App\Models\VacationRequest;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventTypeController;
+use App\Http\Controllers\VacationController;
+use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\NotificationController;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Event;
+use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
@@ -111,6 +122,206 @@ Route::get('/', function () {
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
     ]);
+});
+
+// API Routes für die Daten
+Route::middleware([
+    'auth:sanctum',
+    config('jetstream.auth_session'),
+    'verified',
+])->prefix('api')->group(function () {
+// Urlaubsverwaltung API
+    Route::get('/vacation/user', [VacationController::class, 'getUserData'])->name('api.vacation.user');
+    Route::get('/vacation/yearly/{year}', [VacationController::class, 'getYearlyVacationData'])->name('api.vacation.yearly');
+    Route::get('/vacation/requests', [VacationController::class, 'getRequests'])->name('api.vacation.requests');
+    Route::get('/vacation/all-requests', [VacationController::class, 'getAllRequests'])->name('api.vacation.all-requests');
+    Route::get('/vacation/user-requests', [VacationController::class, 'getUserRequests'])->name('api.vacation.user-requests');
+    Route::post('/vacation/submit', [VacationController::class, 'submitRequest'])->name('api.vacation.submit');
+    Route::post('/vacation/approve/{id}', [VacationController::class, 'approveRequest'])->name('api.vacation.approve');
+    Route::post('/vacation/reject/{id}', [VacationController::class, 'rejectRequest'])->name('api.vacation.reject');
+
+// Kalender API
+    Route::get('/calendar/company', [CalendarController::class, 'getCompanyData'])->name('api.calendar.company');
+
+// Events API
+    Route::get('/events', [EventController::class, 'index'])->name('api.events.index');
+    Route::post('/events', [EventController::class, 'store'])->name('api.events.store');
+    Route::get('/events/{id}', [EventController::class, 'show'])->name('api.events.show');
+    Route::match(['put', 'post'], '/events/{id}', [EventController::class, 'update'])->name('api.events.update');
+    Route::delete('/events/{id}', [EventController::class, 'destroy'])->name('api.events.destroy');
+    Route::post('/events/{id}', [EventController::class, 'destroy'])->name('api.events.destroy.post');
+// Neue Route für die Wochenplanung
+    Route::post('/events/week-plan', [EventController::class, 'storeWeekPlan'])->name('api.events.week-plan');
+// Neue Routen für die Genehmigung/Ablehnung von Ereignissen
+    Route::post('/events/approve/{id}', [EventController::class, 'approveEvent'])->name('api.events.approve');
+    Route::post('/events/reject/{id}', [EventController::class, 'rejectEvent'])->name('api.events.reject');
+    Route::get('/events/pending', [EventController::class, 'getPendingEvents'])->name('api.events.pending');
+
+// Ereignistypen API - KORRIGIERT: Entfernen Sie das doppelte /api/ im Pfad
+    Route::get('/event-types', [EventTypeController::class, 'index'])->name('api.event-types.index');
+
+// Benachrichtigungen API
+    Route::get('/notifications/birthdays', [NotificationController::class, 'getBirthdayNotifications'])
+        ->name('api.notifications.birthdays');
+
+    Route::get('/events/{id}/delete', function($id) {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json(['error' => 'Nicht authentifiziert'], 401);
+            }
+
+            $event = Event::where(function($query) use ($user) {
+                $query->where('user_id', $user->id)
+                    ->orWhere('created_by', $user->id);
+            })->find($id);
+
+            if (!$event) {
+                return response()->json(['error' => 'Ereignis nicht gefunden oder Sie haben keine Berechtigung, es zu löschen.'], 404);
+            }
+
+            $event->delete();
+
+            return response()->json(['message' => 'Ereignis erfolgreich gelöscht']);
+        } catch (\Exception $e) {
+            \Log::error('Fehler beim Löschen des Ereignisses: ' . $e->getMessage(), [
+                'id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    })->middleware(['auth:sanctum']);
+
+    // Simplified route for creating events
+    Route::get('/events/create', function(Request $request) {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json(['error' => 'Nicht authentifiziert'], 401);
+            }
+
+            // Find event type
+            $eventType = \App\Models\EventType::where('name', $request->query('event_type'))->first();
+
+            if (!$eventType) {
+                // Try case-insensitive search
+                $eventType = \App\Models\EventType::whereRaw('LOWER(name) = ?', [strtolower($request->query('event_type'))])->first();
+
+                if (!$eventType) {
+                    // Default to "Sonstiges" if not found
+                    $eventType = \App\Models\EventType::where('name', 'Sonstiges')->first();
+
+                    if (!$eventType) {
+                        // Create a default event type if none exists
+                        $eventType = new \App\Models\EventType();
+                        $eventType->name = 'Sonstiges';
+                        $eventType->color = '#607D8B';
+                        $eventType->requires_approval = false;
+                        $eventType->save();
+                    }
+                }
+            }
+
+            // Create new event
+            $event = new \App\Models\Event();
+            $event->user_id = $user->id;
+            $event->created_by = $user->id;
+            $event->event_type_id = $eventType->id;
+            $event->title = $request->query('title');
+            $event->description = $request->query('description');
+            $event->start_date = $request->query('start_date');
+            $event->end_date = $request->query('end_date');
+            $event->is_all_day = $request->query('is_all_day') === '1';
+            $event->status = $eventType->requires_approval ? 'pending' : 'approved';
+
+            // Set team_id if available
+            if ($user->current_team_id) {
+                $event->team_id = $user->current_team_id;
+            }
+
+            $event->save();
+
+            return response()->json([
+                'message' => 'Ereignis erfolgreich erstellt',
+                'event' => $event
+            ], 201);
+        } catch (\Exception $e) {
+            \Log::error('Fehler beim Erstellen des Ereignisses: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    })->middleware(['auth:sanctum']);
+
+    // Simplified route for updating events
+    Route::get('/events/{id}/update', function(Request $request, $id) {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json(['error' => 'Nicht authentifiziert'], 401);
+            }
+
+            // Find the event
+            $event = \App\Models\Event::find($id);
+
+            if (!$event) {
+                return response()->json(['error' => 'Ereignis nicht gefunden'], 404);
+            }
+
+            // Find event type
+            $eventType = \App\Models\EventType::where('name', $request->query('event_type'))->first();
+
+            if (!$eventType) {
+                // Try case-insensitive search
+                $eventType = \App\Models\EventType::whereRaw('LOWER(name) = ?', [strtolower($request->query('event_type'))])->first();
+
+                if (!$eventType) {
+                    // Default to "Sonstiges" if not found
+                    $eventType = \App\Models\EventType::where('name', 'Sonstiges')->first();
+
+                    if (!$eventType) {
+                        // Create a default event type if none exists
+                        $eventType = new \App\Models\EventType();
+                        $eventType->name = 'Sonstiges';
+                        $eventType->color = '#607D8B';
+                        $eventType->requires_approval = false;
+                        $eventType->save();
+                    }
+                }
+            }
+
+            // Update event
+            $event->event_type_id = $eventType->id;
+            $event->title = $request->query('title');
+            $event->description = $request->query('description');
+            $event->start_date = $request->query('start_date');
+            $event->end_date = $request->query('end_date');
+            $event->is_all_day = $request->query('is_all_day') === '1';
+
+            // Update status if event type changed
+            if ($event->isDirty('event_type_id')) {
+                $event->status = $eventType->requires_approval ? 'pending' : 'approved';
+            }
+
+            $event->save();
+
+            return response()->json([
+                'message' => 'Ereignis erfolgreich aktualisiert',
+                'event' => $event
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Fehler beim Aktualisieren des Ereignisses: ' . $e->getMessage(), [
+                'id' => $id,
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    })->middleware(['auth:sanctum']);
 });
 
 Route::middleware([
@@ -138,54 +349,5 @@ Route::middleware([
     Route::get('/vacation/management', function () {
         return Inertia::render('Vacation/Management');
     })->name('vacation.management');
-
-// Benutzerverwaltung Routen (nur für Admin und HR)
-    Route::middleware(['auth:sanctum', 'verified'])->group(function () {
-        Route::get('/users', function () {
-            return Inertia::render('Users/Index');
-        })->name('users.index');
-    });
-});
-
-// API Routes für die Daten
-Route::middleware([
-    'auth:sanctum',
-    config('jetstream.auth_session'),
-    'verified',
-])->prefix('api')->group(function () {
-// Urlaubsverwaltung API
-    Route::get('/vacation/user', 'App\Http\Controllers\VacationController@getUserData')->name('api.vacation.user');
-    Route::get('/vacation/yearly/{year}', 'App\Http\Controllers\VacationController@getYearlyVacationData')->name('api.vacation.yearly');
-    Route::get('/vacation/requests', 'App\Http\Controllers\VacationController@getRequests')->name('api.vacation.requests');
-    Route::get('/vacation/all-requests', 'App\Http\Controllers\VacationController@getAllRequests')->name('api.vacation.all-requests');
-    Route::get('/vacation/user-requests', 'App\Http\Controllers\VacationController@getUserRequests')->name('api.vacation.user-requests');
-    Route::post('/vacation/submit', 'App\Http\Controllers\VacationController@submitRequest')->name('api.vacation.submit');
-    Route::post('/vacation/approve/{id}', 'App\Http\Controllers\VacationController@approveRequest')->name('api.vacation.approve');
-    Route::post('/vacation/reject/{id}', 'App\Http\Controllers\VacationController@rejectRequest')->name('api.vacation.reject');
-
-// Kalender API
-    Route::get('/calendar/company', 'App\Http\Controllers\CalendarController@getCompanyData')->name('api.calendar.company');
-
-// Events API
-    Route::get('/events', 'App\Http\Controllers\EventController@index')->name('api.events.index');
-    Route::post('/events', 'App\Http\Controllers\EventController@store')->name('api.events.store');
-    Route::get('/events/{id}', 'App\Http\Controllers\EventController@show')->name('api.events.show');
-    Route::put('/events/{id}', 'App\Http\Controllers\EventController@update')->name('api.events.update');
-    Route::delete('/events/{id}', 'App\Http\Controllers\EventController@destroy')->name('api.events.destroy');
-
-// Benutzerverwaltung API (nur für Admin und HR)
-// Temporär die Berechtigungsprüfung entfernen, um die Funktionalität zu testen
-    Route::get('/users', 'App\Http\Controllers\UserController@index')->name('api.users.index');
-    Route::get('/users/{id}', 'App\Http\Controllers\UserController@show')->name('api.users.show');
-    Route::post('/users', 'App\Http\Controllers\UserController@store')->name('api.users.store');
-    Route::put('/users/{id}', 'App\Http\Controllers\UserController@update')->name('api.users.update');
-    Route::delete('/users/{id}', 'App\Http\Controllers\UserController@destroy')->name('api.users.destroy');
-
-    Route::get('/departments', 'App\Http\Controllers\TeamController@index')->name('api.departments.index');
-    Route::get('/roles', 'App\Http\Controllers\RoleController@index')->name('api.roles.index');
-
-    // Benachrichtigungen API
-    Route::get('/notifications/birthdays', 'App\Http\Controllers\NotificationController@getBirthdayNotifications')
-        ->name('api.notifications.birthdays');
 });
 

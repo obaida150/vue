@@ -29,7 +29,7 @@ class Event extends Model
         'rejected_by',
         'rejected_date',
         'rejection_reason',
-        'created_by',
+        'created_by'
     ];
 
     /**
@@ -54,7 +54,7 @@ class Event extends Model
     }
 
     /**
-     * Get the team (department) that the event belongs to.
+     * Get the team that the event belongs to.
      */
     public function team()
     {
@@ -62,7 +62,7 @@ class Event extends Model
     }
 
     /**
-     * Get the event type for the event.
+     * Get the event type that owns the event.
      */
     public function eventType()
     {

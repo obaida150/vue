@@ -18,7 +18,7 @@ class EventType extends Model
         'name',
         'color',
         'description',
-        'requires_approval',
+        'requires_approval'
     ];
 
     /**

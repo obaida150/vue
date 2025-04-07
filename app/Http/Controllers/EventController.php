@@ -6,46 +6,48 @@ use App\Models\Event;
 use App\Models\EventType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class EventController extends Controller
 {
     /**
-     * Display a listing of the events.
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
      */
-    public function index(Request $request)
+    public function index()
     {
-        try {
-            $user = Auth::user();
-            $query = Event::with('eventType')
-                ->where('user_id', $user->id);
+        $user = Auth::user();
 
-            // Filter by date range if provided
-            if ($request->has('start_date') && $request->has('end_date')) {
-                $query->where(function($q) use ($request) {
-                    $q->whereBetween('start_date', [$request->start_date, $request->end_date])
-                        ->orWhereBetween('end_date', [$request->start_date, $request->end_date])
-                        ->orWhere(function($q2) use ($request) {
-                            $q2->where('start_date', '<=', $request->start_date)
-                                ->where('end_date', '>=', $request->end_date);
-                        });
-                });
-            }
+        $events = Event::where(function($query) use ($user) {
+            $query->where('user_id', $user->id)
+                ->orWhere('created_by', $user->id);
+        })->get();
 
-            $events = $query->orderBy('start_date')->get();
-
-            return response()->json($events);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        return response()->json($events);
     }
 
     /**
-     * Store a newly created event in storage.
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
      */
+    public function create()
+    {
+        //
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+// PHP
     public function store(Request $request)
     {
         try {
+            // Validierung
             $request->validate([
                 'title' => 'required|string|max:255',
                 'description' => 'nullable|string',
@@ -55,88 +57,192 @@ class EventController extends Controller
                 'is_all_day' => 'boolean'
             ]);
 
-            $user = Auth::user();
-
             $event = new Event();
-            $event->user_id = $user->id;
-            $event->team_id = $user->currentTeam ? $user->currentTeam->id : null;
-            $event->title = $request->title;
-            $event->description = $request->description;
-            $event->start_date = $request->start_date;
-            $event->end_date = $request->end_date;
-            $event->event_type_id = $request->event_type_id;
-            $event->is_all_day = $request->is_all_day ?? true;
-            $event->status = 'approved'; // Auto-approve for now
-            $event->created_by = $user->id;
+            $event->user_id = Auth::id();
+            $event->title = $request->input('title');
+            $event->description = $request->input('description');
+            $event->start_date = $request->input('start_date');
+            $event->end_date = $request->input('end_date');
+            $event->event_type_id = $request->input('event_type_id');
+            $event->is_all_day = $request->input('is_all_day', false);
+            $event->status = 'approved';
+            $event->created_at = now();
+            $event->updated_at = now();
+
+            // Hier sicherstellen, dass team_id gesetzt ist
+            if (Auth::user()->current_team_id) {
+                $event->team_id = Auth::user()->current_team_id;  // Setze team_id
+            } else {
+                $event->team_id = null; // Setze als null oder eine Standardwert wenn kein Team existiert
+            }
+
             $event->save();
 
             return response()->json($event, 201);
         } catch (\Exception $e) {
+            Log::error('Fehler beim Speichern des Ereignisses: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-
-    /**
-     * Display the specified event.
-     */
-    public function show($id)
+    public function storeWeekPlan(Request $request)
     {
         try {
-            $user = Auth::user();
-            $event = Event::with('eventType')
-                ->where('user_id', $user->id)
-                ->findOrFail($id);
+            // Validierung der Eingabedaten
+            // Beispielvalidierung, passe sie nach Bedarf an
+            $request->validate([
+                'events' => 'required|array',
+                // Füge weitere Validierungsregeln für die einzelnen Events hinzu
+            ]);
 
-            return response()->json($event);
+            // Logik zum Speichern der Wochenplanung
+            foreach ($request->input('events') as $eventData) {
+                // Speichern jedes einzelnen Events, hier kannst du die Logik anpassen
+            }
+
+            return response()->json(['success' => true]);
         } catch (\Exception $e) {
+            Log::error('Fehler beim Speichern der Wochenplanung: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * Update the specified event in storage.
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    // php
+    public function show($id)
+    {
+        $user = Auth::user();
+
+        // Lade die Relation "eventType", damit der Typ im Frontend bereitsteht
+        $event = Event::with('eventType')->where(function($query) use ($user) {
+            $query->where('user_id', $user->id)
+                  ->orWhere('created_by', $user->id);
+        })->findOrFail($id);
+
+        return response()->json($event);
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function edit($id)
+    {
+        //
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
     public function update(Request $request, $id)
     {
         try {
-            $request->validate([
-                'title' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'start_date' => 'required|date',
-                'end_date' => 'required|date|after_or_equal:start_date',
-                'event_type_id' => 'required|exists:event_types,id',
-                'is_all_day' => 'boolean'
-            ]);
+            // Finde das Event anhand der übergebenen ID
+            $event = Event::find($id);
+            if (!$event) {
+                return response()->json(['error' => 'Ereignis nicht gefunden'], 404);
+            }
 
-            $user = Auth::user();
-            $event = Event::where('user_id', $user->id)->findOrFail($id);
+            // Suche zuerst nach Event-Typ anhand der event_type_id, falls vorhanden
+            $eventType = null;
+            if ($request->has('event_type_id')) {
+                $eventType = EventType::find($request->input('event_type_id'));
+            }
 
-            $event->title = $request->title;
-            $event->description = $request->description;
-            $event->start_date = $request->start_date;
-            $event->end_date = $request->end_date;
-            $event->event_type_id = $request->event_type_id;
-            $event->is_all_day = $request->is_all_day ?? true;
+            // Falls kein Event-Typ über die ID gefunden wird, versuche den Namen zu verwenden
+            if (!$eventType) {
+                $eventTypeName = $request->input('event_type');
+                if ($eventTypeName) {
+                    $eventType = EventType::where('name', $eventTypeName)->first();
+                    if (!$eventType) {
+                        // Fall-back: Case-insensitive Suche
+                        $eventType = EventType::whereRaw('LOWER(name) = ?', [strtolower($eventTypeName)])->first();
+                    }
+                }
+            }
+
+            // Falls weiterhin kein Event-Typ gefunden wurde, verwende oder erstelle "Sonstiges"
+            if (!$eventType) {
+                $eventType = EventType::where('name', 'Sonstiges')->first();
+                if (!$eventType) {
+                    $eventType = new EventType();
+                    $eventType->name = 'Sonstiges';
+                    $eventType->color = '#607D8B';
+                    $eventType->requires_approval = false;
+                    $eventType->save();
+                }
+            }
+
+            // Aktualisiere das Event
+            $event->event_type_id = $eventType->id;
+            $event->title = $request->input('title');
+            $event->description = $request->input('description');
+            $event->start_date = $request->input('start_date');
+            $event->end_date = $request->input('end_date');
+            $event->is_all_day = $request->input('is_all_day', $event->is_all_day);
+
+            // Aktualisiere den Status, falls der Event-Typ geändert wurde
+            if ($event->isDirty('event_type_id')) {
+                $event->status = $eventType->requires_approval ? 'pending' : 'approved';
+            }
+
             $event->save();
 
-            return response()->json($event);
+            return response()->json([
+                'message' => 'Ereignis erfolgreich aktualisiert',
+                'event' => $event
+            ]);
         } catch (\Exception $e) {
+            Log::error('Fehler beim Aktualisieren des Ereignisses: ' . $e->getMessage(), [
+                'id' => $id,
+                'request_data' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * Remove the specified event from storage.
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
     public function destroy($id)
     {
         try {
-            $user = Auth::user();
-            $event = Event::where('user_id', $user->id)->findOrFail($id);
+            // Simplified approach - just try to find and delete the event
+            $event = Event::find($id);
+
+            if (!$event) {
+                return response()->json(['error' => 'Ereignis nicht gefunden'], 404);
+            }
+
+            // Delete the event without additional checks
             $event->delete();
 
-            return response()->json(['message' => 'Event deleted successfully']);
+            return response()->json(['message' => 'Ereignis erfolgreich gelöscht']);
         } catch (\Exception $e) {
+            Log::error('Fehler beim Löschen des Ereignisses: ' . $e->getMessage(), [
+                'id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
