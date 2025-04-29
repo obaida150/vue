@@ -98,11 +98,15 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventTypeController;
 use App\Http\Controllers\VacationController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Event;
 use Illuminate\Http\Request;
+use App\Models\Team;
+use App\Models\Role;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -349,5 +353,24 @@ Route::middleware([
     Route::get('/vacation/management', function () {
         return Inertia::render('Vacation/Management');
     })->name('vacation.management');
+
+    // Userverwaltung Routen
+    Route::get('/users', function (){
+        return Inertia::render('Users/Index');
+    })->name('users');
+//    Route::get('/users', [UserController::class, 'index']);
+//    Route::get('/users/{id}', [UserController::class, 'show']);
+//    Route::post('/users', [UserController::class, 'store']);
+//    Route::put('/users/{id}', [UserController::class, 'update']);
+//    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+//
+//// Add these routes for departments and roles
+//    Route::get('/departments', function() {
+//        return response()->json(Team::all());
+//    });
+//
+//    Route::get('/roles', function() {
+//        return response()->json(Role::all());
+//    });
 });
 

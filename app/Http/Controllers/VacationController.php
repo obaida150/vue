@@ -53,11 +53,21 @@ class VacationController extends Controller
                 $carryOver = min(10, $previousYearBalance->total_days - $previousYearBalance->used_days);
             }
 
+            // Korrigierte Berechnung der verbleibenden Tage
+            // Gesamtkontingent = Basis + Übertrag
+            $totalEntitlement = $vacationBalance->total_days + $carryOver;
+
+            // Verbleibende Tage = Gesamtkontingent - Bereits genommene Tage
+            $remainingDays = $totalEntitlement - $vacationBalance->used_days;
+
+            // Stellen sicher, dass verbleibende Tage nicht negativ werden
+            $remainingDays = max(0, $remainingDays);
+
             $stats = [
-                'total' => $vacationBalance->total_days + $carryOver,
+                'total' => $totalEntitlement,
                 'used' => $vacationBalance->used_days,
                 'planned' => $plannedDays,
-                'remaining' => $vacationBalance->total_days + $carryOver - $vacationBalance->used_days - $plannedDays,
+                'remaining' => $remainingDays,
                 'carryOver' => $carryOver
             ];
 
@@ -274,13 +284,18 @@ class VacationController extends Controller
                     ->sum('days');
             }
 
+            // Korrigierte Berechnung der verbleibenden Tage
+            $totalEntitlement = $vacationBalance->total_days + $carryOver;
+            $remainingDays = $totalEntitlement - $vacationBalance->used_days;
+            $remainingDays = max(0, $remainingDays);
+
             $stats = [
                 'baseEntitlement' => $vacationBalance->total_days,
                 'carryOver' => $carryOver,
-                'totalEntitlement' => $vacationBalance->total_days + $carryOver,
+                'totalEntitlement' => $totalEntitlement,
                 'used' => $vacationBalance->used_days,
                 'planned' => $plannedDays,
-                'remaining' => $vacationBalance->total_days + $carryOver - $vacationBalance->used_days - $plannedDays
+                'remaining' => $remainingDays
             ];
 
             // Urlaubsanträge für das angegebene Jahr
@@ -327,13 +342,12 @@ class VacationController extends Controller
             // Wenn der Benutzer Abteilungsleiter ist, nur Anträge seiner Abteilung anzeigen
             if ($role === 'Abteilungsleiter') {
                 $teamId = $user->currentTeam ? $user->currentTeam->id : 0;
-                $query->whereHas('user', function($q) use ($teamId) {
-                    $q->whereHas('teams', function($q2) use ($teamId) {
+                $query->whereHas('user', function ($q) use ($teamId) {
+                    $q->whereHas('teams', function ($q2) use ($teamId) {
                         $q2->where('teams.id', $teamId);
                     });
                 });
-            }
-            // Wenn der Benutzer weder HR noch Admin noch Abteilungsleiter ist, keine Daten zurückgeben
+            } // Wenn der Benutzer weder HR noch Admin noch Abteilungsleiter ist, keine Daten zurückgeben
             elseif ($role !== 'HR' && $role !== 'Admin') {
                 return response()->json([
                     'pending' => [],
@@ -428,10 +442,10 @@ class VacationController extends Controller
                 ->where('status', 'approved');
 
             if ($startDate && $endDate) {
-                $query->where(function($q) use ($startDate, $endDate) {
+                $query->where(function ($q) use ($startDate, $endDate) {
                     $q->whereBetween('start_date', [$startDate, $endDate])
                         ->orWhereBetween('end_date', [$startDate, $endDate])
-                        ->orWhere(function($q2) use ($startDate, $endDate) {
+                        ->orWhere(function ($q2) use ($startDate, $endDate) {
                             $q2->where('start_date', '<=', $startDate)
                                 ->where('end_date', '>=', $endDate);
                         });
@@ -482,8 +496,14 @@ class VacationController extends Controller
                 $vacationRequest = new VacationRequest();
                 $vacationRequest->user_id = $user->id;
                 $vacationRequest->team_id = $teamId;
-                $vacationRequest->start_date = $period['startDate'];
-                $vacationRequest->end_date = $period['endDate'];
+
+                // Fix: Ensure dates are stored correctly without timezone adjustment
+                // Convert the date strings to Carbon instances with the correct date
+                $startDate = Carbon::parse($period['startDate'])->startOfDay();
+                $endDate = Carbon::parse($period['endDate'])->startOfDay();
+
+                $vacationRequest->start_date = $startDate;
+                $vacationRequest->end_date = $endDate;
                 $vacationRequest->days = $period['days'];
                 $vacationRequest->substitute_id = $request->substitute;
                 $vacationRequest->notes = $request->notes;
@@ -617,4 +637,3 @@ class VacationController extends Controller
         }
     }
 }
-

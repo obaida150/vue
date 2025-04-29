@@ -180,305 +180,313 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import dayjs from 'dayjs';
-import 'dayjs/locale/de';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
-import Calendar from 'primevue/calendar';
-import InputNumber from 'primevue/inputnumber';
-import Dropdown from 'primevue/dropdown';
-import Textarea from 'primevue/textarea';
-import Button from 'primevue/button';
-import Toast from 'primevue/toast';
-import ProgressBar from 'primevue/progressbar';
-import Tag from 'primevue/tag';
-import { useToast } from 'primevue/usetoast';
-import VacationService from '@/Services/VacationService';
+import { ref, computed, onMounted, watch } from "vue"
+import dayjs from "dayjs"
+import "dayjs/locale/de"
+import axios from "axios"
+import isSameOrBefore from "dayjs/plugin/isSameOrBefore"
+import isSameOrAfter from "dayjs/plugin/isSameOrAfter"
+import Calendar from "primevue/calendar"
+import InputNumber from "primevue/inputnumber"
+import Dropdown from "primevue/dropdown"
+import Textarea from "primevue/textarea"
+import Button from "primevue/button"
+import Toast from "primevue/toast"
+import ProgressBar from "primevue/progressbar"
+import Tag from "primevue/tag"
+import { useToast } from "primevue/usetoast"
+import VacationService from "@/Services/VacationService"
 
-dayjs.extend(isSameOrBefore);
-dayjs.extend(isSameOrAfter);
-dayjs.locale('de');
+dayjs.extend(isSameOrBefore)
+dayjs.extend(isSameOrAfter)
+dayjs.locale("de")
 
 // Wir verwenden try-catch, um Fehler abzufangen, falls der Toast-Service nicht verfügbar ist
-let toast;
+let toast
 try {
-    toast = useToast();
+    toast = useToast()
 } catch (error) {
-    console.warn('Toast service not available, using fallback');
+    console.warn("Toast service not available, using fallback")
     // Fallback für den Toast-Service
     toast = {
-        add: (message) => console.log('Toast message:', message)
-    };
+        add: (message) => console.log("Toast message:", message),
+    }
 }
 
-const loading = ref(false);
+const loading = ref(false)
 
 // Urlaubsantrag Daten
 const vacationRequest = ref({
     substitute: null,
-    notes: ''
-});
+    notes: "",
+})
 
 // Urlaubszeiträume
 const vacationPeriods = ref([
     {
         startDate: null,
         endDate: null,
-        days: 0,
+        days: 1,
         errors: {
-            startDate: '',
-            endDate: ''
-        }
-    }
-]);
+            startDate: "",
+            endDate: "",
+        },
+    },
+])
 
 // Urlaubskontingent (wird vom Server geladen)
-const totalVacationDays = ref(0);
-const usedVacationDays = ref(0);
-const remainingVacationDays = computed(() => totalVacationDays.value - usedVacationDays.value);
+const totalVacationDays = ref(0)
+const usedVacationDays = ref(0)
+const remainingVacationDays = computed(() => totalVacationDays.value - usedVacationDays.value)
 
 // Berechnung des Prozentsatzes der verbrauchten Urlaubstage
 const usagePercentage = computed(() => {
-    return Math.round((usedVacationDays.value / totalVacationDays.value) * 100);
-});
+    return Math.round((usedVacationDays.value / totalVacationDays.value) * 100)
+})
 
 // Berechnung der Urlaubstage basierend auf Start- und Enddatum
 const calculateVacationDays = (startDate, endDate) => {
     if (!startDate || !endDate) {
-        return 0;
+        return 0
     }
 
-    const start = dayjs(startDate);
-    const end = dayjs(endDate);
-    let days = 0;
+    const start = dayjs(startDate)
+    const end = dayjs(endDate)
+    let days = 0
 
     // Zähle nur Werktage (Mo-Fr)
-    let current = start;
-    while (current.isSameOrBefore(end, 'day')) {
-        const dayOfWeek = current.day();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
-            days++;
+    let current = start
+    while (current.isSameOrBefore(end, "day")) {
+        const dayOfWeek = current.day()
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            // Nicht Sonntag und nicht Samstag
+            days++
         }
-        current = current.add(1, 'day');
+        current = current.add(1, "day")
     }
 
-    return days;
-};
+    return days
+}
 
 // Aktualisiere die Tage für jeden Zeitraum, wenn sich die Daten ändern
 const updateVacationDays = () => {
-    vacationPeriods.value.forEach(period => {
-        period.days = calculateVacationDays(period.startDate, period.endDate);
-    });
-};
+    vacationPeriods.value.forEach((period) => {
+        period.days = calculateVacationDays(period.startDate, period.endDate)
+    })
+}
 
 // Gesamtzahl der beantragten Urlaubstage
 const totalRequestedDays = computed(() => {
-    return vacationPeriods.value.reduce((total, period) => total + period.days, 0);
-});
+    return vacationPeriods.value.reduce((total, period) => total + period.days, 0)
+})
 
 // Kann weitere Zeiträume hinzufügen?
 const canAddMorePeriods = computed(() => {
-    return vacationPeriods.value.length < 5 && // Maximal 5 Zeiträume
-        vacationPeriods.value.every(period => period.startDate && period.endDate); // Alle vorhandenen Zeiträume müssen vollständig sein
-});
+    return (
+        vacationPeriods.value.length < 5 && // Maximal 5 Zeiträume
+        vacationPeriods.value.every((period) => period.startDate && period.endDate)
+    ) // Alle vorhandenen Zeiträume müssen vollständig sein
+})
 
 // Hinzufügen eines neuen Zeitraums
 const addPeriod = () => {
-    if (!canAddMorePeriods.value) return;
+    if (!canAddMorePeriods.value) return
 
     vacationPeriods.value.push({
         startDate: null,
         endDate: null,
-        days: 0,
+        days: 1,
         errors: {
-            startDate: '',
-            endDate: ''
-        }
-    });
-};
+            startDate: "",
+            endDate: "",
+        },
+    })
+}
 
 // Entfernen eines Zeitraums
 const removePeriod = (index) => {
     if (vacationPeriods.value.length > 1) {
-        vacationPeriods.value.splice(index, 1);
+        vacationPeriods.value.splice(index, 1)
     }
-};
+}
 
 // Bereits gebuchte Urlaubstage (würde normalerweise vom Server geladen)
 const bookedVacationDates = ref([
     { start: new Date(2025, 2, 10), end: new Date(2025, 2, 15) },
-    { start: new Date(2025, 4, 1), end: new Date(2025, 4, 5) }
-]);
+    { start: new Date(2025, 4, 1), end: new Date(2025, 4, 5) },
+])
 
 // Deaktivierte Daten für den Kalender (bereits gebuchte Urlaubstage)
 const disabledDates = computed(() => {
-    const dates = [];
-    bookedVacationDates.value.forEach(vacation => {
-        let current = dayjs(vacation.start);
-        const end = dayjs(vacation.end);
+    const dates = []
+    bookedVacationDates.value.forEach((vacation) => {
+        let current = dayjs(vacation.start)
+        const end = dayjs(vacation.end)
 
-        while (current.isSameOrBefore(end, 'day')) {
-            dates.push(new Date(current.year(), current.month(), current.date()));
-            current = current.add(1, 'day');
+        while (current.isSameOrBefore(end, "day")) {
+            dates.push(new Date(current.year(), current.month(), current.date()))
+            current = current.add(1, "day")
         }
-    });
+    })
 
-    return dates;
-});
+    return dates
+})
 
 // Verfügbare Vertretungen (würde normalerweise vom Server geladen)
 const availableSubstitutes = ref([
-    { id: 1, name: 'Anna Schmidt', department: 'Marketing' },
-    { id: 2, name: 'Thomas Müller', department: 'Vertrieb' },
-    { id: 3, name: 'Julia Weber', department: 'Personal' }
-]);
+    { id: 1, name: "Anna Schmidt", department: "Marketing" },
+    { id: 2, name: "Thomas Müller", department: "Vertrieb" },
+    { id: 3, name: "Julia Weber", department: "Personal" },
+])
 
 // Formularvalidierung
 const isFormValid = computed(() => {
     // Prüfe, ob alle Zeiträume gültig sind
-    const allPeriodsValid = vacationPeriods.value.every(period =>
-        period.startDate &&
-        period.endDate &&
-        period.days > 0
-    );
+    const allPeriodsValid = vacationPeriods.value.every((period) => period.startDate && period.endDate && period.days > 0)
 
     // Prüfe, ob genügend Urlaubstage verfügbar sind
-    const enoughDaysAvailable = totalRequestedDays.value <= remainingVacationDays.value;
+    const enoughDaysAvailable = totalRequestedDays.value <= remainingVacationDays.value
 
-    return allPeriodsValid && enoughDaysAvailable;
-});
+    return allPeriodsValid && enoughDaysAvailable
+})
 
 // Formatierungsfunktion für Datum
 const formatDate = (date) => {
-    if (!date) return '-';
-    return dayjs(date).format('DD.MM.YYYY');
-};
+    if (!date) return "-"
+    return dayjs(date).format("DD.MM.YYYY")
+}
 
 // Daten vom Server laden
 const fetchVacationData = async () => {
     try {
-        const response = await VacationService.getUserVacationData();
-        totalVacationDays.value = response.data.stats.total;
-        usedVacationDays.value = response.data.stats.used;
-        bookedVacationDates.value = response.data.bookedDates;
-        availableSubstitutes.value = response.data.substitutes;
+        const response = await VacationService.getUserVacationData()
+        totalVacationDays.value = response.data.stats.total
+        usedVacationDays.value = response.data.stats.used
+        bookedVacationDates.value = response.data.bookedDates
+        availableSubstitutes.value = response.data.substitutes
     } catch (error) {
-        console.error('Fehler beim Laden der Urlaubsdaten:', error);
+        console.error("Fehler beim Laden der Urlaubsdaten:", error)
         toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Die Urlaubsdaten konnten nicht geladen werden.',
-            life: 3000
-        });
+            severity: "error",
+            summary: "Fehler",
+            detail: "Die Urlaubsdaten konnten nicht geladen werden.",
+            life: 3000,
+        })
     }
-};
+}
 
 // Urlaubsantrag absenden
 const submitVacationRequest = async () => {
     // Validierung zurücksetzen
-    vacationPeriods.value.forEach(period => {
-        period.errors.startDate = '';
-        period.errors.endDate = '';
-    });
+    vacationPeriods.value.forEach((period) => {
+        period.errors.startDate = ""
+        period.errors.endDate = ""
+    })
 
     // Validierung durchführen
-    let isValid = true;
+    let isValid = true
 
-    vacationPeriods.value.forEach(period => {
+    vacationPeriods.value.forEach((period) => {
         if (!period.startDate) {
-            period.errors.startDate = 'Bitte wählen Sie ein Startdatum aus.';
-            isValid = false;
+            period.errors.startDate = "Bitte wählen Sie ein Startdatum aus."
+            isValid = false
         }
 
         if (!period.endDate) {
-            period.errors.endDate = 'Bitte wählen Sie ein Enddatum aus.';
-            isValid = false;
+            period.errors.endDate = "Bitte wählen Sie ein Enddatum aus."
+            isValid = false
         }
-    });
+    })
 
     if (!isValid) {
-        return;
+        return
     }
 
     if (totalRequestedDays.value > remainingVacationDays.value) {
         toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Sie haben nicht genügend Urlaubstage übrig.',
-            life: 3000
-        });
-        return;
+            severity: "error",
+            summary: "Fehler",
+            detail: "Sie haben nicht genügend Urlaubstage übrig.",
+            life: 3000,
+        })
+        return
     }
 
-    loading.value = true;
+    loading.value = true
 
     try {
         // Daten für den API-Aufruf vorbereiten
         const requestData = {
-            periods: vacationPeriods.value.map(period => ({
-                startDate: period.startDate,
-                endDate: period.endDate,
-                days: period.days
+            periods: vacationPeriods.value.map((period) => ({
+                // Format dates to ensure they're interpreted correctly by the server
+                startDate: period.startDate ? dayjs(period.startDate).format("YYYY-MM-DD") : null,
+                endDate: period.endDate ? dayjs(period.endDate).format("YYYY-MM-DD") : null,
+                days: period.days,
             })),
             substitute: vacationRequest.value.substitute ? vacationRequest.value.substitute.id : null,
-            notes: vacationRequest.value.notes
-        };
+            notes: vacationRequest.value.notes,
+        }
 
         // API-Aufruf
-        await VacationService.submitVacationRequest(requestData);
+        await VacationService.submitVacationRequest(requestData)
 
         // Erfolgreiche Antwort
         toast.add({
-            severity: 'success',
-            summary: 'Erfolg',
-            detail: 'Ihr Urlaubsantrag wurde erfolgreich gesendet und wird nun geprüft.',
-            life: 3000
-        });
+            severity: "success",
+            summary: "Erfolg",
+            detail: "Ihr Urlaubsantrag wurde erfolgreich gesendet und wird nun geprüft.",
+            life: 3000,
+        })
 
         // Formular zurücksetzen
         vacationRequest.value = {
             substitute: null,
-            notes: ''
-        };
+            notes: "",
+        }
 
-        vacationPeriods.value = [{
-            startDate: null,
-            endDate: null,
-            days: 0,
-            errors: {
-                startDate: '',
-                endDate: ''
-            }
-        }];
+        vacationPeriods.value = [
+            {
+                startDate: null,
+                endDate: null,
+                days: 0,
+                errors: {
+                    startDate: "",
+                    endDate: "",
+                },
+            },
+        ]
 
         // Event emittieren, um die übergeordnete Komponente zu informieren
-        emit('submitted');
+        emit("submitted")
     } catch (error) {
         toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
-            life: 3000
-        });
+            severity: "error",
+            summary: "Fehler",
+            detail: "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.",
+            life: 3000,
+        })
     } finally {
-        loading.value = false;
+        loading.value = false
     }
-};
+}
 
 // Emits
-const emit = defineEmits(['cancel', 'submitted']);
+const emit = defineEmits(["cancel", "submitted"])
 
 // Beobachte Änderungen an den Zeiträumen
-watch(vacationPeriods, () => {
-    updateVacationDays();
-}, { deep: true });
+watch(
+    vacationPeriods,
+    () => {
+        updateVacationDays()
+    },
+    { deep: true },
+)
 
 // Komponente initialisieren
 onMounted(() => {
-    fetchVacationData();
-});
+    fetchVacationData()
+})
+
 </script>
 
 <style scoped>

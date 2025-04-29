@@ -355,87 +355,75 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
-import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
-import AppLayout from '@/Layouts/AppLayout.vue';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
-import Button from 'primevue/button';
-import InputText from 'primevue/inputtext';
-import Dialog from 'primevue/dialog';
-import Tabs from 'primevue/tabs';
-import TabPanel from 'primevue/tabpanel';
-import ProgressBar from 'primevue/progressbar';
-import Tag from 'primevue/tag';
-import Toast from 'primevue/toast';
-import { useToast } from 'primevue/usetoast';
-import dayjs from 'dayjs';
-import 'dayjs/locale/de';
-import VacationRequest from '@/Components/Vacation/VacationRequest.vue';
-import FullCalendar from '@fullcalendar/vue3';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import deLocale from '@fullcalendar/core/locales/de';
-import VacationService from '@/Services/VacationService';
-import Chart from 'primevue/chart';
-import Dropdown from 'primevue/dropdown';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue"
+import { FilterMatchMode, FilterOperator } from "@primevue/core/api"
+import AppLayout from "@/Layouts/AppLayout.vue"
+import DataTable from "primevue/datatable"
+import Column from "primevue/column"
+import Button from "primevue/button"
+import InputText from "primevue/inputtext"
+import Dialog from "primevue/dialog"
+import Tabs from "primevue/tabs"
+import TabPanel from "primevue/tabpanel"
+import ProgressBar from "primevue/progressbar"
+import Tag from "primevue/tag"
+import Toast from "primevue/toast"
+import { useToast } from "primevue/usetoast"
+import dayjs from "dayjs"
+import "dayjs/locale/de"
+import VacationRequest from "@/Components/Vacation/VacationRequest.vue"
+import FullCalendar from "@fullcalendar/vue3"
+import dayGridPlugin from "@fullcalendar/daygrid"
+import timeGridPlugin from "@fullcalendar/timegrid"
+import interactionPlugin from "@fullcalendar/interaction"
+import deLocale from "@fullcalendar/core/locales/de"
+import VacationService from "@/Services/VacationService"
+import Chart from "primevue/chart"
+import Dropdown from "primevue/dropdown"
 
-dayjs.locale('de');
-
-// Wir verwenden try-catch, um Fehler abzufangen, falls der Toast-Service nicht verfügbar ist
-let toast;
-try {
-    toast = useToast();
-} catch (error) {
-    console.warn('Toast service not available, using fallback');
-// Fallback für den Toast-Service
-    toast = {
-        add: (message) => console.log('Toast message:', message)
-    };
-}
+dayjs.locale("de")
 
 // Zustand
-const loading = ref(false);
-const showVacationRequestForm = ref(false);
-const showRequestDetails = ref(false);
-const selectedRequest = ref(null);
+const loading = ref(false)
+const showVacationRequestForm = ref(false)
+const showRequestDetails = ref(false)
+const selectedRequest = ref(null)
 
 // Filter für DataTable
 const filters = ref({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
-});
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+})
 
 // Für die Urlaubsstatistik
-const selectedStatYear = ref(new Date().getFullYear());
-const availableYears = ref([]);
+const selectedStatYear = ref(new Date().getFullYear())
+const availableYears = ref([])
 const yearlyStats = ref({
     baseEntitlement: 0,
     carryOver: 0,
     totalEntitlement: 0,
     used: 0,
     planned: 0,
-    remaining: 0
-});
-const previousYear = ref(new Date().getFullYear() - 1);
+    remaining: 0,
+})
+const previousYear = ref(new Date().getFullYear() - 1)
 
 // Urlaubshistorie
-const vacationHistory = ref([]);
+const vacationHistory = ref([])
 
 // Urlaubsdetails für das ausgewählte Jahr
-const yearVacationDetails = ref([]);
+const yearVacationDetails = ref([])
 
 // Daten für das Balkendiagramm
 const monthlyChartData = ref({
-    labels: ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'],
+    labels: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
     datasets: [
         {
-            label: 'Urlaubstage',
-            backgroundColor: '#42A5F5',
-            data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        }
-    ]
-});
+            label: "Urlaubstage",
+            backgroundColor: "#42A5F5",
+            data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        },
+    ],
+})
 
 // Optionen für das Balkendiagramm
 const chartOptions = ref({
@@ -445,11 +433,11 @@ const chartOptions = ref({
         y: {
             beginAtZero: true,
             ticks: {
-                stepSize: 1
-            }
-        }
-    }
-});
+                stepSize: 1,
+            },
+        },
+    },
+})
 
 // Aktualisieren Sie die vacationStats, um die übertragenen Tage einzubeziehen
 const vacationStats = ref({
@@ -457,153 +445,172 @@ const vacationStats = ref({
     used: 0,
     planned: 0,
     remaining: 0,
-    carryOver: 0
-});
+    carryOver: 0,
+})
 
 // Berechneter Prozentsatz der verbrauchten Urlaubstage
 const vacationUsagePercentage = computed(() => {
-    const used = vacationStats.value.used + vacationStats.value.planned;
-    const total = vacationStats.value.total;
-    return total > 0 ? Math.round((used / total) * 100) : 0;
-});
+    const used = vacationStats.value.used
+    const total = vacationStats.value.total
+
+    // Stellen Sie sicher, dass wir nicht durch Null teilen und begrenzen Sie den Prozentsatz auf maximal 100%
+    if (total <= 0) return 0
+    return Math.min(Math.round((used / total) * 100), 100)
+})
 
 // Urlaubsanträge
-const myVacationRequests = ref([]);
+const myVacationRequests = ref([])
 
 // Kalender-Konfiguration
 const calendarOptions = ref({
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
-    initialView: 'dayGridMonth',
+    initialView: "dayGridMonth",
     headerToolbar: {
-        left: 'prev,next today',
-        center: 'title',
-        right: 'dayGridMonth,timeGridWeek'
+        left: "prev,next today",
+        center: "title",
+        right: "dayGridMonth,timeGridWeek",
     },
     locale: deLocale,
     events: [],
-    eventClick: info => {
+    eventClick: (info) => {
         // Zeige Details zum angeklickten Urlaub
-        const request = myVacationRequests.value.find(req => req.id === parseInt(info.event.id));
+        const request = myVacationRequests.value.find((req) => req.id === parseInt(info.event.id))
         if (request) {
-            viewRequestDetails(request);
+            viewRequestDetails(request)
         }
-    }
-});
+    },
+})
 
 // Formatierungsfunktionen
 const formatDate = (date) => {
-    return dayjs(date).format('DD.MM.YYYY');
-};
+    return dayjs(date).format("DD.MM.YYYY")
+}
 
 const getStatusLabel = (status) => {
     switch (status) {
-        case 'pending': return 'Ausstehend';
-        case 'approved': return 'Genehmigt';
-        case 'rejected': return 'Abgelehnt';
-        default: return status;
+        case "pending":
+            return "Ausstehend"
+        case "approved":
+            return "Genehmigt"
+        case "rejected":
+            return "Abgelehnt"
+        default:
+            return status
     }
-};
+}
 
 const getStatusSeverity = (status) => {
     switch (status) {
-        case 'pending': return 'warning';
-        case 'approved': return 'success';
-        case 'rejected': return 'danger';
-        default: return 'info';
+        case "pending":
+            return "warning"
+        case "approved":
+            return "success"
+        case "rejected":
+            return "danger"
+        default:
+            return "info"
     }
-};
+}
 
 // Aktionen
 const viewRequestDetails = (request) => {
-    selectedRequest.value = request;
-    showRequestDetails.value = true;
-};
+    selectedRequest.value = request
+    showRequestDetails.value = true
+}
 
 const cancelRequest = async (request) => {
     try {
         // Hier würde normalerweise der API-Aufruf stattfinden
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000))
 
         // Antrag aus der Liste entfernen
-        const index = myVacationRequests.value.findIndex(req => req.id === request.id);
+        const index = myVacationRequests.value.findIndex((req) => req.id === request.id)
         if (index !== -1) {
-            myVacationRequests.value.splice(index, 1);
+            myVacationRequests.value.splice(index, 1)
         }
 
         // Urlaubsstatistik aktualisieren
-        vacationStats.value.planned -= request.days;
-        vacationStats.value.remaining += request.days;
+        vacationStats.value.planned -= request.days
+        vacationStats.value.remaining += request.days
 
         // Kalender aktualisieren
-        updateCalendarEvents();
+        updateCalendarEvents()
 
         toast.add({
-            severity: 'success',
-            summary: 'Erfolg',
-            detail: 'Ihr Urlaubsantrag wurde zurückgezogen.',
-            life: 3000
-        });
+            severity: "success",
+            summary: "Erfolg",
+            detail: "Ihr Urlaubsantrag wurde zurückgezogen.",
+            life: 3000,
+        })
     } catch (error) {
         toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
-            life: 3000
-        });
+            severity: "error",
+            summary: "Fehler",
+            detail: "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.",
+            life: 3000,
+        })
     }
-};
+}
 
 const handleVacationRequestSubmitted = () => {
-    showVacationRequestForm.value = false;
-// Daten neu laden
-    fetchVacationData();
-};
+    showVacationRequestForm.value = false
+    // Daten neu laden
+    fetchVacationData()
+}
 
 // Kalender-Funktionen
 const updateCalendarEvents = () => {
-    const events = [];
+    const events = []
 
-    myVacationRequests.value.forEach(request => {
-        let color;
+    myVacationRequests.value.forEach((request) => {
+        let color
         switch (request.status) {
-            case 'pending': color = '#f59e0b'; break; // Amber
-            case 'approved': color = '#9C27B0'; break; // Purple (für Urlaub)
-            case 'rejected': color = '#ef4444'; break; // Red
-            default: color = '#3b82f6'; break; // Blue
+            case "pending":
+                color = "#f59e0b"
+                break // Amber
+            case "approved":
+                color = "#9C27B0"
+                break // Purple (für Urlaub)
+            case "rejected":
+                color = "#ef4444"
+                break // Red
+            default:
+                color = "#3b82f6"
+                break // Blue
         }
 
         events.push({
             id: request.id.toString(),
             title: getStatusLabel(request.status),
             start: request.startDate,
-            end: dayjs(request.endDate).add(1, 'day').toDate(), // FullCalendar ist exklusiv für Enddatum
+            end: dayjs(request.endDate).add(1, "day").toDate(), // FullCalendar ist exklusiv für Enddatum
             allDay: true,
             backgroundColor: color,
             borderColor: color,
             extendedProps: {
-                status: request.status
-            }
-        });
-    });
+                status: request.status,
+            },
+        })
+    })
 
     if (calendarOptions.value) {
-        calendarOptions.value.events = events;
+        calendarOptions.value.events = events
     }
-};
+}
 
 // Bereinige Ressourcen vor dem Unmount
 onBeforeUnmount(() => {
-// Entferne alle Event-Listener oder Referenzen, die Probleme verursachen könnten
+    // Entferne alle Event-Listener oder Referenzen, die Probleme verursachen könnten
     if (calendarOptions.value && calendarOptions.value.events) {
-        calendarOptions.value.events = [];
+        calendarOptions.value.events = []
     }
-});
+})
 
 // Urlaubshistorie und Statistik
 const fetchVacationData = async () => {
-    loading.value = true;
+    loading.value = true
     try {
-        const response = await VacationService.getUserVacationData();
+        const response = await VacationService.getUserVacationData()
 
         // Aktualisiere die Urlaubsstatistik mit den übertragenen Tagen
         vacationStats.value = {
@@ -611,102 +618,114 @@ const fetchVacationData = async () => {
             used: response.data.stats.used,
             planned: response.data.stats.planned,
             remaining: response.data.stats.remaining,
-            carryOver: response.data.stats.carryOver || 0 // Übertragene Tage aus dem Vorjahr
-        };
+            carryOver: response.data.stats.carryOver || 0, // Übertragene Tage aus dem Vorjahr
+        }
 
-        myVacationRequests.value = response.data.requests;
+        myVacationRequests.value = response.data.requests
 
         // Urlaubshistorie laden
         if (response.data.history) {
-            vacationHistory.value = response.data.history;
+            vacationHistory.value = response.data.history
         }
 
         // Aktualisiere die Daten für das aktuelle Jahr in der Statistik
         if (response.data.yearlyStats) {
-            yearlyStats.value = response.data.yearlyStats[selectedStatYear.value] || yearlyStats.value;
+            yearlyStats.value = response.data.yearlyStats[selectedStatYear.value] || yearlyStats.value
         }
 
         // Aktualisiere die Urlaubsdetails für das ausgewählte Jahr
         if (response.data.yearVacationDetails) {
-            yearVacationDetails.value = response.data.yearVacationDetails[selectedStatYear.value] || yearVacationDetails.value;
+            yearVacationDetails.value = response.data.yearVacationDetails[selectedStatYear.value] || yearVacationDetails.value
         }
 
         // Aktualisiere die Daten für das Balkendiagramm
         if (response.data.monthlyStats) {
-            const monthlyData = response.data.monthlyStats[selectedStatYear.value] || Array(12).fill(0);
-            monthlyChartData.value.datasets[0].data = monthlyData;
+            const monthlyData = response.data.monthlyStats[selectedStatYear.value] || Array(12).fill(0)
+            monthlyChartData.value.datasets[0].data = monthlyData
         }
 
-        updateCalendarEvents();
+        updateCalendarEvents()
     } catch (error) {
-        console.error('Fehler beim Laden der Urlaubsdaten:', error);
+        console.error("Fehler beim Laden der Urlaubsdaten:", error)
         toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Die Urlaubsdaten konnten nicht geladen werden.',
-            life: 3000
-        });
+            severity: "error",
+            summary: "Fehler",
+            detail: "Die Urlaubsdaten konnten nicht geladen werden.",
+            life: 3000,
+        })
     } finally {
-        loading.value = false;
+        loading.value = false
     }
-};
+}
 
 const updateYearlyStats = async () => {
-    if (!selectedStatYear.value) return;
+    if (!selectedStatYear.value) return
 
     try {
-        const response = await VacationService.getYearlyVacationData(selectedStatYear.value);
-        yearVacationDetails.value = response.data.details;
-        yearlyStats.value = response.data.stats;
+        const response = await VacationService.getYearlyVacationData(selectedStatYear.value)
+        yearVacationDetails.value = response.data.details
+        yearlyStats.value = response.data.stats
 
         // Aktualisiere die Daten für das Balkendiagramm
         // Hier müssten wir eigentlich die Daten vom Server laden, aber wir verwenden die vorhandenen Daten
         if (monthlyChartData.value && monthlyChartData.value.datasets && monthlyChartData.value.datasets.length > 0) {
             // Berechne die monatlichen Urlaubstage aus den Urlaubsdetails
-            const monthlyData = Array(12).fill(0);
+            const monthlyData = Array(12).fill(0)
 
-            yearVacationDetails.value.forEach(detail => {
-                if (detail.status === 'approved') {
+            yearVacationDetails.value.forEach((detail) => {
+                if (detail.status === "approved") {
                     // Extrahiere den Monat aus dem Zeitraum (Format: "01.03.2024 - 05.03.2024")
-                    const periodParts = detail.period.split(' - ');
+                    const periodParts = detail.period.split(" - ")
                     if (periodParts.length === 2) {
-                        const startDateParts = periodParts[0].split('.');
+                        const startDateParts = periodParts[0].split(".")
                         if (startDateParts.length === 3) {
-                            const month = parseInt(startDateParts[1]) - 1; // 0-basierter Index
-                            monthlyData[month] += detail.days;
+                            const month = parseInt(startDateParts[1]) - 1 // 0-basierter Index
+                            monthlyData[month] += detail.days
                         }
                     }
                 }
-            });
+            })
 
-            monthlyChartData.value.datasets[0].data = monthlyData;
+            monthlyChartData.value.datasets[0].data = monthlyData
         }
     } catch (error) {
-        console.error('Fehler beim Laden der Jahresstatistik:', error);
+        console.error("Fehler beim Laden der Jahresstatistik:", error)
         toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Die Jahresstatistik konnte nicht geladen werden.',
-            life: 3000
-        });
+            severity: "error",
+            summary: "Fehler",
+            detail: "Die Jahresstatistik konnte nicht geladen werden.",
+            life: 3000,
+        })
     }
-};
+}
+
+// Wir verwenden try-catch, um Fehler abzufangen, falls der Toast-Service nicht verfügbar ist
+let toast
+try {
+    toast = useToast()
+} catch (error) {
+    console.warn("Toast service not available, using fallback")
+    // Fallback für den Toast-Service
+    toast = {
+        add: (message) => console.log("Toast message:", message),
+    }
+}
 
 onMounted(() => {
-    fetchVacationData();
+    fetchVacationData()
 
-// Verfügbare Jahre für die Statistik laden
-    const currentYear = new Date().getFullYear();
+    // Verfügbare Jahre für die Statistik laden
+    const currentYear = new Date().getFullYear()
     for (let year = currentYear - 5; year <= currentYear; year++) {
-        availableYears.value.push({ name: year.toString(), value: year });
+        availableYears.value.push({ name: year.toString(), value: year })
     }
-    selectedStatYear.value = currentYear;
-});
+    selectedStatYear.value = currentYear
+})
 
 // Beobachte Änderungen am ausgewählten Jahr und aktualisiere die Daten entsprechend
 watch(selectedStatYear, (newYear) => {
-    updateYearlyStats();
-});
+    updateYearlyStats()
+})
 </script>
 
 <style scoped>
