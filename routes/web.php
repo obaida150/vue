@@ -141,6 +141,7 @@ Route::middleware([
     Route::get('/vacation/all-requests', [VacationController::class, 'getAllRequests'])->name('api.vacation.all-requests');
     Route::get('/vacation/user-requests', [VacationController::class, 'getUserRequests'])->name('api.vacation.user-requests');
     Route::post('/vacation/submit', [VacationController::class, 'submitRequest'])->name('api.vacation.submit');
+    Route::post('/vacation/cancel/{id}', [VacationController::class, 'cancelRequest'])->name('api.vacation.cancel');
     Route::post('/vacation/approve/{id}', [VacationController::class, 'approveRequest'])->name('api.vacation.approve');
     Route::post('/vacation/reject/{id}', [VacationController::class, 'rejectRequest'])->name('api.vacation.reject');
 
@@ -353,6 +354,7 @@ Route::middleware([
     Route::get('/vacation/management', function () {
         return Inertia::render('Vacation/Management');
     })->name('vacation.management');
+
 
     // Userverwaltung Routen
     Route::get('/users', function (){

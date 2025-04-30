@@ -497,6 +497,7 @@ Route::post('/events', function(Request $request) {
     Route::post('/events/week-plan', [EventController::class, 'storeWeekPlan'])->name('api.events.week-plan');
 
     // Urlaubs-Routen
+    Route::middleware('auth:sanctum')->post('/vacation/cancel/{id}', [VacationController::class, 'cancelRequest'])->name('api.vacation.cancel');
     Route::get('/vacation/balance', [VacationController::class, 'getUserBalance']);
     Route::get('/vacation/requests', [VacationController::class, 'getUserRequests']);
     Route::get('/teams/{team}/vacation-requests', [VacationController::class, 'getTeamRequests']);

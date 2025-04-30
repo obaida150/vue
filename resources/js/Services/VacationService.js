@@ -35,5 +35,9 @@ export default {
     rejectVacationRequest(id, reason) {
         return axios.post(`/api/vacation/reject/${id}`, { reason })
     },
+
+    cancelVacationRequest(id) {
+        return axios.post(`/api/vacation/cancel/${id}`)
+    },
 }
 

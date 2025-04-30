@@ -457,7 +457,6 @@ const vacationUsagePercentage = computed(() => {
     if (total <= 0) return 0
     return Math.min(Math.round((used / total) * 100), 100)
 })
-
 // Urlaubsanträge
 const myVacationRequests = ref([])
 
@@ -518,39 +517,46 @@ const viewRequestDetails = (request) => {
     showRequestDetails.value = true
 }
 
+// Stelle sicher, dass die cancelRequest-Funktion korrekt implementiert ist
 const cancelRequest = async (request) => {
     try {
-        // Hier würde normalerweise der API-Aufruf stattfinden
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        // Echten API-Aufruf durchführen
+        await VacationService.cancelVacationRequest(request.id);
 
         // Antrag aus der Liste entfernen
-        const index = myVacationRequests.value.findIndex((req) => req.id === request.id)
+        const index = myVacationRequests.value.findIndex((req) => req.id === request.id);
         if (index !== -1) {
-            myVacationRequests.value.splice(index, 1)
+            myVacationRequests.value.splice(index, 1);
         }
 
         // Urlaubsstatistik aktualisieren
-        vacationStats.value.planned -= request.days
-        vacationStats.value.remaining += request.days
+        if (request.status === "approved") {
+            vacationStats.value.planned -= request.days;
+            vacationStats.value.remaining += request.days;
+        }
 
         // Kalender aktualisieren
-        updateCalendarEvents()
+        updateCalendarEvents();
 
         toast.add({
             severity: "success",
             summary: "Erfolg",
             detail: "Ihr Urlaubsantrag wurde zurückgezogen.",
             life: 3000,
-        })
+        });
+
+        // Daten neu laden, um sicherzustellen, dass der Antrag wirklich entfernt wurde
+        fetchVacationData();
     } catch (error) {
+        console.error("Fehler beim Zurückziehen des Urlaubsantrags:", error);
         toast.add({
             severity: "error",
             summary: "Fehler",
             detail: "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.",
             life: 3000,
-        })
+        });
     }
-}
+};
 
 const handleVacationRequestSubmitted = () => {
     showVacationRequestForm.value = false
@@ -699,6 +705,15 @@ const updateYearlyStats = async () => {
     }
 }
 
+// Stelle sicher, dass die Zahlen in der Jahresübersicht korrekt formatiert werden
+const formatNumberValue = (value) => {
+    // Wenn der Wert negativ ist (wie -10 oder -20), mache ihn positiv
+    if (typeof value === 'number') {
+        return Math.abs(value);
+    }
+    return value;
+};
+
 // Wir verwenden try-catch, um Fehler abzufangen, falls der Toast-Service nicht verfügbar ist
 let toast
 try {
@@ -726,6 +741,8 @@ onMounted(() => {
 watch(selectedStatYear, (newYear) => {
     updateYearlyStats()
 })
+
+
 </script>
 
 <style scoped>

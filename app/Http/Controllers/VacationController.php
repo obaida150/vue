@@ -342,12 +342,13 @@ class VacationController extends Controller
             // Wenn der Benutzer Abteilungsleiter ist, nur Anträge seiner Abteilung anzeigen
             if ($role === 'Abteilungsleiter') {
                 $teamId = $user->currentTeam ? $user->currentTeam->id : 0;
-                $query->whereHas('user', function ($q) use ($teamId) {
-                    $q->whereHas('teams', function ($q2) use ($teamId) {
+                $query->whereHas('user', function($q) use ($teamId) {
+                    $q->whereHas('teams', function($q2) use ($teamId) {
                         $q2->where('teams.id', $teamId);
                     });
                 });
-            } // Wenn der Benutzer weder HR noch Admin noch Abteilungsleiter ist, keine Daten zurückgeben
+            }
+            // Wenn der Benutzer weder HR noch Admin noch Abteilungsleiter ist, keine Daten zurückgeben
             elseif ($role !== 'HR' && $role !== 'Admin') {
                 return response()->json([
                     'pending' => [],
@@ -442,10 +443,10 @@ class VacationController extends Controller
                 ->where('status', 'approved');
 
             if ($startDate && $endDate) {
-                $query->where(function ($q) use ($startDate, $endDate) {
+                $query->where(function($q) use ($startDate, $endDate) {
                     $q->whereBetween('start_date', [$startDate, $endDate])
                         ->orWhereBetween('end_date', [$startDate, $endDate])
-                        ->orWhere(function ($q2) use ($startDate, $endDate) {
+                        ->orWhere(function($q2) use ($startDate, $endDate) {
                             $q2->where('start_date', '<=', $startDate)
                                 ->where('end_date', '>=', $endDate);
                         });
@@ -631,6 +632,31 @@ class VacationController extends Controller
             return response()->json([
                 'message' => 'Urlaubsantrag abgelehnt',
                 'request' => $vacationRequest
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Cancel a vacation request
+     */
+    public function cancelRequest($id)
+    {
+        try {
+            $user = Auth::user();
+
+            // Urlaubsantrag laden
+            $vacationRequest = VacationRequest::where('user_id', $user->id)
+                ->where('id', $id)
+                ->where('status', 'pending') // Nur ausstehende Anträge können zurückgezogen werden
+                ->firstOrFail();
+
+            // Antrag löschen
+            $vacationRequest->delete();
+
+            return response()->json([
+                'message' => 'Urlaubsantrag erfolgreich zurückgezogen'
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
