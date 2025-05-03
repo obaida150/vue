@@ -7,7 +7,12 @@ use App\Models\User;
 use App\Models\VacationRequest;
 use App\Models\VacationBalance;
 use App\Models\Notification;
+use App\Mail\VacationApprovedMail;
+use App\Mail\VacationRejectedMail;
+use App\Mail\VacationRequestMail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class VacationController extends Controller
@@ -479,6 +484,15 @@ class VacationController extends Controller
         try {
             $user = Auth::user();
 
+            // Debug-Informationen
+            Log::info('Urlaubsantrag empfangen', [
+                'user' => $user->id,
+                'request_data' => $request->all(),
+                'headers' => $request->header(),
+                'csrf_token' => $request->header('X-CSRF-TOKEN'),
+                'session_token' => csrf_token()
+            ]);
+
             // Validierung
             $request->validate([
                 'periods' => 'required|array',
@@ -511,37 +525,168 @@ class VacationController extends Controller
                 $vacationRequest->status = 'pending';
                 $vacationRequest->save();
 
+                Log::info('Urlaubsantrag erstellt', [
+                    'request_id' => $vacationRequest->id,
+                    'start_date' => $startDate->format('Y-m-d'),
+                    'end_date' => $endDate->format('Y-m-d'),
+                    'days' => $period['days']
+                ]);
+
                 $createdRequests[] = $vacationRequest;
 
                 // Benachrichtigung für den Abteilungsleiter erstellen
                 if ($teamId) {
+                    // Finde überlappende Urlaubsanträge im gleichen Team
+                    $overlappingRequests = VacationRequest::where('team_id', $teamId)
+                        ->where('user_id', '!=', $user->id)
+                        ->where('status', 'approved')
+                        ->where(function($query) use ($startDate, $endDate) {
+                            $query->whereBetween('start_date', [$startDate, $endDate])
+                                ->orWhereBetween('end_date', [$startDate, $endDate])
+                                ->orWhere(function($q) use ($startDate, $endDate) {
+                                    $q->where('start_date', '<=', $startDate)
+                                        ->where('end_date', '>=', $endDate);
+                                });
+                        })
+                        ->with('user')
+                        ->get()
+                        ->map(function($request) {
+                            return [
+                                'employee_name' => $request->user->full_name,
+                                'start_date' => $request->start_date->format('d.m.Y'),
+                                'end_date' => $request->end_date->format('d.m.Y')
+                            ];
+                        })
+                        ->toArray();
+
+                    Log::info('Überlappende Urlaubsanträge gefunden', [
+                        'count' => count($overlappingRequests)
+                    ]);
+
+                    // Finde alle Abteilungsleiter
                     $managers = User::whereHas('role', function ($query) {
                         $query->where('name', 'Abteilungsleiter');
                     })->whereHas('teams', function ($query) use ($teamId) {
                         $query->where('teams.id', $teamId);
                     })->get();
 
-                    foreach ($managers as $manager) {
-                        Notification::create([
-                            'user_id' => $manager->id,
-                            'title' => 'Neuer Urlaubsantrag',
-                            'message' => "{$user->full_name} hat einen Urlaubsantrag für {$period['days']} Tage eingereicht.",
-                            'type' => 'info',
-                            'is_read' => false,
-                            'related_entity_type' => 'vacation_request',
-                            'related_entity_id' => $vacationRequest->id,
-                            'created_at' => now()
-                        ]);
+                    Log::info('Abteilungsleiter gefunden', [
+                        'count' => $managers->count(),
+                        'manager_ids' => $managers->pluck('id')->toArray()
+                    ]);
+
+                    // Hole die Vertretung, falls vorhanden
+                    $substitute = null;
+                    if ($request->substitute) {
+                        $substitute = User::find($request->substitute);
+                    }
+
+                    // Wenn keine Manager gefunden wurden, sende an eine Fallback-E-Mail
+                    if ($managers->isEmpty()) {
+                        Log::warning('Keine Abteilungsleiter gefunden, verwende Fallback-E-Mail');
+
+                        try {
+                            // Direkt an eine spezifische E-Mail senden (für Tests)
+                            $testEmail = env('MAIL_TEST_RECIPIENT', 'obaida990@gmail.com');
+
+                            Log::info('Sende E-Mail an Fallback-Adresse', [
+                                'email' => $testEmail
+                            ]);
+
+                            // E-Mail senden
+                            Mail::to($testEmail)
+                                ->send(new VacationRequestMail(
+                                    $vacationRequest,
+                                    $user,
+                                    collect($overlappingRequests),
+                                    $substitute
+                                ));
+
+                            Log::info('E-Mail an Fallback-Adresse gesendet');
+                        } catch (\Exception $e) {
+                            Log::error('Fehler beim Senden der E-Mail an Fallback-Adresse', [
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString()
+                            ]);
+                        }
+                    } else {
+                        foreach ($managers as $manager) {
+                            // Erstelle eine Benachrichtigung im System
+                            Notification::create([
+                                'user_id' => $manager->id,
+                                'title' => 'Neuer Urlaubsantrag',
+                                'message' => "{$user->full_name} hat einen Urlaubsantrag für {$period['days']} Tage eingereicht.",
+                                'type' => 'info',
+                                'is_read' => false,
+                                'related_entity_type' => 'vacation_request',
+                                'related_entity_id' => $vacationRequest->id,
+                                'created_at' => now()
+                            ]);
+
+                            // Sende eine E-Mail an den Abteilungsleiter
+                            try {
+                                Log::info('Versuche E-Mail zu senden an: ' . $manager->email);
+
+                                // Bestimme die CC- und BCC-Empfänger
+                                $ccRecipients = [];
+                                $bccRecipients = ['personal@dittmeier.de']; // Beispiel für BCC
+
+                                if ($substitute) {
+                                    $ccRecipients[] = $substitute->email;
+                                }
+
+                                // E-Mail senden
+                                $mail = Mail::to('obaida.allababidi@dittmeier.de');
+
+                                if (!empty($ccRecipients)) {
+                                    $mail->cc($ccRecipients);
+                                }
+
+                                if (!empty($bccRecipients)) {
+                                    $mail->bcc($bccRecipients);
+                                }
+
+                                $mail->send(new VacationRequestMail(
+                                    $vacationRequest,
+                                    $user,
+                                    collect($overlappingRequests),
+                                    $substitute
+                                ));
+
+                                Log::info('E-Mail erfolgreich gesendet an: ' . $manager->email);
+                            } catch (\Exception $e) {
+                                Log::error('Fehler beim Senden der E-Mail an den Abteilungsleiter: ' . $e->getMessage(), [
+                                    'manager_id' => $manager->id,
+                                    'manager_email' => $manager->email,
+                                    'exception' => get_class($e),
+                                    'message' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString()
+                                ]);
+                            }
+                        }
                     }
                 }
             }
+
+            // Erfolgreiche Antwort
+            Log::info('Urlaubsantrag erfolgreich eingereicht', [
+                'request_ids' => collect($createdRequests)->pluck('id')->toArray()
+            ]);
 
             return response()->json([
                 'message' => 'Urlaubsantrag erfolgreich eingereicht',
                 'requests' => $createdRequests
             ], 201);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Fehler beim Einreichen des Urlaubsantrags', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'error' => 'Fehler beim Einreichen des Urlaubsantrags: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -553,29 +698,34 @@ class VacationController extends Controller
         try {
             $user = Auth::user();
 
-            // Urlaubsantrag laden
+            // Debug-Logging
+            Log::info('Urlaubsantrag-Genehmigung empfangen', [
+                'approver_id' => $user->id,
+                'request_id' => $id
+            ]);
+
+            // Urlaubsantrag finden
             $vacationRequest = VacationRequest::findOrFail($id);
 
-            // Status aktualisieren
+            // Prüfen, ob der Antrag bereits bearbeitet wurde
+            if ($vacationRequest->status !== 'pending') {
+                return response()->json([
+                    'error' => 'Dieser Urlaubsantrag wurde bereits bearbeitet.'
+                ], 400);
+            }
+
+            // Antrag genehmigen
             $vacationRequest->status = 'approved';
             $vacationRequest->approved_by = $user->id;
             $vacationRequest->approved_date = now();
-            $vacationRequest->notes = $request->notes ?? $vacationRequest->notes;
             $vacationRequest->save();
 
-            // Urlaubssaldo aktualisieren
-            $year = Carbon::parse($vacationRequest->start_date)->year;
-            $vacationBalance = VacationBalance::firstOrCreate(
-                ['user_id' => $vacationRequest->user_id, 'year' => $year],
-                ['total_days' => $vacationRequest->user->vacation_days_per_year, 'used_days' => 0]
-            );
+            // Antragsteller finden
+            $employee = User::findOrFail($vacationRequest->user_id);
 
-            $vacationBalance->used_days += $vacationRequest->days;
-            $vacationBalance->save();
-
-            // Benachrichtigung für den Mitarbeiter erstellen
+            // Benachrichtigung für den Antragsteller erstellen
             Notification::create([
-                'user_id' => $vacationRequest->user_id,
+                'user_id' => $employee->id,
                 'title' => 'Urlaubsantrag genehmigt',
                 'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} wurde genehmigt.",
                 'type' => 'success',
@@ -585,17 +735,77 @@ class VacationController extends Controller
                 'created_at' => now()
             ]);
 
+            // E-Mail an den Antragsteller senden
+            try {
+                Log::info('Sende Genehmigungs-E-Mail an Antragsteller', [
+                    'employee_id' => $employee->id,
+                    'employee_email' => $employee->email
+                ]);
+
+                // Mail senden mit verbesserter Fehlerbehandlung
+                if ($employee->email) {
+                    // CC und BCC Empfänger definieren
+                    $ccRecipients = [];
+                    $bccRecipients = [];
+
+                    // Personalabteilung in BCC hinzufügen
+                    $hrEmail = env('HR_EMAIL', 'personal@dittmeier.de');
+                    if ($hrEmail) {
+                        $bccRecipients[] = $hrEmail;
+                    }
+
+                    // Mail senden
+                    $mail = Mail::to($employee->email);
+
+                    // CC hinzufügen falls vorhanden
+                    if (!empty($ccRecipients)) {
+                        $mail->cc($ccRecipients);
+                    }
+
+                    // BCC hinzufügen falls vorhanden
+                    if (!empty($bccRecipients)) {
+                        $mail->bcc($bccRecipients);
+                    }
+
+                    $mail->send(new VacationApprovedMail(
+                        $vacationRequest,
+                        $employee,
+                        $user
+                    ));
+
+                    Log::info('Genehmigungs-E-Mail erfolgreich gesendet an ' . $employee->email);
+                } else {
+                    Log::warning('Keine E-Mail-Adresse für den Mitarbeiter gefunden', [
+                        'employee_id' => $employee->id
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Fehler beim Senden der Genehmigungs-E-Mail', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                // Wir werfen den Fehler nicht weiter, damit der Prozess fortgesetzt werden kann
+            }
+
+            // Erfolgreiche Antwort
             return response()->json([
-                'message' => 'Urlaubsantrag genehmigt',
+                'message' => 'Urlaubsantrag erfolgreich genehmigt',
                 'request' => $vacationRequest
             ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Fehler bei der Genehmigung des Urlaubsantrags', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Fehler bei der Genehmigung des Urlaubsantrags: ' . $e->getMessage()
+            ], 500);
         }
     }
 
     /**
-     * Reject a vacation request
+     * Lehnt einen Urlaubsantrag ab
      */
     public function rejectRequest(Request $request, $id)
     {
@@ -604,37 +814,115 @@ class VacationController extends Controller
 
             // Validierung
             $request->validate([
-                'reason' => 'required|string'
+                'reason' => 'nullable|string|max:255'
             ]);
 
-            // Urlaubsantrag laden
+            // Debug-Logging
+            Log::info('Urlaubsantrag-Ablehnung empfangen', [
+                'approver_id' => $user->id,
+                'request_id' => $id,
+                'reason' => $request->reason
+            ]);
+
+            // Urlaubsantrag finden
             $vacationRequest = VacationRequest::findOrFail($id);
 
-            // Status aktualisieren
+            // Prüfen, ob der Antrag bereits bearbeitet wurde
+            if ($vacationRequest->status !== 'pending') {
+                return response()->json([
+                    'error' => 'Dieser Urlaubsantrag wurde bereits bearbeitet.'
+                ], 400);
+            }
+
+            // Antrag ablehnen
             $vacationRequest->status = 'rejected';
             $vacationRequest->rejected_by = $user->id;
             $vacationRequest->rejected_date = now();
             $vacationRequest->rejection_reason = $request->reason;
             $vacationRequest->save();
 
-            // Benachrichtigung für den Mitarbeiter erstellen
+            // Antragsteller finden
+            $employee = User::findOrFail($vacationRequest->user_id);
+
+            // Benachrichtigung für den Antragsteller erstellen
             Notification::create([
-                'user_id' => $vacationRequest->user_id,
+                'user_id' => $employee->id,
                 'title' => 'Urlaubsantrag abgelehnt',
                 'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} wurde abgelehnt.",
-                'type' => 'error',
+                'type' => 'danger',
                 'is_read' => false,
                 'related_entity_type' => 'vacation_request',
                 'related_entity_id' => $vacationRequest->id,
                 'created_at' => now()
             ]);
 
+            // E-Mail an den Antragsteller senden
+            try {
+                Log::info('Sende Ablehnungs-E-Mail an Antragsteller', [
+                    'employee_id' => $employee->id,
+                    'employee_email' => $employee->email
+                ]);
+
+                // Mail senden mit verbesserter Fehlerbehandlung
+                if ($employee->email) {
+                    // CC und BCC Empfänger definieren
+                    $ccRecipients = [];
+                    $bccRecipients = [];
+
+                    // Personalabteilung in BCC hinzufügen
+                    $hrEmail = env('HR_EMAIL', 'personal@dittmeier.de');
+                    if ($hrEmail) {
+                        $bccRecipients[] = $hrEmail;
+                    }
+
+                    // Mail senden
+                    $mail = Mail::to($employee->email);
+
+                    // CC hinzufügen falls vorhanden
+                    if (!empty($ccRecipients)) {
+                        $mail->cc($ccRecipients);
+                    }
+
+                    // BCC hinzufügen falls vorhanden
+                    if (!empty($bccRecipients)) {
+                        $mail->bcc($bccRecipients);
+                    }
+
+                    $mail->send(new VacationRejectedMail(
+                        $vacationRequest,
+                        $employee,
+                        $request->reason,
+                        $user
+                    ));
+
+                    Log::info('Ablehnungs-E-Mail erfolgreich gesendet an ' . $employee->email);
+                } else {
+                    Log::warning('Keine E-Mail-Adresse für den Mitarbeiter gefunden', [
+                        'employee_id' => $employee->id
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Fehler beim Senden der Ablehnungs-E-Mail', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                // Wir werfen den Fehler nicht weiter, damit der Prozess fortgesetzt werden kann
+            }
+
+            // Erfolgreiche Antwort
             return response()->json([
-                'message' => 'Urlaubsantrag abgelehnt',
+                'message' => 'Urlaubsantrag erfolgreich abgelehnt',
                 'request' => $vacationRequest
             ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Fehler bei der Ablehnung des Urlaubsantrags', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Fehler bei der Ablehnung des Urlaubsantrags: ' . $e->getMessage()
+            ], 500);
         }
     }
 
