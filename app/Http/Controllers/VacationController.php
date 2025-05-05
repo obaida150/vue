@@ -521,7 +521,10 @@ class VacationController extends Controller
                 $vacationRequest->end_date = $endDate;
                 $vacationRequest->days = $period['days'];
                 $vacationRequest->substitute_id = $request->substitute;
+
+                // Wichtig: Stelle sicher, dass die Anmerkungen korrekt gespeichert werden
                 $vacationRequest->notes = $request->notes;
+
                 $vacationRequest->status = 'pending';
                 $vacationRequest->save();
 
@@ -529,7 +532,8 @@ class VacationController extends Controller
                     'request_id' => $vacationRequest->id,
                     'start_date' => $startDate->format('Y-m-d'),
                     'end_date' => $endDate->format('Y-m-d'),
-                    'days' => $period['days']
+                    'days' => $period['days'],
+                    'notes' => $request->notes // Log der Anmerkungen
                 ]);
 
                 $createdRequests[] = $vacationRequest;
@@ -587,7 +591,7 @@ class VacationController extends Controller
 
                         try {
                             // Direkt an eine spezifische E-Mail senden (für Tests)
-                            $testEmail = env('MAIL_TEST_RECIPIENT', 'obaida990@gmail.com');
+                            $testEmail = env('MAIL_TEST_RECIPIENT', 'test@example.com');
 
                             Log::info('Sende E-Mail an Fallback-Adresse', [
                                 'email' => $testEmail
@@ -636,7 +640,7 @@ class VacationController extends Controller
                                 }
 
                                 // E-Mail senden
-                                $mail = Mail::to('obaida.allababidi@dittmeier.de');
+                                $mail = Mail::to($manager->email);
 
                                 if (!empty($ccRecipients)) {
                                     $mail->cc($ccRecipients);
@@ -691,7 +695,7 @@ class VacationController extends Controller
     }
 
     /**
-     * Approve a vacation request
+     * Genehmigt einen Urlaubsantrag
      */
     public function approveRequest(Request $request, $id)
     {
@@ -718,6 +722,10 @@ class VacationController extends Controller
             $vacationRequest->status = 'approved';
             $vacationRequest->approved_by = $user->id;
             $vacationRequest->approved_date = now();
+
+            // Wichtig: Stelle sicher, dass die Anmerkungen erhalten bleiben
+            // Wir müssen hier nichts tun, da wir die Anmerkungen nicht ändern
+
             $vacationRequest->save();
 
             // Antragsteller finden
@@ -739,7 +747,8 @@ class VacationController extends Controller
             try {
                 Log::info('Sende Genehmigungs-E-Mail an Antragsteller', [
                     'employee_id' => $employee->id,
-                    'employee_email' => $employee->email
+                    'employee_email' => $employee->email,
+                    'notes' => $vacationRequest->notes // Log der Anmerkungen
                 ]);
 
                 // Mail senden mit verbesserter Fehlerbehandlung
@@ -839,6 +848,10 @@ class VacationController extends Controller
             $vacationRequest->rejected_by = $user->id;
             $vacationRequest->rejected_date = now();
             $vacationRequest->rejection_reason = $request->reason;
+
+            // Wichtig: Stelle sicher, dass die Anmerkungen erhalten bleiben
+            // Wir müssen hier nichts tun, da wir die Anmerkungen nicht ändern
+
             $vacationRequest->save();
 
             // Antragsteller finden
@@ -849,7 +862,7 @@ class VacationController extends Controller
                 'user_id' => $employee->id,
                 'title' => 'Urlaubsantrag abgelehnt',
                 'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} wurde abgelehnt.",
-                'type' => 'danger',
+                'type' => 'error', // Ändere 'danger' zu 'error' oder einem anderen gültigen Wert
                 'is_read' => false,
                 'related_entity_type' => 'vacation_request',
                 'related_entity_id' => $vacationRequest->id,
@@ -860,7 +873,8 @@ class VacationController extends Controller
             try {
                 Log::info('Sende Ablehnungs-E-Mail an Antragsteller', [
                     'employee_id' => $employee->id,
-                    'employee_email' => $employee->email
+                    'employee_email' => $employee->email,
+                    'notes' => $vacationRequest->notes // Log der Anmerkungen
                 ]);
 
                 // Mail senden mit verbesserter Fehlerbehandlung

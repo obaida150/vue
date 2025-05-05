@@ -20,7 +20,7 @@ class VacationRejectedMail extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(VacationRequest $vacationRequest, User $employee, string $rejectionReason = null, User $approver = null)
+    public function __construct(VacationRequest $vacationRequest, User $employee, ?string $rejectionReason = null, ?User $approver = null)
     {
         $this->vacationRequest = $vacationRequest;
         $this->employee = $employee;
