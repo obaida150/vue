@@ -15,13 +15,13 @@
                     <Button
                         :class="{ 'p-button-primary': calendarView === 'month', 'p-button-outlined': calendarView !== 'month' }"
                         label="Monat"
-                        @click="calendarView = 'month'"
+                        @click="setCalendarView('month')"
                         class="p-button-sm sm:p-button-md"
                     />
                     <Button
                         :class="{ 'p-button-primary': calendarView === 'year', 'p-button-outlined': calendarView !== 'year' }"
                         label="Jahr"
-                        @click="calendarView = 'year'"
+                        @click="setCalendarView('year')"
                         class="p-button-sm sm:p-button-md"
                     />
                 </div>
@@ -329,7 +329,7 @@
         <!-- Week Plan Dialog -->
         <Dialog
             v-model:visible="weekPlanDialogVisible"
-            :style="{ width: '90vw', maxWidth: '800px' }"
+            :style="{ width: '60vw' }"
             :header="`Wochenplanung - KW ${selectedWeekNumber}`"
             :modal="true"
             class="week-plan-dialog"
@@ -360,6 +360,22 @@
                                 placeholder="Notizen"
                                 class="w-full"
                             />
+
+                            <!-- Anzeige des Ereignis-Status, falls vorhanden -->
+                            <div v-if="day.eventId" class="mt-2 flex items-center justify-between">
+                                <Badge
+                                    :value="day.isEdited ? 'Bearbeitet' : 'Vorhanden'"
+                                    :severity="day.isEdited ? 'warning' : 'info'"
+                                    class="text-xs"
+                                />
+                                <Button
+                                    v-if="day.eventId"
+                                    icon="pi pi-trash"
+                                    class="p-button-text p-button-danger p-button-sm"
+                                    @click="removeWeekDayEvent(index)"
+                                    title="Ereignis löschen"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -376,9 +392,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { useToast } from 'primevue/usetoast';
+import { ref, computed, onMounted, watch } from 'vue';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
 import weekday from 'dayjs/plugin/weekday';
@@ -399,6 +413,19 @@ import Select from 'primevue/select';
 import Checkbox from 'primevue/checkbox';
 import Badge from 'primevue/badge';
 
+// Use a function that can be provided by the parent component if needed
+const navigateTo = (path) => {
+    if (typeof window !== 'undefined') {
+        window.location.href = path;
+    }
+};
+
+// Toast functionality - create a simple implementation if useToast is not available
+const toast = {
+    add: (message) => {
+    }
+};
+
 dayjs.locale('de');
 dayjs.extend(weekday);
 dayjs.extend(weekOfYear);
@@ -406,9 +433,6 @@ dayjs.extend(isBetween);
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isToday);
-
-const router = useRouter();
-const toast = useToast();
 
 const currentDate = ref(dayjs());
 const calendarView = ref('month'); // 'month' or 'year'
@@ -443,8 +467,8 @@ const selectedWeekNumber = ref(null);
 const weekDays = ref([]);
 const savingWeekPlan = ref(false);
 
-const weekdays = ref(['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']);
-const weekdaysShort = ref(['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']);
+const weekdays = ref(['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']);
+const weekdaysShort = ref(['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']);
 const eventTypes = ref([]);
 
 // Lade die Ereignistypen vom Server
@@ -466,8 +490,6 @@ const fetchEventTypes = async () => {
 
         // Korrigierte URL ohne doppeltes /api/
         const response = await axios.get('/api/event-types', config);
-        console.log('Ereignistypen erfolgreich geladen:', response.data);
-
         eventTypes.value = response.data.map(type => ({
             id: type.id,
             name: type.name,
@@ -477,8 +499,6 @@ const fetchEventTypes = async () => {
         }));
     } catch (error) {
         console.error('Fehler beim Laden der Ereignistypen:', error);
-        console.log('Verwende Fallback-Ereignistypen');
-
         // Fallback-Werte
         eventTypes.value = [
             { id: 1, name: 'Homeoffice', value: 'homeoffice', color: '#4CAF50', requires_approval: true },
@@ -517,10 +537,15 @@ const nextPeriod = () => {
     fetchEvents();
 };
 
+const setCalendarView = (view) => {
+    calendarView.value = view;
+};
+
 // Hilfsfunktion, um den ersten Tag einer Woche zu bekommen
 const getFirstDayOfWeek = (date) => {
     const day = date.day();
-    const diff = day === 0 ? 6 : day - 1; // Adjust for Monday start
+    // Montag ist 1, Sonntag ist 0, daher muss die Berechnung angepasst werden
+    const diff = day === 0 ? 6 : day - 1; // Adjust for Monday start (0 = Sunday, so we need to go back 6 days)
     return date.subtract(diff, 'day');
 };
 
@@ -534,7 +559,7 @@ const getWeeksInMonth = () => {
     const endOfMonth = currentDate.value.endOf('month');
 
     // Finde den ersten Tag der Woche, die den Monatsanfang enthält
-    let currentWeekStart = dayjs(startOfMonth).day(0); // Sonntag als erster Tag der Woche
+    let currentWeekStart = dayjs(startOfMonth).day(1); // Montag als erster Tag der Woche
     if (currentWeekStart.isAfter(startOfMonth)) {
         currentWeekStart = currentWeekStart.subtract(1, 'week');
     }
@@ -565,7 +590,7 @@ const getWeeksInMonthForMini = (month) => {
     const endOfMonth = targetDate.endOf('month');
 
     // Finde den ersten Tag der Woche, die den Monatsanfang enthält
-    let currentWeekStart = dayjs(startOfMonth).day(0); // Sonntag als erster Tag der Woche
+    let currentWeekStart = dayjs(startOfMonth).day(1); // Montag als erster Tag der Woche
     if (currentWeekStart.isAfter(startOfMonth)) {
         currentWeekStart = currentWeekStart.subtract(1, 'week');
     }
@@ -679,8 +704,6 @@ const closeEventDialog = () => {
     eventDialogVisible.value = false;
 };
 
-// Update the saveEvent method to use a simplified approach without CSRF token
-
 const saveEvent = async () => {
     if (!newEvent.value.title || !newEvent.value.type) {
         toast.add({
@@ -693,20 +716,7 @@ const saveEvent = async () => {
     }
 
     saving.value = true;
-    const getEventTypeId = (typeValue) => {
-        const type = eventTypes.value.find(t => t.value === typeValue);
-        return type ? type.id : null;
-    };
     try {
-        const eventData = {
-            title: newEvent.value.title,
-            description: newEvent.value.description,
-            start_date: dayjs(newEvent.value.startDate).format('YYYY-MM-DD'),
-            end_date: dayjs(newEvent.value.endDate).format('YYYY-MM-DD'),
-            event_type_id: getEventTypeId(newEvent.value.type.value),
-            is_all_day: true
-        };
-
         // CSRF-Token aus dem Meta-Tag holen
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
@@ -721,41 +731,105 @@ const saveEvent = async () => {
             withCredentials: true
         };
 
-        let response;
+        // Bereite die Ereignisdaten vor
+        const eventData = {
+            title: newEvent.value.title,
+            event_type_id: newEvent.value.type.id,
+            event_type: newEvent.value.type.name,
+            start_date: dayjs(newEvent.value.startDate).format('YYYY-MM-DD'),
+            end_date: dayjs(newEvent.value.endDate).format('YYYY-MM-DD'),
+            is_all_day: newEvent.value.isAllDay,
+            description: newEvent.value.description
+        };
 
-        if (newEvent.value.id) {
+        if (isEditMode.value && newEvent.value.id) {
+            // Prüfen, ob es sich um ein Ereignis aus der Datenbank handelt
+            if (selectedEvent.value && selectedEvent.value.source === 'vacation') {
+                toast.add({
+                    severity: 'info',
+                    summary: 'Hinweis',
+                    detail: 'Urlaubseinträge können nicht direkt bearbeitet werden. Bitte nutzen Sie die Urlaubsverwaltung.',
+                    life: 5000
+                });
+                return;
+            }
+
             // Update existing event
-            response = await axios.put(`/api/events/${newEvent.value.id}`, eventData, config);
-            toast.add({
-                severity: 'success',
-                summary: 'Erfolg',
-                detail: 'Ereignis wurde aktualisiert',
-                life: 3000
-            });
+            try {
+                // Versuche zuerst mit POST und _method=PUT (Laravel-Standard für Updates)
+                const postData = { ...eventData, _method: 'PUT' };
+                const response = await axios.post(`/api/events/${newEvent.value.id}`, postData, config);
+
+                if (response.status === 200) {
+                    toast.add({
+                        severity: 'success',
+                        summary: 'Erfolgreich',
+                        detail: 'Ereignis wurde aktualisiert.',
+                        life: 3000
+                    });
+                }
+            } catch (postError) {
+                console.error('POST mit _method=PUT fehlgeschlagen, versuche direkten PUT-Request:', postError);
+
+                // Fallback: Versuche direkten PUT-Request
+                try {
+                    const response = await axios.put(`/api/events/${newEvent.value.id}`, eventData, config);
+
+                    if (response.status === 200) {
+                        toast.add({
+                            severity: 'success',
+                            summary: 'Erfolgreich',
+                            detail: 'Ereignis wurde aktualisiert.',
+                            life: 3000
+                        });
+                    }
+                } catch (putError) {
+                    console.error('Auch direkter PUT-Request fehlgeschlagen:', putError);
+                    throw putError; // Wirf den Fehler für die äußere catch-Klausel
+                }
+            }
         } else {
             // Create new event
-            response = await axios.post('/api/events', eventData, config);
+            const response = await axios.post('/api/events', eventData, config);
+
+            if (response.status === 201) {
+                toast.add({
+                    severity: 'success',
+                    summary: 'Erfolgreich',
+                    detail: 'Ereignis wurde gespeichert.',
+                    life: 3000
+                });
+            }
+        }
+
+        // Warte kurz, damit der Server Zeit hat, die Änderungen zu verarbeiten
+        setTimeout(() => {
+            fetchEvents(); // Aktualisiere die Ereignisse nach dem Speichern
+        }, 1000);
+    } catch (error) {
+        console.error('Fehler beim Speichern des Ereignisses:', error);
+        console.error('Fehlerdetails:', error.response?.data);
+
+        // Spezifischere Fehlermeldung für 401 Unauthorized
+        if (error.response && error.response.status === 401) {
             toast.add({
-                severity: 'success',
-                summary: 'Erfolg',
-                detail: 'Ereignis wurde erstellt',
+                severity: 'error',
+                summary: 'Fehler',
+                detail: 'Sie sind nicht berechtigt, dieses Ereignis zu speichern. Bitte melden Sie sich erneut an.',
+                life: 5000
+            });
+        } else {
+            toast.add({
+                severity: 'error',
+                summary: 'Fehler',
+                detail: 'Es gab ein Problem beim Speichern des Ereignisses: ' + (error.response?.data?.error || error.message),
                 life: 3000
             });
         }
-
-        // Refresh events
-        await fetchEvents();
-        closeEventDialog();
-    } catch (error) {
-        console.error('Fehler beim Speichern des Ereignisses:', error);
-        toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Das Ereignis konnte nicht gespeichert werden.',
-            life: 3000
-        });
     } finally {
         saving.value = false;
+        closeEventDialog();
+        closeEventDetailsDialog(); // Falls wir aus dem Details-Dialog heraus bearbeitet haben
     }
 };
 
@@ -770,10 +844,10 @@ const closeEventDetailsDialog = () => {
     selectedEvent.value = null;
 };
 
-// JavaScript
 const editEvent = () => {
     if (!selectedEvent.value) return;
 
+    // Prüfen, ob es sich um ein Ereignis aus der Datenbank handelt
     if (selectedEvent.value.source === 'vacation') {
         toast.add({
             severity: 'info',
@@ -783,25 +857,56 @@ const editEvent = () => {
         });
         return;
     }
+    // Finde den korrekten Ereignistyp aus der Liste der verfügbaren Typen
+    let eventType = null;
 
-    let currentType = null;
-    if (selectedEvent.value.event_type_id) {
-        // Suche anhand der event_type_id
-        currentType = eventTypes.value.find(
-            typeItem => typeItem.id === selectedEvent.value.event_type_id
-        );
-    }
-    // Falls nicht gefunden, nutze das vorhandene Type-Objekt
-    if (!currentType && selectedEvent.value.type?.id) {
-        currentType = eventTypes.value.find(
-            typeItem => typeItem.id === selectedEvent.value.type.id
-        );
+    if (selectedEvent.value.type) {
+        // Versuche zuerst, den Typ anhand der ID zu finden
+        if (selectedEvent.value.type.id) {
+            eventType = eventTypes.value.find(type => type.id === selectedEvent.value.type.id);
+        }
+
+        // Falls keine ID übereinstimmt, versuche es mit dem Namen
+        if (!eventType && selectedEvent.value.type.name) {
+            // Exakte Übereinstimmung
+            eventType = eventTypes.value.find(type => type.name === selectedEvent.value.type.name);
+
+            // Case-insensitive Übereinstimmung
+            if (!eventType) {
+                eventType = eventTypes.value.find(type =>
+                    type.name.toLowerCase() === selectedEvent.value.type.name.toLowerCase()
+                );
+            }
+        }
+
+        // Wenn immer noch kein Typ gefunden wurde, versuche es mit dem Wert
+        if (!eventType && selectedEvent.value.type.value) {
+            eventType = eventTypes.value.find(type =>
+                type.value === selectedEvent.value.type.value ||
+                type.value.toLowerCase() === selectedEvent.value.type.value.toLowerCase()
+            );
+        }
+
+        // Wenn immer noch kein Typ gefunden wurde, versuche es mit dem Titel des Events
+        if (!eventType && selectedEvent.value.title) {
+            eventType = eventTypes.value.find(type =>
+                type.name === selectedEvent.value.title ||
+                type.name.toLowerCase() === selectedEvent.value.title.toLowerCase()
+            );
+        }
+
+        // Fallback auf den ersten Typ, falls nichts gefunden wurde
+        if (!eventType && eventTypes.value.length > 0) {
+            console.warn('Ereignistyp nicht gefunden, verwende ersten verfügbaren Typ');
+            eventType = eventTypes.value[0];
+        }
     }
 
+    isEditMode.value = true;
     newEvent.value = {
         id: selectedEvent.value.id,
         title: selectedEvent.value.title,
-        type: currentType,
+        type: eventType, // Verwende den gefundenen Ereignistyp
         startDate: new Date(selectedEvent.value.startDate),
         endDate: new Date(selectedEvent.value.endDate),
         isAllDay: selectedEvent.value.isAllDay,
@@ -837,40 +942,23 @@ const deleteEvent = async () => {
             return;
         }
 
-        // Simplified approach without CSRF token
-        const response = await axios({
-            method: 'delete',
-            url: `/api/events/${selectedEvent.value.id}`,
+        // CSRF-Token aus dem Meta-Tag holen
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        // Axios-Konfiguration mit Auth-Headers
+        const config = {
             headers: {
+                'X-CSRF-TOKEN': csrfToken,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             },
             withCredentials: true
-        });
+        };
 
-        if (response.status === 200) {
-            toast.add({
-                severity: 'success',
-                summary: 'Erfolgreich',
-                detail: 'Ereignis wurde gelöscht.',
-                life: 3000
-            });
-            fetchEvents(); // Aktualisiere die Ereignisse nach dem Löschen
-        }
-    } catch (error) {
-        console.error('Fehler beim Löschen des Ereignisses:', error);
-
-        // Try alternative approach with query parameter
+        // Versuche zuerst mit direktem DELETE-Request
         try {
-            const response = await axios.get(`/api/events/${selectedEvent.value.id}/delete`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                withCredentials: true
-            });
+            const response = await axios.delete(`/api/events/${selectedEvent.value.id}`, config);
 
             if (response.status === 200) {
                 toast.add({
@@ -880,21 +968,44 @@ const deleteEvent = async () => {
                     life: 3000
                 });
                 fetchEvents(); // Aktualisiere die Ereignisse nach dem Löschen
-                deleteConfirmationVisible.value = false;
-                closeEventDetailsDialog();
-                return;
             }
-        } catch (alternativeError) {
-            console.error('Alternative Löschmethode fehlgeschlagen:', alternativeError);
-        }
+        } catch (deleteError) {
 
-        // Show error message
-        toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Es gab ein Problem beim Löschen des Ereignisses: ' + (error.response?.data?.error || error.message),
-            life: 3000
-        });
+            // Fallback: Verwende POST mit _method=DELETE
+            const response = await axios.post(`/api/events/${selectedEvent.value.id}`,
+                { _method: 'DELETE' },
+                config
+            );
+
+            if (response.status === 200) {
+                toast.add({
+                    severity: 'success',
+                    summary: 'Erfolgreich',
+                    detail: 'Ereignis wurde gelöscht.',
+                    life: 3000
+                });
+                fetchEvents(); // Aktualisiere die Ereignisse nach dem Löschen
+            }
+        }
+    } catch (error) {
+        console.error('Fehler beim Löschen des Ereignisses:', error);
+
+        // Spezifischere Fehlermeldung für 401 Unauthorized
+        if (error.response && error.response.status === 401) {
+            toast.add({
+                severity: 'error',
+                summary: 'Fehler',
+                detail: 'Sie sind nicht berechtigt, dieses Ereignis zu löschen. Bitte melden Sie sich erneut an.',
+                life: 5000
+            });
+        } else {
+            toast.add({
+                severity: 'error',
+                summary: 'Fehler',
+                detail: 'Es gab ein Problem beim Löschen des Ereignisses: ' + (error.response?.data?.error || error.message),
+                life: 3000
+            });
+        }
     } finally {
         deleting.value = false;
         deleteConfirmationVisible.value = false;
@@ -902,14 +1013,88 @@ const deleteEvent = async () => {
     }
 };
 
+// Hilfsfunktion zum Finden eines Ereignistyps anhand des Namens oder der ID
+const findEventType = (typeInfo) => {
+    if (!typeInfo) return null;
+
+    let eventType = null;
+
+    // Versuche zuerst, den Typ anhand der ID zu finden
+    if (typeInfo.id) {
+        eventType = eventTypes.value.find(type => type.id === typeInfo.id);
+    }
+
+    // Falls keine ID übereinstimmt, versuche es mit dem Namen
+    if (!eventType && typeInfo.name) {
+        // Exakte Übereinstimmung
+        eventType = eventTypes.value.find(type => type.name === typeInfo.name);
+
+        // Case-insensitive Übereinstimmung
+        if (!eventType) {
+            eventType = eventTypes.value.find(type =>
+                type.name.toLowerCase() === typeInfo.name.toLowerCase()
+            );
+        }
+    }
+
+    // Fallback auf den ersten Typ, falls nichts gefunden wurde
+    if (!eventType && eventTypes.value.length > 0) {
+        eventType = eventTypes.value.find(type => type.name === 'Sonstiges') || eventTypes.value[0];
+    }
+
+    return eventType;
+};
+
 // Week Plan Dialog Methods
 const openWeekPlanDialog = (weekNumber, days) => {
     selectedWeekNumber.value = weekNumber;
-    weekDays.value = days.map(day => ({
-        date: day.date,
-        selectedType: null,
-        notes: ''
-    }));
+
+    // Initialisiere die Wochentage mit vorhandenen Ereignissen
+    weekDays.value = days.map(day => {
+        // Suche nach vorhandenen Ereignissen für diesen Tag
+        const existingEvents = getEventsForDay(day.date);
+        const existingEvent = existingEvents.length > 0 ? existingEvents[0] : null;
+
+        // Wenn ein Ereignis existiert, verwende dessen Werte
+        if (existingEvent) {
+            return {
+                date: day.date,
+                selectedType: existingEvent.type,
+                notes: existingEvent.description || '',
+                eventId: existingEvent.id,
+                originalType: existingEvent.type,
+                originalNotes: existingEvent.description || '',
+                isEdited: false
+            };
+        }
+
+        // Ansonsten leere Werte
+        return {
+            date: day.date,
+            selectedType: null,
+            notes: '',
+            eventId: null,
+            originalType: null,
+            originalNotes: '',
+            isEdited: false
+        };
+    });
+
+    // Überwache Änderungen an den Wochentagen, um den Bearbeitungsstatus zu aktualisieren
+    watch(weekDays.value, (newVal, oldVal) => {
+        newVal.forEach((day, index) => {
+            if (day.eventId) {
+                // Prüfe, ob sich der Typ oder die Notizen geändert haben
+                const typeChanged = day.selectedType && day.originalType &&
+                    (day.selectedType.id !== day.originalType.id);
+                const notesChanged = day.notes !== day.originalNotes;
+
+                // Setze den Bearbeitungsstatus
+                day.isEdited = typeChanged || notesChanged;
+            }
+        });
+    }, { deep: true });
+
     weekPlanDialogVisible.value = true;
 };
 
@@ -917,124 +1102,169 @@ const closeWeekPlanDialog = () => {
     weekPlanDialogVisible.value = false;
 };
 
+// Funktion zum Entfernen eines Ereignisses aus der Wochenplanung
+const removeWeekDayEvent = (index) => {
+    if (weekDays.value[index] && weekDays.value[index].eventId) {
+        // Markiere das Ereignis zum Löschen
+        weekDays.value[index].toDelete = true;
+        weekDays.value[index].selectedType = null;
+        weekDays.value[index].notes = '';
+        weekDays.value[index].isEdited = true;
+    }
+};
+
 const saveWeekPlan = async () => {
     savingWeekPlan.value = true;
-
     try {
-        // Get CSRF token
+        // CSRF-Token aus dem Meta-Tag holen
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-        // Prepare request headers
-        const headers = {
-            'X-CSRF-TOKEN': csrfToken,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
+        // Axios-Konfiguration
+        const config = {
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            withCredentials: true
         };
 
-        // Filter days with selected type
-        const weekPlanData = weekDays.value
-            .filter(day => day.selectedType !== null)
-            .map(day => ({
-                date: dayjs(day.date).format('YYYY-MM-DD'),
-                event_type: day.selectedType.name,
-                notes: day.notes || ''
-            }));
+        // Sammle Ereignisse zum Erstellen, Aktualisieren und Löschen
+        const toCreate = [];
+        const toUpdate = [];
+        const toDelete = [];
 
-        // Check if there's anything to save
-        if (weekPlanData.length === 0) {
+        weekDays.value.forEach(day => {
+            // Wenn das Ereignis gelöscht werden soll
+            if (day.eventId && day.toDelete) {
+                toDelete.push(day.eventId);
+            }
+            // Wenn das Ereignis aktualisiert werden soll
+            else if (day.eventId && day.isEdited && day.selectedType) {
+                toUpdate.push({
+                    id: day.eventId,
+                    title: day.selectedType.name,
+                    description: day.notes || '',
+                    start_date: dayjs(day.date).format('YYYY-MM-DD'),
+                    end_date: dayjs(day.date).format('YYYY-MM-DD'),
+                    event_type_id: day.selectedType.id,
+                    is_all_day: true
+                });
+            }
+            // Wenn ein neues Ereignis erstellt werden soll
+            else if (!day.eventId && day.selectedType) {
+                toCreate.push({
+                    title: day.selectedType.name,
+                    description: day.notes || '',
+                    start_date: dayjs(day.date).format('YYYY-MM-DD'),
+                    end_date: dayjs(day.date).format('YYYY-MM-DD'),
+                    event_type_id: day.selectedType.id,
+                    is_all_day: true
+                });
+            }
+        });
+
+        // Zähler für erfolgreiche Operationen
+        let successCount = 0;
+        let totalOperations = toCreate.length + toUpdate.length + toDelete.length;
+
+        // 1. Lösche Ereignisse
+        for (const eventId of toDelete) {
+            try {
+                // Versuche zuerst mit direktem DELETE-Request
+                try {
+                    const response = await axios.delete(`/api/events/${eventId}`, config);
+                    if (response.status === 200) {
+                        successCount++;
+                    }
+                } catch (deleteError) {
+                    // Fallback: Verwende POST mit _method=DELETE
+                    const response = await axios.post(`/api/events/${eventId}`,
+                        { _method: 'DELETE' },
+                        config
+                    );
+                    if (response.status === 200) {
+                        successCount++;
+                    }
+                }
+            } catch (error) {
+                console.error(`Fehler beim Löschen des Ereignisses ${eventId}:`, error);
+            }
+        }
+
+        // 2. Aktualisiere Ereignisse
+        for (const event of toUpdate) {
+            try {
+                // Versuche zuerst mit POST und _method=PUT (Laravel-Standard für Updates)
+                const postData = { ...event, _method: 'PUT' };
+                try {
+                    const response = await axios.post(`/api/events/${event.id}`, postData, config);
+                    if (response.status === 200) {
+                        successCount++;
+                    }
+                } catch (postError) {
+                    // Fallback: Versuche direkten PUT-Request
+                    const response = await axios.put(`/api/events/${event.id}`, event, config);
+                    if (response.status === 200) {
+                        successCount++;
+                    }
+                }
+            } catch (error) {
+                console.error(`Fehler beim Aktualisieren des Ereignisses ${event.id}:`, error);
+            }
+        }
+
+        // 3. Erstelle neue Ereignisse
+        for (const event of toCreate) {
+            try {
+                const response = await axios.post('/api/events', event, config);
+                if (response.status === 201) {
+                    successCount++;
+                }
+            } catch (error) {
+                console.error('Fehler beim Erstellen eines Ereignisses:', error);
+            }
+        }
+
+        // Zeige Erfolgsmeldung
+        if (successCount > 0) {
+            toast.add({
+                severity: 'success',
+                summary: successCount === totalOperations ? 'Erfolg' : 'Teilweise erfolgreich',
+                detail: successCount === totalOperations
+                    ? 'Wochenplanung wurde gespeichert.'
+                    : `${successCount} von ${totalOperations} Änderungen wurden gespeichert.`,
+                life: 3000
+            });
+
+            // Warte kurz, damit der Server Zeit hat, die Änderungen zu verarbeiten
+            setTimeout(() => {
+                fetchEvents(); // Aktualisiere die Ereignisse nach dem Speichern
+            }, 1000);
+        } else if (totalOperations === 0) {
             toast.add({
                 severity: 'info',
                 summary: 'Hinweis',
                 detail: 'Keine Änderungen vorgenommen.',
                 life: 3000
             });
-            savingWeekPlan.value = false;
-            closeWeekPlanDialog();
-            return;
-        }
-
-        console.log('Sending week plan data:', { events: weekPlanData });
-
-        // Make the API call
-        const response = await axios.post('/api/events/week-plan', { events: weekPlanData }, {
-            headers,
-            withCredentials: true
-        });
-
-        console.log('Week plan response:', response.data);
-
-        if (response.status === 200 || response.status === 201) {
-            toast.add({
-                severity: 'success',
-                summary: 'Erfolg',
-                detail: 'Wochenplanung wurde gespeichert.',
-                life: 3000
-            });
-            await fetchEvents();
         } else {
-            throw new Error('Unexpected status code: ' + response.status);
-        }
-    } catch (error) {
-        console.error('Error saving week plan:', error);
-        console.log('Error response:', error.response?.data);
-
-        // Try alternative approach - create events individually
-        try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            const headers = {
-                'X-CSRF-TOKEN': csrfToken,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            };
-
-            let successCount = 0;
-            const totalEvents = weekDays.value.filter(day => day.selectedType !== null).length;
-
-            // Process each day individually
-            for (const day of weekDays.value) {
-                if (!day.selectedType) continue;
-
-                try {
-                    const eventData = {
-                        title: day.selectedType.name,
-                        description: day.notes || '',
-                        start_date: dayjs(day.date).format('YYYY-MM-DD'),
-                        end_date: dayjs(day.date).format('YYYY-MM-DD'),
-                        event_type: day.selectedType.name,
-                        event_type_id: day.selectedType.id,
-                        is_all_day: 1
-                    };
-
-                    await axios.post('/api/events', eventData, { headers, withCredentials: true });
-                    successCount++;
-                } catch (dayError) {
-                    console.error('Failed to create event for day:', dayjs(day.date).format('YYYY-MM-DD'), dayError);
-                }
-            }
-
-            if (successCount > 0) {
-                toast.add({
-                    severity: 'success',
-                    summary: 'Teilweise erfolgreich',
-                    detail: `${successCount} von ${totalEvents} Ereignissen wurden gespeichert.`,
-                    life: 3000
-                });
-                await fetchEvents();
-            } else {
-                throw new Error('Keine Ereignisse konnten gespeichert werden.');
-            }
-        } catch (altError) {
-            console.error('Alternative approach failed:', altError);
-
             toast.add({
                 severity: 'error',
                 summary: 'Fehler',
-                detail: 'Die Wochenplanung konnte nicht gespeichert werden. Bitte versuchen Sie es später erneut.',
+                detail: 'Die Wochenplanung konnte nicht gespeichert werden.',
                 life: 3000
             });
         }
+    } catch (error) {
+        console.error('Fehler beim Speichern der Wochenplanung:', error);
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Wochenplanung konnte nicht gespeichert werden.',
+            life: 3000
+        });
     } finally {
         savingWeekPlan.value = false;
         closeWeekPlanDialog();
@@ -1079,18 +1309,47 @@ const fetchEvents = async () => {
             }
         };
 
+        // Stelle sicher, dass die Ereignistypen geladen sind
+        if (eventTypes.value.length === 0) {
+            await fetchEventTypes();
+        }
+
         // Fetch regular events
         let regularEvents = [];
         try {
             const eventsResponse = await axios.get('/api/events', config);
-            console.log('Geladene Ereignisse:', eventsResponse.data);
 
             // Transform API response for regular events
             regularEvents = eventsResponse.data.map(event => {
-                // Find the corresponding event type
-                const eventType = eventTypes.value.find(type =>
-                    type.id === (event.event_type?.id || 0)
-                ) || { name: 'Sonstiges', value: 'other', color: '#607D8B' }; // Default to 'other'
+                // Extrahiere den Ereignistyp-Namen aus dem event_type Feld oder dem Titel
+                const eventTypeName = event.event_type || event.title;
+
+                // Finde den passenden Ereignistyp
+                let eventType = null;
+
+                // 1. Versuche zuerst, den Typ anhand der event_type_id zu finden
+                if (event.event_type_id) {
+                    eventType = eventTypes.value.find(type => type.id === event.event_type_id);
+                }
+
+                // 2. Wenn nicht gefunden, versuche es mit dem event_type String
+                if (!eventType && typeof eventTypeName === 'string') {
+                    // Exakte Übereinstimmung
+                    eventType = eventTypes.value.find(type => type.name === eventTypeName);
+
+                    // Case-insensitive Übereinstimmung
+                    if (!eventType) {
+                        eventType = eventTypes.value.find(type =>
+                            type.name.toLowerCase() === eventTypeName.toLowerCase()
+                        );
+                    }
+                }
+
+                // 3. Fallback auf "Sonstiges"
+                if (!eventType) {
+                    eventType = eventTypes.value.find(type => type.name === 'Sonstiges') ||
+                        { id: 6, name: 'Sonstiges', value: 'other', color: '#607D8B', requires_approval: true };
+                }
 
                 return {
                     id: event.id,
@@ -1102,58 +1361,16 @@ const fetchEvents = async () => {
                     status: event.status,
                     type: eventType,
                     color: eventType.color,
-                    source: 'event'
+                    source: 'event',
+                    event_type_id: event.event_type_id
                 };
             });
         } catch (error) {
             console.error('Fehler beim Laden der regulären Ereignisse:', error);
-            // Wir setzen den Prozess fort, auch wenn die regulären Ereignisse nicht geladen werden konnten
         }
 
-        // Fetch vacation requests
-        let vacationEvents = [];
-        try {
-            const vacationResponse = await axios.get('/api/vacation/user-requests', config);
-            console.log('Geladene Urlaubsanträge:', vacationResponse.data);
-
-            // Transform vacation requests - nur für Werktage
-            vacationResponse.data.filter(vacation => vacation.status === 'approved').forEach(vacation => {
-                // Create a vacation event type
-                const vacationType = eventTypes.value.find(type => type.value === 'vacation') ||
-                    { name: 'Urlaub', value: 'vacation', color: '#9C27B0' };
-
-                // Für jeden Tag im Urlaubszeitraum ein separates Ereignis erstellen
-                const startDate = dayjs(vacation.start_date);
-                const endDate = dayjs(vacation.end_date);
-                let currentDate = startDate.clone();
-
-                while (currentDate.isSameOrBefore(endDate, 'day')) {
-                    // Überprüfe, ob der aktuelle Tag ein Wochenendtag ist (0 = Sonntag, 6 = Samstag)
-                    const dayOfWeek = currentDate.day();
-                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-                        vacationEvents.push({
-                            id: `vacation-${vacation.id}-${currentDate.format('YYYY-MM-DD')}`,
-                            title: 'Urlaub',
-                            description: vacation.notes || 'Genehmigter Urlaub',
-                            startDate: currentDate.toDate(),
-                            endDate: currentDate.toDate(),
-                            isAllDay: true,
-                            type: vacationType,
-                            color: vacationType.color,
-                            source: 'vacation',
-                            status: vacation.status
-                        });
-                    }
-                    currentDate = currentDate.add(1, 'day');
-                }
-            });
-        } catch (error) {
-            console.error('Fehler beim Laden der Urlaubsanträge:', error);
-            // Wir setzen den Prozess fort, auch wenn die Urlaubsanträge nicht geladen werden konnten
-        }
-
-        // Combine both types of events
-        events.value = [...regularEvents, ...vacationEvents];
+        // Combine events
+        events.value = regularEvents;
     } catch (error) {
         console.error('Fehler beim Laden der Ereignisse:', error);
         toast.add({
@@ -1171,11 +1388,6 @@ onMounted(() => {
     fetchEventTypes();
     fetchEvents();
 });
-
-const updateCalendarEvents = () => {
-    // Trigger a re-render of the calendar by updating the events array
-    events.value = [...events.value];
-};
 </script>
 
 <style scoped>
@@ -1213,4 +1425,3 @@ const updateCalendarEvents = () => {
     border-top: 1px solid var(--surface-d);
 }
 </style>
-
