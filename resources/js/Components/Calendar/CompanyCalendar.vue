@@ -115,7 +115,10 @@
 
         <!-- Day View -->
         <div v-if="calendarView === 'day'" class="w-full">
-            <h3 class="text-xl font-medium text-center mb-4">{{ formatDate(currentDate) }}</h3>
+            <h3 class="text-xl font-medium text-center mb-4">
+                {{ formatDate(currentDate) }}
+                <span v-if="isHoliday(currentDate)" class="ml-2 text-red-500 font-bold">({{ getHolidayName(currentDate) }})</span>
+            </h3>
 
             <div class="flex flex-col w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
                 <div class="flex bg-gray-100 dark:bg-gray-800 font-bold p-3">
@@ -167,12 +170,14 @@
                     class="flex-1 min-w-[100px] p-3 text-center font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
                     :class="{
                         'bg-blue-50 dark:bg-blue-900/20': day.isToday,
-                        'bg-gray-100 dark:bg-gray-800': !day.isToday && !day.isWeekend,
-                        'bg-gray-200 dark:bg-gray-700': day.isWeekend
+                        'bg-red-50 dark:bg-red-900/20': isHoliday(day.date),
+                        'bg-gray-100 dark:bg-gray-800': !day.isToday && !day.isWeekend && !isHoliday(day.date),
+                        'bg-gray-200 dark:bg-gray-700': day.isWeekend && !isHoliday(day.date)
                     }"
                 >
                     <div class="font-bold">{{ day.dayName }}</div>
                     <div class="text-sm text-gray-500 dark:text-gray-400">{{ formatDayMonth(day.date) }}</div>
+                    <div v-if="isHoliday(day.date)" class="text-xs text-red-500 font-semibold mt-1">{{ getHolidayName(day.date) }}</div>
                 </div>
             </div>
 
@@ -198,7 +203,8 @@
                         class="flex-1 min-w-[100px] p-3 flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors"
                         :class="{
                             'bg-blue-50 dark:bg-blue-900/20': day.isToday,
-                            'bg-gray-200 dark:bg-gray-700': day.isWeekend
+                            'bg-red-50 dark:bg-red-900/20': isHoliday(day.date),
+                            'bg-gray-200 dark:bg-gray-700': day.isWeekend && !isHoliday(day.date)
                         }"
                     >
                         <div
@@ -224,11 +230,13 @@
                     class="w-[30px] min-w-[30px] py-2 text-center text-sm font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
                     :class="{
                         'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
-                        'bg-gray-100 dark:bg-gray-800': !isToday(dayNum) && !isWeekend(dayNum),
-                        'bg-gray-200 dark:bg-gray-700': isWeekend(dayNum)
+                        'bg-red-50 dark:bg-red-900/20': isHolidayInMonth(dayNum),
+                        'bg-gray-100 dark:bg-gray-800': !isToday(dayNum) && !isWeekend(dayNum) && !isHolidayInMonth(dayNum),
+                        'bg-gray-200 dark:bg-gray-700': isWeekend(dayNum) && !isHolidayInMonth(dayNum)
                     }"
                 >
-                    {{ dayNum }}
+                    <div :class="{ 'text-red-500': isHolidayInMonth(dayNum) }">{{ dayNum }}</div>
+                    <div v-if="isHolidayInMonth(dayNum)" class="absolute w-2 h-2 bg-red-500 rounded-full top-0 right-0 m-1" :title="getHolidayNameInMonth(dayNum)"></div>
                 </div>
             </div>
 
@@ -251,10 +259,11 @@
                     <div
                         v-for="dayNum in daysInMonth"
                         :key="dayNum"
-                        class="w-[30px] min-w-[30px] h-[30px] flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors"
+                        class="w-[30px] min-w-[30px] h-[30px] flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors relative"
                         :class="{
                             'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
-                            'bg-gray-200 dark:bg-gray-700': isWeekend(dayNum)
+                            'bg-red-50 dark:bg-red-900/20': isHolidayInMonth(dayNum),
+                            'bg-gray-200 dark:bg-gray-700': isWeekend(dayNum) && !isHolidayInMonth(dayNum)
                         }"
                     >
                         <div
@@ -273,13 +282,13 @@
             <div class="font-bold mb-2">Legende:</div>
             <div :class="[
                 'grid gap-2',
-                getDynamicGridCols(activeEventTypes.length)
+                getDynamicGridCols(allActiveEventTypes.length)
             ]">
                 <div
-                    v-for="type in activeEventTypes"
+                    v-for="type in allActiveEventTypes"
                     :key="type.value"
                     class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
-                    @click="openStatusDialog(type)"
+                    @click="type.value !== 'holiday' ? openStatusDialog(type) : null"
                 >
                     <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: type.color }"></div>
                     <div class="text-sm">{{ type.name }}</div>
@@ -347,9 +356,12 @@
                                         v-for="(day, index) in getEmployeePeriodDays(employee)"
                                         :key="index"
                                         class="w-9 h-7 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs"
-                                        :class="{ 'text-white font-bold': day.status }"
+                                        :class="{
+                                            'text-white font-bold': day.status,
+                                            'border-red-500 dark:border-red-400 border-2': isHoliday(day.date)
+                                        }"
                                         :style="{ backgroundColor: day.status ? day.status.color : 'transparent' }"
-                                        :title="day.date.format('DD.MM.YYYY') + (day.status ? ' - ' + day.status.name : ' - Nicht eingetragen')"
+                                        :title="day.date.format('DD.MM.YYYY') + (day.status ? ' - ' + day.status.name : ' - Nicht eingetragen') + (isHoliday(day.date) ? ' - ' + getHolidayName(day.date) : '')"
                                     >
                                         {{ day.date.format('DD.MM') }}
                                     </div>
@@ -414,9 +426,12 @@
                                         v-for="(day, index) in getEmployeePeriodDays(employee)"
                                         :key="index"
                                         class="w-9 h-7 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs"
-                                        :class="{ 'border-blue-500 dark:border-blue-400 border-2': day.status && day.status.value === selectedStatus.value }"
+                                        :class="{
+                                                    'border-blue-500 dark:border-blue-400 border-2': day.status && day.status.value === selectedStatus.value,
+                                                    'border-red-500 dark:border-red-400 border-2': isHoliday(day.date)
+                                                }"
                                         :style="{ backgroundColor: day.status && day.status.value === selectedStatus.value ? day.status.color : 'transparent' }"
-                                        :title="day.date.format('DD.MM.YYYY')"
+                                        :title="day.date.format('DD.MM.YYYY') + (isHoliday(day.date) ? ' - ' + getHolidayName(day.date) : '')"
                                     >
                                         {{ day.date.format('DD.MM') }}
                                     </div>
@@ -427,16 +442,25 @@
                 </div>
             </div>
         </Dialog>
+
+        <!-- Loading Overlay für Feiertage -->
+        <div v-if="isLoadingHolidays" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500 mx-auto mb-4"></div>
+                <p class="text-lg font-medium">Feiertage werden geladen...</p>
+            </div>
+        </div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import isSameOrAfterPlugin from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBeforePlugin from 'dayjs/plugin/isSameOrBefore';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import MultiSelect from 'primevue/multiselect';
@@ -444,13 +468,12 @@ import Dialog from 'primevue/dialog';
 import VacationService from '@/Services/VacationService';
 import { useToast } from 'primevue/usetoast';
 import axios from 'axios';
-import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 
 // Initialize dayjs plugins
 dayjs.extend(weekOfYear);
 dayjs.extend(isoWeek);
-dayjs.extend(isSameOrBefore);
-dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBeforePlugin);
+dayjs.extend(isSameOrAfterPlugin);
 dayjs.locale('de');
 
 // Dark mode state
@@ -475,11 +498,29 @@ const employees = ref([]);
 const availableDepartments = ref([]);
 const eventTypes = ref([]);
 
+// Definiere Feiertage und Geburtstage als spezielle Ereignistypen
+const holidayEventType = {
+    name: 'Feiertag',
+    value: 'holiday',
+    color: '#FF0000' // Rot für Feiertage
+};
+
+// Ändere die Farbe für Geburtstage
+const birthdayEventType = {
+    name: 'Geburtstag',
+    value: 'birthday',
+    color: '#FFD700' // Gold für Geburtstage
+};
+
 const toast = useToast();
 
 // Initialize vacationResponse and vacationError refs
 const vacationResponse = ref(null);
 const vacationError = ref(null);
+
+// Feiertage für das aktuelle Jahr
+const holidays = ref([]);
+const isLoadingHolidays = ref(false);
 
 // Hilfsfunktion, um dynamische Grid-Spalten basierend auf der Anzahl der Elemente zu erhalten
 const getDynamicGridCols = (count) => {
@@ -489,6 +530,137 @@ const getDynamicGridCols = (count) => {
     if (count === 3) return 'grid-cols-3';
     if (count === 4) return 'grid-cols-4';
     return 'grid-cols-5'; // 5 oder mehr Elemente
+};
+
+// Lokale Berechnung der bayerischen Feiertage
+const calculateBavarianHolidays = (year) => {
+    // Funktion zur Berechnung des Ostersonntags (Gaußsche Osterformel)
+    const calculateEaster = (year) => {
+        const a = year % 19;
+        const b = Math.floor(year / 100);
+        const c = year % 100;
+        const d = Math.floor(b / 4);
+        const e = b % 4;
+        const f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3);
+        const h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4);
+        const k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const month = Math.floor((h + l - 7 * m + 114) / 31);
+        const day = ((h + l - 7 * m + 114) % 31) + 1;
+
+        return dayjs(`${year}-${month}-${day}`);
+    };
+
+    // Berechnung der beweglichen Feiertage basierend auf Ostern
+    const easterSunday = calculateEaster(year);
+    const goodFriday = easterSunday.subtract(2, 'day');
+    const easterMonday = easterSunday.add(1, 'day');
+    const ascensionDay = easterSunday.add(39, 'day');
+    const whitMonday = easterSunday.add(50, 'day');
+    const corpusChristi = easterSunday.add(60, 'day');
+
+    // Feste Feiertage in Bayern
+    return [
+        { date: dayjs(`${year}-01-01`), name: 'Neujahr' },
+        { date: dayjs(`${year}-01-06`), name: 'Heilige Drei Könige' },
+        { date: dayjs(`${year}-05-01`), name: 'Tag der Arbeit' },
+        { date: dayjs(`${year}-08-15`), name: 'Mariä Himmelfahrt' },
+        { date: dayjs(`${year}-10-03`), name: 'Tag der Deutschen Einheit' },
+        { date: dayjs(`${year}-11-01`), name: 'Allerheiligen' },
+        { date: dayjs(`${year}-12-25`), name: 'Erster Weihnachtstag' },
+        { date: dayjs(`${year}-12-26`), name: 'Zweiter Weihnachtstag' },
+        { date: goodFriday, name: 'Karfreitag' },
+        { date: easterMonday, name: 'Ostermontag' },
+        { date: ascensionDay, name: 'Christi Himmelfahrt' },
+        { date: whitMonday, name: 'Pfingstmontag' },
+        { date: corpusChristi, name: 'Fronleichnam' },
+    ];
+};
+
+// Feiertage über API laden oder lokal berechnen
+const fetchHolidays = async (year) => {
+    isLoadingHolidays.value = true;
+    try {
+        // Versuche zuerst, die Feiertage über einen CORS-Proxy zu laden
+        const corsProxy = 'https://corsproxy.io/?';
+        const apiUrl = `${corsProxy}https://feiertage-api.de/api/?jahr=${year}&nur_land=BY`;
+
+        const response = await axios.get(apiUrl, {
+            headers: {
+                // Entferne den x-requested-with Header, der CORS-Probleme verursacht
+                'X-Requested-With': null
+            }
+        });
+
+        // Umwandeln des API-Antwortformats in unser Format
+        const holidaysData = [];
+        for (const [name, data] of Object.entries(response.data)) {
+            holidaysData.push({
+                date: dayjs(data.datum),
+                name: name
+            });
+        }
+
+        holidays.value = holidaysData;
+        console.log(`Feiertage für ${year} über API geladen:`, holidaysData);
+    } catch (error) {
+        console.warn('Fehler beim Laden der Feiertage über API, verwende lokale Berechnung:', error);
+
+        // Fallback: Lokale Berechnung der Feiertage
+        const calculatedHolidays = calculateBavarianHolidays(year);
+        holidays.value = calculatedHolidays;
+        console.log(`Feiertage für ${year} lokal berechnet:`, calculatedHolidays);
+
+        toast.add({
+            severity: 'info',
+            summary: 'Hinweis',
+            detail: 'Feiertage wurden lokal berechnet.',
+            life: 3000
+        });
+    } finally {
+        isLoadingHolidays.value = false;
+    }
+};
+
+// Prüft, ob ein Datum ein Feiertag ist
+const isHoliday = (date) => {
+    return holidays.value.some(holiday =>
+        holiday.date.format('YYYY-MM-DD') === date.format('YYYY-MM-DD')
+    );
+};
+
+// Gibt den Namen eines Feiertags zurück
+const getHolidayName = (date) => {
+    const holiday = holidays.value.find(holiday =>
+        holiday.date.format('YYYY-MM-DD') === date.format('YYYY-MM-DD')
+    );
+    return holiday ? holiday.name : '';
+};
+
+// Prüft, ob ein Tag im aktuellen Monat ein Feiertag ist
+const isHolidayInMonth = (dayNum) => {
+    const date = getDayInMonth(dayNum);
+    return isHoliday(date);
+};
+
+// Gibt den Namen eines Feiertags im aktuellen Monat zurück
+const getHolidayNameInMonth = (dayNum) => {
+    const date = getDayInMonth(dayNum);
+    return getHolidayName(date);
+};
+
+// Prüft, ob es Feiertage im aktuellen Zeitraum gibt
+const hasHolidaysInCurrentPeriod = () => {
+    if (calendarView.value === 'day') {
+        return isHoliday(currentDate.value);
+    } else if (calendarView.value === 'week') {
+        return weekDays.value.some(day => isHoliday(day.date));
+    } else {
+        return daysInMonth.value.some(dayNum => isHolidayInMonth(dayNum));
+    }
 };
 
 // Daten vom Server laden
@@ -509,8 +681,12 @@ const fetchCalendarData = async () => {
             eventTypes.value.push({ name: 'Urlaub', value: 'vacation', color: '#9C27B0' });
         }
 
-        if (!eventTypes.value.some(type => type.value === 'birthday')) {
-            eventTypes.value.push({ name: 'Geburtstag', value: 'birthday', color: '#FF4500' });
+        // Geburtstage mit der neuen Farbe aktualisieren
+        const birthdayIndex = eventTypes.value.findIndex(type => type.value === 'birthday');
+        if (birthdayIndex >= 0) {
+            eventTypes.value[birthdayIndex] = birthdayEventType;
+        } else {
+            eventTypes.value.push(birthdayEventType);
         }
     } catch (error) {
         console.error('Fehler beim Laden der Kalenderdaten:', error);
@@ -530,7 +706,7 @@ const fetchCalendarData = async () => {
             { name: 'Außendienst', value: 'field', color: '#FF9800' },
             { name: 'Krank', value: 'sick', color: '#F44336' },
             { name: 'Urlaub', value: 'vacation', color: '#9C27B0' },
-            { name: 'Geburtstag', value: 'birthday', color: '#FF4500' },
+            birthdayEventType,
             { name: 'Sonstiges', value: 'other', color: '#607D8B' }
         ];
     }
@@ -688,7 +864,7 @@ const renderCell = (employee, date) => {
             class: 'birthday-cell',
             style: {
                 backgroundColor: '#FFF0F0',
-                border: '2px solid #FF4500',
+                border: '2px solid #FFD700', // Neue Farbe für Geburtstage
                 position: 'relative'
             },
             content: `<div class="birthday-icon" style="position: absolute; top: 2px; right: 2px; font-size: 12px;">🎂</div>`
@@ -775,11 +951,22 @@ const statusSummary = computed(() => {
     return Object.values(statuses);
 });
 
-// Füge eine neue computed-Eigenschaft direkt nach der statusSummary computed-Eigenschaft hinzu
-// Diese Eigenschaft gibt nur die Ereignistypen zurück, die in der aktuellen Ansicht (Tag, Woche, Monat) tatsächlich verwendet werden
+// Diese Eigenschaft gibt nur die Ereignistypen zurück, die in der aktuellen Ansicht tatsächlich verwendet werden
 const activeEventTypes = computed(() => {
     // Verwende die bereits berechneten Statustypen aus statusSummary
     return statusSummary.value.map(status => status.type);
+});
+
+// Alle aktiven Ereignistypen inklusive Feiertage, wenn vorhanden
+const allActiveEventTypes = computed(() => {
+    const types = [...activeEventTypes.value];
+
+    // Füge Feiertage hinzu, wenn es welche im aktuellen Zeitraum gibt
+    if (hasHolidaysInCurrentPeriod()) {
+        types.push(holidayEventType);
+    }
+
+    return types;
 });
 
 // Mitarbeiter für die ausgewählte Abteilung
@@ -1133,6 +1320,16 @@ const toggleDarkMode = () => {
     }
 };
 
+// Beobachte Änderungen am Jahr und lade die Feiertage neu
+watch(
+    () => currentDate.value.year(),
+    (newYear, oldYear) => {
+        if (newYear !== oldYear) {
+            fetchHolidays(newYear);
+        }
+    }
+);
+
 // Initialize component
 onMounted(() => {
     // Check for saved theme preference
@@ -1166,6 +1363,9 @@ onMounted(() => {
             }
         });
     }
+
+    // Feiertage für das aktuelle Jahr laden
+    fetchHolidays(currentDate.value.year());
 
     // Fetch data from the server
     fetchCalendarData();
