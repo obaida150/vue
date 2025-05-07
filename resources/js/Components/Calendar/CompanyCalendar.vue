@@ -1,17 +1,21 @@
 <template>
-    <div class="company-calendar" :class="{ 'dark-mode': isDarkMode }">
-        <div class="calendar-header">
-            <div class="calendar-controls">
+    <div :class="[
+        'w-full overflow-x-auto p-6 rounded-lg shadow-md transition-all duration-300',
+        isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-800'
+    ]">
+        <!-- Calendar Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div class="flex items-center gap-4">
                 <Button icon="pi pi pi-chevron-left" @click="previousPeriod" class="p-button-rounded p-button-text" />
-                <h2 class="period-title">
+                <h2 class="text-2xl font-semibold capitalize m-0">
                     <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
                     <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
                     <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
                 </h2>
                 <Button icon="pi pi pi-chevron-right" @click="nextPeriod" class="p-button-rounded p-button-text" />
             </div>
-            <div class="view-controls">
-                <div class="theme-toggle">
+            <div class="flex items-center gap-4 w-full md:w-auto">
+                <div class="mr-2">
                     <Button
                         icon="pi pi-sun"
                         v-if="isDarkMode"
@@ -27,7 +31,7 @@
                         aria-label="Dark Mode"
                     />
                 </div>
-                <div class="view-toggle">
+                <div class="flex gap-1">
                     <Button
                         :class="{ 'p-button-primary': calendarView === 'day', 'p-button-outlined': calendarView !== 'day' }"
                         label="Tag"
@@ -50,15 +54,16 @@
             </div>
         </div>
 
-        <div class="filter-controls">
-            <div class="flex justify-between items-center w-full gap-4">
-                <div class="search-box flex-1">
-          <span class="p-input-icon-left w-full">
-            <i class="pi pi-search" />
-            <InputText v-model="searchQuery" placeholder="Mitarbeiter suchen..." class="w-full" />
-          </span>
+        <!-- Filter Controls -->
+        <div class="mb-4">
+            <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
+                <div class="w-full md:flex-1">
+                    <span class="p-input-icon-left w-full">
+<!--                        <i class="pi pi-search" />-->
+                        <InputText v-model="searchQuery" placeholder="Mitarbeiter suchen..." class="w-full" />
+                    </span>
                 </div>
-                <div class="department-filter flex-1">
+                <div class="w-full md:flex-1">
                     <MultiSelect
                         v-model="selectedDepartments"
                         :options="availableDepartments"
@@ -71,174 +76,184 @@
             </div>
         </div>
 
-        <!-- Zusammenfassung Karten -->
-        <div class="summary-section">
-            <div class="department-cards">
+        <!-- Summary Cards -->
+        <div class="flex flex-col gap-4 mb-6">
+            <!-- Department Cards -->
+            <div class="flex flex-wrap gap-4">
                 <div
                     v-for="department in departmentSummary"
                     :key="department.name"
-                    class="summary-card department-card"
+                    class="flex-1 min-w-[150px] p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col items-center text-center border-l-4 border-l-blue-500"
                     @click="openDepartmentDialog(department.name)"
                 >
-                    <div class="summary-card-title">{{ department.name }}</div>
-                    <div class="summary-card-count">{{ department.count }} Mitarbeiter</div>
+                    <div class="font-semibold mb-2">{{ department.name }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ department.count }} Mitarbeiter</div>
                 </div>
             </div>
 
-            <div class="status-cards">
+            <!-- Status Cards -->
+            <div class="flex flex-wrap gap-4">
                 <div
                     v-for="status in statusSummary"
                     :key="status.type.value"
-                    class="summary-card status-card"
-                    :style="{ borderColor: status.type.color }"
+                    class="flex-1 min-w-[150px] p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col items-center text-center"
+                    :style="{ borderLeftWidth: '4px', borderLeftColor: status.type.color }"
                     @click="openStatusDialog(status.type)"
                 >
-                    <div class="summary-card-icon" :style="{ backgroundColor: status.type.color }"></div>
-                    <div class="summary-card-title">{{ status.type.name }}</div>
-                    <div class="summary-card-count">{{ status.count }} Mitarbeiter</div>
+                    <div class="w-6 h-6 rounded-full mb-2" :style="{ backgroundColor: status.type.color }"></div>
+                    <div class="font-semibold mb-2">{{ status.type.name }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ status.count }} Mitarbeiter</div>
                 </div>
             </div>
         </div>
 
-        <!-- Tagesansicht -->
-        <div v-if="calendarView === 'day'" class="day-view">
-            <h3 class="date-header">{{ formatDate(currentDate) }}</h3>
+        <!-- Day View -->
+        <div v-if="calendarView === 'day'" class="w-full">
+            <h3 class="text-xl font-medium text-center mb-4">{{ formatDate(currentDate) }}</h3>
 
-            <div class="employee-grid">
-                <div class="employee-header">
-                    <div class="employee-name-header">Mitarbeiter</div>
-                    <div class="employee-status-header">Status</div>
-                    <div class="employee-notes-header">Notizen</div>
+            <div class="flex flex-col w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
+                <div class="flex bg-gray-100 dark:bg-gray-800 font-bold p-3">
+                    <div class="flex-2 px-2">Mitarbeiter</div>
+                    <div class="flex-1 px-2">Status</div>
+                    <div class="flex-1 px-2">Notizen</div>
                 </div>
 
                 <div
                     v-for="employee in filteredEmployees"
                     :key="employee.id"
-                    class="employee-row"
+                    class="flex border-t border-gray-200 dark:border-gray-700 p-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
                 >
-                    <div class="employee-name">
-                        <div class="employee-avatar" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                    <div class="flex-2 flex items-center gap-3 px-2">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
                             {{ getInitials(employee.name) }}
                         </div>
                         <div>
-                            <div class="employee-fullname">{{ employee.name }}</div>
-                            <div class="employee-department">{{ employee.department }}</div>
+                            <div class="font-medium">{{ employee.name }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
                         </div>
                     </div>
 
-                    <div class="employee-status">
+                    <div class="flex-1 flex items-center px-2">
                         <div
                             v-if="getEmployeeStatusForDay(employee, currentDate)"
-                            class="status-badge"
+                            class="px-2 py-1 rounded text-sm text-white shadow-sm"
                             :style="{ backgroundColor: getEmployeeStatusForDay(employee, currentDate).color }"
                         >
                             {{ getEmployeeStatusForDay(employee, currentDate).name }}
                         </div>
-                        <div v-else class="status-badge empty">Nicht eingetragen</div>
+                        <div v-else class="px-2 py-1 rounded text-sm bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">Nicht eingetragen</div>
                     </div>
 
-                    <div class="employee-notes">
+                    <div class="flex-1 flex items-center px-2">
                         {{ getEmployeeNotesForDay(employee, currentDate) || '-' }}
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Wochenansicht -->
-        <div v-else-if="calendarView === 'week'" class="week-view">
-            <div class="week-header">
-                <div class="employee-name-header">Mitarbeiter</div>
+        <!-- Week View -->
+        <div v-else-if="calendarView === 'week'" class="w-full overflow-x-auto rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="flex min-w-[800px]">
+                <div class="w-[200px] min-w-[200px] p-3 bg-gray-100 dark:bg-gray-800 font-bold">Mitarbeiter</div>
                 <div
                     v-for="(day, index) in weekDays"
                     :key="index"
-                    class="day-header"
-                    :class="{ 'today': day.isToday, 'weekend': day.isWeekend }"
+                    class="flex-1 min-w-[100px] p-3 text-center font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
+                    :class="{
+                        'bg-blue-50 dark:bg-blue-900/20': day.isToday,
+                        'bg-gray-100 dark:bg-gray-800': !day.isToday && !day.isWeekend,
+                        'bg-gray-200 dark:bg-gray-700': day.isWeekend
+                    }"
                 >
-                    <div class="day-name">{{ day.dayName }}</div>
-                    <div class="day-date">{{ formatDayMonth(day.date) }}</div>
+                    <div class="font-bold">{{ day.dayName }}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ formatDayMonth(day.date) }}</div>
                 </div>
             </div>
 
-            <div class="week-body">
+            <div class="flex flex-col min-w-[800px]">
                 <div
                     v-for="employee in filteredEmployees"
                     :key="employee.id"
-                    class="employee-week-row"
+                    class="flex border-t border-gray-200 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
                 >
-                    <div class="employee-name">
-                        <div class="employee-avatar" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                    <div class="w-[200px] min-w-[200px] p-3 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
                             {{ getInitials(employee.name) }}
                         </div>
                         <div>
-                            <div class="employee-fullname">{{ employee.name }}</div>
-                            <div class="employee-department">{{ employee.department }}</div>
+                            <div class="font-medium">{{ employee.name }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
                         </div>
                     </div>
 
                     <div
                         v-for="(day, index) in weekDays"
                         :key="index"
-                        class="day-cell"
-                        :class="{ 'today': day.isToday, 'weekend': day.isWeekend }"
+                        class="flex-1 min-w-[100px] p-3 flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors"
+                        :class="{
+                            'bg-blue-50 dark:bg-blue-900/20': day.isToday,
+                            'bg-gray-200 dark:bg-gray-700': day.isWeekend
+                        }"
                     >
                         <div
                             v-if="getEmployeeStatusForDay(employee, day.date)"
-                            class="status-badge"
+                            class="px-2 py-1 rounded text-sm text-white shadow-sm"
                             :style="{ backgroundColor: getEmployeeStatusForDay(employee, day.date).color }"
                         >
                             {{ getEmployeeStatusForDay(employee, day.date).name }}
                         </div>
-                        <div v-else class="status-badge empty">-</div>
+                        <div v-else class="px-2 py-1 rounded text-sm bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">-</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Monatsansicht -->
-        <div v-else-if="calendarView === 'month'" class="month-view">
-            <div class="month-header">
-                <div class="employee-name-header">Mitarbeiter</div>
+        <!-- Month View -->
+        <div v-else-if="calendarView === 'month'" class="w-full overflow-x-auto rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="flex min-w-[1200px]">
+                <div class="w-[200px] min-w-[200px] p-2 bg-gray-100 dark:bg-gray-800 font-bold">Mitarbeiter</div>
                 <div
                     v-for="dayNum in daysInMonth"
                     :key="dayNum"
-                    class="day-number-header"
+                    class="w-[30px] min-w-[30px] py-2 text-center text-sm font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
                     :class="{
-            'today': isToday(dayNum),
-            'weekend': isWeekend(dayNum)
-          }"
+                        'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
+                        'bg-gray-100 dark:bg-gray-800': !isToday(dayNum) && !isWeekend(dayNum),
+                        'bg-gray-200 dark:bg-gray-700': isWeekend(dayNum)
+                    }"
                 >
                     {{ dayNum }}
                 </div>
             </div>
 
-            <div class="month-body">
+            <div class="flex flex-col min-w-[1200px]">
                 <div
                     v-for="employee in filteredEmployees"
                     :key="employee.id"
-                    class="employee-month-row"
+                    class="flex border-t border-gray-200 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
                 >
-                    <div class="employee-name">
-                        <div class="employee-avatar" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                    <div class="w-[200px] min-w-[200px] p-2 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
                             {{ getInitials(employee.name) }}
                         </div>
-                        <div class="employee-info">
-                            <div class="employee-fullname">{{ employee.name }}</div>
-                            <div class="employee-department">{{ employee.department }}</div>
+                        <div class="overflow-hidden">
+                            <div class="font-medium">{{ employee.name }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
                         </div>
                     </div>
 
                     <div
                         v-for="dayNum in daysInMonth"
                         :key="dayNum"
-                        class="month-day-cell"
+                        class="w-[30px] min-w-[30px] h-[30px] flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors"
                         :class="{
-              'today': isToday(dayNum),
-              'weekend': isWeekend(dayNum)
-            }"
+                            'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
+                            'bg-gray-200 dark:bg-gray-700': isWeekend(dayNum)
+                        }"
                     >
                         <div
                             v-if="getEmployeeStatusForMonthDay(employee, dayNum)"
-                            class="status-indicator"
+                            class="w-5 h-5 rounded-full"
                             :style="{ backgroundColor: getEmployeeStatusForMonthDay(employee, dayNum).color }"
                             :title="getEmployeeStatusForMonthDay(employee, dayNum).name"
                         ></div>
@@ -247,23 +262,23 @@
             </div>
         </div>
 
-        <!-- Legende -->
-        <div class="legend">
-            <div class="legend-title">Legende:</div>
-            <div class="legend-items">
+        <!-- Legend -->
+        <div class="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+            <div class="font-bold mb-2">Legende:</div>
+            <div class="flex flex-wrap gap-4">
                 <div
                     v-for="type in eventTypes"
                     :key="type.value"
-                    class="legend-item"
+                    class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
                     @click="openStatusDialog(type)"
                 >
-                    <div class="legend-color" :style="{ backgroundColor: type.color }"></div>
-                    <div class="legend-label">{{ type.name }}</div>
+                    <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: type.color }"></div>
+                    <div class="text-sm">{{ type.name }}</div>
                 </div>
             </div>
         </div>
 
-        <!-- Abteilungs-Dialog -->
+        <!-- Department Dialog -->
         <Dialog
             v-model:visible="departmentDialogVisible"
             :header="`Abteilung: ${selectedDepartment}`"
@@ -272,51 +287,59 @@
             :closable="true"
             :closeOnEscape="true"
         >
-            <div class="dialog-content">
-                <div class="dialog-period">
+            <div class="flex flex-col gap-6">
+                <div class="text-xl font-medium text-center">
                     <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
                     <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
                     <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
                 </div>
 
-                <div class="dialog-summary">
-                    <div class="dialog-summary-item" v-for="status in departmentStatusSummary" :key="status.type.value">
-                        <div class="dialog-summary-icon" :style="{ backgroundColor: status.type.color }"></div>
-                        <div class="dialog-summary-label">{{ status.type.name }}: {{ status.count }}</div>
+                <div class="flex flex-wrap gap-4 justify-center">
+                    <div
+                        v-for="status in departmentStatusSummary"
+                        :key="status.type.value"
+                        class="flex items-center gap-2 px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-800 shadow-sm"
+                    >
+                        <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: status.type.color }"></div>
+                        <div class="text-sm font-medium">{{ status.type.name }}: {{ status.count }}</div>
                     </div>
                 </div>
 
-                <div class="dialog-employees">
-                    <div class="dialog-employee" v-for="employee in departmentEmployees" :key="employee.id">
-                        <div class="dialog-employee-header">
-                            <div class="employee-avatar" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                <div class="flex flex-col gap-4">
+                    <div
+                        v-for="employee in departmentEmployees"
+                        :key="employee.id"
+                        class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                        <div class="flex items-center gap-4 p-3 bg-gray-100 dark:bg-gray-800">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
                                 {{ getInitials(employee.name) }}
                             </div>
-                            <div class="dialog-employee-name">{{ employee.name }}</div>
+                            <div class="font-medium flex-1">{{ employee.name }}</div>
                             <div
                                 v-if="getEmployeeCurrentStatus(employee)"
-                                class="status-badge"
+                                class="px-2 py-1 rounded text-sm text-white shadow-sm"
                                 :style="{ backgroundColor: getEmployeeCurrentStatus(employee).color }"
                             >
                                 {{ getEmployeeCurrentStatus(employee).name }}
                             </div>
                         </div>
-                        <div class="dialog-employee-details">
-                            <div class="dialog-employee-notes">
+                        <div class="p-3">
+                            <div class="text-sm mb-3">
                                 {{ getEmployeeCurrentNotes(employee) || 'Keine Notizen' }}
                             </div>
-                            <div class="dialog-employee-period" v-if="calendarView !== 'day'">
-                                <div class="dialog-period-label">Tage:</div>
-                                <div class="dialog-employee-days">
+                            <div v-if="calendarView !== 'day'">
+                                <div class="text-sm font-medium mb-2">Tage:</div>
+                                <div class="flex flex-wrap gap-1">
                                     <div
                                         v-for="(day, index) in getEmployeePeriodDays(employee)"
                                         :key="index"
-                                        class="dialog-day-indicator"
-                                        :class="{ 'has-status': day.status }"
+                                        class="w-9 h-7 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs"
+                                        :class="{ 'text-white font-bold': day.status }"
                                         :style="{ backgroundColor: day.status ? day.status.color : 'transparent' }"
                                         :title="day.date.format('DD.MM.YYYY') + (day.status ? ' - ' + day.status.name : ' - Nicht eingetragen')"
                                     >
-                                        {{ day.date.format('DD') }}
+                                        {{ day.date.format('DD.MM') }}
                                     </div>
                                 </div>
                             </div>
@@ -326,7 +349,7 @@
             </div>
         </Dialog>
 
-        <!-- Status-Dialog -->
+        <!-- Status Dialog -->
         <Dialog
             v-model:visible="statusDialogVisible"
             :header="`Status: ${selectedStatus ? selectedStatus.name : ''}`"
@@ -335,42 +358,53 @@
             :closable="true"
             :closeOnEscape="true"
         >
-            <div class="dialog-content">
-                <div class="dialog-period">
+            <div class="flex flex-col gap-6">
+                <div class="text-xl font-medium text-center">
                     <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
                     <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
                     <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
                 </div>
 
-                <div class="dialog-summary">
-                    <div class="dialog-summary-item" v-for="dept in statusDepartmentSummary" :key="dept.name">
-                        <div class="dialog-summary-label">{{ dept.name }}: {{ dept.count }}</div>
+                <div class="flex flex-wrap gap-4 justify-center">
+                    <div
+                        v-for="dept in statusDepartmentSummary"
+                        :key="dept.name"
+                        class="px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-800 shadow-sm"
+                    >
+                        <div class="text-sm font-medium">{{ dept.name }}: {{ dept.count }}</div>
                     </div>
                 </div>
 
-                <div class="dialog-employees">
-                    <div class="dialog-employee" v-for="employee in statusEmployees" :key="employee.id">
-                        <div class="dialog-employee-header">
-                            <div class="employee-avatar" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                <div class="flex flex-col gap-4">
+                    <div
+                        v-for="employee in statusEmployees"
+                        :key="employee.id"
+                        class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                        <div class="flex items-center gap-4 p-3 bg-gray-100 dark:bg-gray-800">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
                                 {{ getInitials(employee.name) }}
                             </div>
-                            <div class="dialog-employee-name">{{ employee.name }}</div>
-                            <div class="dialog-employee-department">{{ employee.department }}</div>
+                            <div class="font-medium flex-1">{{ employee.name }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
                         </div>
-                        <div class="dialog-employee-details">
-                            <div class="dialog-employee-notes">
+                        <div class="p-3">
+                            <div class="text-sm mb-3">
                                 {{ getEmployeeCurrentNotes(employee) || 'Keine Notizen' }}
                             </div>
-                            <div class="dialog-employee-period" v-if="calendarView !== 'day'">
-                                <div class="dialog-employee-days">
-                                    <div
-                                        v-for="(day, index) in getEmployeePeriodDays(employee)"
-                                        :key="index"
-                                        class="dialog-day-indicator"
-                                        :class="{ 'active': day.status && day.status.value === selectedStatus.value }"
-                                        :style="{ backgroundColor: day.status && day.status.value === selectedStatus.value ? day.status.color : 'transparent' }"
-                                        :title="day.date.format('DD.MM.YYYY')"
-                                    ></div>
+                            <div v-if="calendarView !== 'day'">
+                                <div class="text-sm font-medium mb-3">Tage:</div>
+                                    <div class="flex flex-wrap gap-1">
+                                        <div
+                                                v-for="(day, index) in getEmployeePeriodDays(employee)"
+                                                :key="index"
+                                                class="w-9 h-7 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs"
+                                                :class="{ 'border-blue-500 dark:border-blue-400 border-2': day.status && day.status.value === selectedStatus.value }"
+                                                :style="{ backgroundColor: day.status && day.status.value === selectedStatus.value ? day.status.color : 'transparent' }"
+                                                :title="day.date.format('DD.MM.YYYY')"
+                                            >
+                                                {{ day.date.format('DD.MM') }}
+                                        </div>
                                 </div>
                             </div>
                         </div>
@@ -428,6 +462,10 @@ const eventTypes = ref([]);
 
 const toast = useToast();
 
+// Initialize vacationResponse and vacationError refs
+const vacationResponse = ref(null);
+const vacationError = ref(null);
+
 // Daten vom Server laden
 const fetchCalendarData = async () => {
     try {
@@ -450,10 +488,12 @@ const fetchCalendarData = async () => {
 
         try {
             // Urlaubsanträge laden
-            const vacationResponse = await axios.get('/api/vacation/all-requests');
+            const response = await axios.get('/api/vacation/all-requests');
+            vacationResponse.value = response;
+            vacationError.value = null;
 
             // Urlaubsanträge in das richtige Format umwandeln
-            const vacationEvents = vacationResponse.data
+            const vacationEvents = vacationResponse.value.data
                 .filter(vacation => vacation.status === 'approved') // Nur genehmigte Urlaubsanträge
                 .map(vacation => {
                     return {
@@ -483,14 +523,11 @@ const fetchCalendarData = async () => {
                 if (employeeVacations.length > 0) {
                     employee.events = [...(employee.events || []), ...employeeVacations];
                 }
-
-                // Stelle sicher, dass das birth_date-Feld korrekt gesetzt ist
-                // if (employee.birth_date) {
-                //     console.log(`Mitarbeiter ${employee.name} hat Geburtstag am ${employee.birth_date}`); // Debug-Ausgabe
-                // }
             });
-        } catch (vacationError) {
-            console.error('Fehler beim Laden der Urlaubsanträge:', vacationError);
+        } catch (error) {
+            console.error('Fehler beim Laden der Urlaubsanträge:', error);
+            vacationResponse.value = null;
+            vacationError.value = error;
             // Wir setzen den Prozess fort, auch wenn die Urlaubsanträge nicht geladen werden konnten
         }
 
@@ -534,8 +571,6 @@ const daysInMonth = computed(() => {
 
     return Array.from({ length: daysCount }, (_, i) => i + 1);
 });
-
-
 
 // Computed properties for week view
 const weekStart = computed(() => {
@@ -876,7 +911,6 @@ const hasBirthdayOnDay = (employee, date) => {
     return birthDate.month() === date.month() && birthDate.date() === date.date();
 };
 
-
 const getEmployeeStatusForMonthDay = (employee, dayNum) => {
     const date = getDayInMonth(dayNum);
     return getEmployeeStatusForDay(employee, date);
@@ -1046,916 +1080,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.company-calendar {
-    font-family: var(--font-family);
-    background-color: var(--surface-a);
-    border-radius: var(--border-radius);
-    box-shadow: var(--card-shadow);
-    padding: 1.5rem;
-    width: 100%;
-    overflow-x: auto;
-    transition: all 0.3s ease;
-}
-
-/* Dark Mode Styles */
-.company-calendar.dark-mode {
-    background-color: #1e1e1e;
-    color: #f0f0f0;
-}
-
-.dark-mode .employee-grid,
-.dark-mode .week-header,
-.dark-mode .week-body,
-.dark-mode .month-header,
-.dark-mode .month-body,
-.dark-mode .summary-card,
-.dark-mode .dialog-employee {
-    border-color: #444;
-}
-
-.dark-mode .employee-header,
-.dark-mode .day-header,
-.dark-mode .day-number-header {
-    background-color: #333;
-    color: #f0f0f0;
-    border-color: #444;
-}
-
-.dark-mode .employee-row,
-.dark-mode .employee-week-row,
-.dark-mode .employee-month-row {
-    border-color: #444;
-}
-
-.dark-mode .employee-row:nth-child(even),
-.dark-mode .employee-week-row:nth-child(even),
-.dark-mode .employee-month-row:nth-child(even) {
-    background-color: #2a2a2a;
-}
-
-.dark-mode .day-cell,
-.dark-mode .month-day-cell {
-    border-color: #444;
-}
-
-.dark-mode .day-cell.weekend,
-.dark-mode .month-day-cell.weekend,
-.dark-mode .day-header.weekend,
-.dark-mode .day-number-header.weekend {
-    background-color: #2a2a2a;
-}
-
-.dark-mode .day-cell.today,
-.dark-mode .month-day-cell.today,
-.dark-mode .day-header.today,
-.dark-mode .day-number-header.today {
-    background-color: rgba(59, 130, 246, 0.2);
-}
-
-.dark-mode .employee-department,
-.dark-mode .day-date {
-    color: #aaa;
-}
-
-.dark-mode .status-badge.empty {
-    background-color: #444;
-    color: #aaa;
-}
-
-.dark-mode .legend,
-.dark-mode .summary-card {
-    background-color: #333;
-    border-color: #444;
-}
-
-.dark-mode .dialog-employee-header {
-    background-color: #2a2a2a;
-}
-
-.dark-mode .dialog-employee:hover {
-    background-color: #2a2a2a;
-}
-
-.calendar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.calendar-controls {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.period-title {
-    margin: 0;
-    font-size: 1.5rem;
-    text-transform: capitalize;
-    font-weight: 600;
-}
-
-.view-controls {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.theme-toggle {
-    margin-right: 0.5rem;
-}
-
-.view-toggle {
-    display: flex;
-    gap: 0.25rem;
-}
-
-/* Summary Section Styles */
-.summary-section {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.department-cards, .status-cards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.summary-card {
-    flex: 1;
-    min-width: 150px;
-    padding: 1rem;
-    border-radius: var(--border-radius);
-    background-color: var(--surface-b);
-    border: 1px solid var(--surface-d);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-}
-
-.summary-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.department-card {
-    border-left: 4px solid var(--primary-color);
-}
-
-.status-card {
-    border-left-width: 4px;
-}
-
-.summary-card-icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    margin-bottom: 0.5rem;
-}
-
-.summary-card-title {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-}
-
-.summary-card-count {
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-}
-
-/* Day View Styles */
-.day-view {
-    width: 100%;
-}
-
-.birthday-cell {
-    position: relative;
-    transition: all 0.2s;
-}
-
-.birthday-cell {
-    position: relative;
-    transition: all 0.2s;
-}
-
-.birthday-cell:hover {
-    transform: scale(1.05);
-    z-index: 10;
-    box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
-}
-
-.birthday-icon {
-    animation: pulse 1.5s infinite;
-}
-
+/* Animation für Geburtstags-Icon */
 @keyframes pulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.2); }
     100% { transform: scale(1); }
 }
 
-.date-header {
-    margin-bottom: 1rem;
-    font-size: 1.2rem;
-    text-align: center;
-    font-weight: 500;
-}
-
-.employee-grid {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    border: 1px solid var(--surface-d);
-    border-radius: var(--border-radius);
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.employee-header {
-    display: flex;
-    background-color: var(--surface-c);
-    font-weight: bold;
-    padding: 0.75rem;
-}
-
-.employee-name-header {
-    flex: 2;
-    padding: 0 0.5rem;
-}
-
-.employee-status-header,
-.employee-notes-header {
-    flex: 1;
-    padding: 0 0.5rem;
-}
-
-.employee-row {
-    display: flex;
-    border-top: 1px solid var(--surface-d);
-    padding: 0.75rem;
-    transition: background-color 0.2s;
-}
-
-.employee-row:hover {
-    background-color: var(--surface-hover);
-}
-
-.employee-row:nth-child(even) {
-    background-color: var(--surface-b);
-}
-
-.employee-row:nth-child(even):hover {
-    background-color: var(--surface-hover);
-}
-
-.employee-name {
-    flex: 2;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0 0.5rem;
-}
-
-.employee-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.employee-fullname {
-    font-weight: 500;
-}
-
-.employee-department {
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-}
-
-.employee-status,
-.employee-notes {
-    flex: 1;
-    padding: 0 0.5rem;
-    display: flex;
-    align-items: center;
-}
-
-.status-badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    color: white;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.status-badge.empty {
-    background-color: var(--surface-d);
-    color: var(--text-color-secondary);
-}
-
-/* Week View Styles */
-.week-view {
-    width: 100%;
-    overflow-x: auto;
-    border-radius: var(--border-radius);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    border: 1px solid var(--surface-d);
-}
-
-.week-header {
-    display: flex;
-    min-width: 800px;
-}
-
-.week-header .employee-name-header {
-    width: 200px;
-    min-width: 200px;
-    padding: 0.75rem;
-    background-color: var(--surface-c);
-    font-weight: bold;
-}
-
-.day-header {
-    flex: 1;
-    min-width: 100px;
-    padding: 0.75rem;
-    text-align: center;
-    background-color: var(--surface-c);
-    font-weight: bold;
-    border-left: 1px solid var(--surface-d);
-    transition: background-color 0.2s;
-}
-
-.day-header.today {
-    background-color: var(--primary-50);
-}
-
-.day-header.weekend {
-    background-color: var(--surface-d);
-}
-
-.day-name {
-    font-weight: bold;
-}
-
-.day-date {
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-}
-
-.week-body {
-    display: flex;
-    flex-direction: column;
-    min-width: 800px;
-}
-
-.employee-week-row {
-    display: flex;
-    border-top: 1px solid var(--surface-d);
-    transition: background-color 0.2s;
-}
-
-.employee-week-row:hover {
-    background-color: var(--surface-hover);
-}
-
-.employee-week-row:nth-child(even) {
-    background-color: var(--surface-b);
-}
-
-.employee-week-row:nth-child(even):hover {
-    background-color: var(--surface-hover);
-}
-
-.employee-week-row .employee-name {
-    width: 200px;
-    min-width: 200px;
-    padding: 0.75rem;
-}
-
-.day-cell {
-    flex: 1;
-    min-width: 100px;
-    padding: 0.75rem;
-    text-align: center;
-    border-left: 1px solid var(--surface-d);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s;
-}
-
-.day-cell:hover {
-    background-color: var(--surface-hover);
-}
-
-.day-cell.today {
-    background-color: var(--primary-50);
-}
-
-.day-cell.weekend {
-    background-color: var(--surface-d);
-}
-
-/* Month View Styles */
-.month-view {
-    width: 100%;
-    overflow-x: auto;
-    border-radius: var(--border-radius);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    border: 1px solid var(--surface-d);
-}
-
-.month-header {
-    display: flex;
-    min-width: 1200px;
-}
-
-.month-header .employee-name-header {
-    width: 200px;
-    min-width: 200px;
-    padding: 0.5rem;
-    background-color: var(--surface-c);
-    font-weight: bold;
-}
-
-.day-number-header {
-    width: 30px;
-    min-width: 30px;
-    padding: 0.5rem 0;
-    text-align: center;
-    background-color: var(--surface-c);
-    font-weight: bold;
-    border-left: 1px solid var(--surface-d);
-    font-size: 0.85rem;
-    transition: background-color 0.2s;
-}
-
-.day-number-header.today {
-    background-color: var(--primary-50);
-}
-
-.day-number-header.weekend {
-    background-color: var(--surface-d);
-}
-
-.month-body {
-    display: flex;
-    flex-direction: column;
-    min-width: 1200px;
-}
-
-.employee-month-row {
-    display: flex;
-    border-top: 1px solid var(--surface-d);
-    transition: background-color 0.2s;
-}
-
-.employee-month-row:hover {
-    background-color: var(--surface-hover);
-}
-
-.employee-month-row:nth-child(even) {
-    background-color: var(--surface-b);
-}
-
-.employee-month-row:nth-child(even):hover {
-    background-color: var(--surface-hover);
-}
-
-.employee-month-row .employee-name {
-    width: 200px;
-    min-width: 200px;
-    padding: 0.5rem;
-}
-
-.employee-info {
-    overflow: hidden;
-}
-
-.month-day-cell {
-    width: 30px;
-    min-width: 30px;
-    height: 30px;
-    border-left: 1px solid var(--surface-d);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s;
-}
-
-.month-day-cell:hover {
-    background-color: var(--surface-hover);
-}
-
-.month-day-cell.today {
-    background-color: var(--primary-50);
-}
-
-.month-day-cell.weekend {
-    background-color: var(--surface-d);
-}
-
-.status-indicator {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* Legend Styles */
-.legend {
-    margin-top: 1.5rem;
-    padding: 1rem;
-    border: 1px solid var(--surface-d);
-    border-radius: var(--border-radius);
-    background-color: var(--surface-b);
-}
-
-.legend-title {
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-}
-
-.legend-items {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-}
-
-.legend-item:hover {
-    background-color: var(--surface-hover);
-}
-
-.legend-color {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-}
-
-.legend-label {
-    font-size: 0.85rem;
-}
-
-/* Dialog Styles */
-.dialog-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.dialog-period {
-    font-size: 1.2rem;
-    font-weight: 500;
-    text-align: center;
-}
-
-.dialog-summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    justify-content: center;
-}
-
-.dialog-summary-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    background-color: var(--surface-b);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.dialog-summary-icon {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-}
-
-.dialog-summary-label {
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.dialog-employees {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.dialog-employee {
-    border: 1px solid var(--surface-d);
-    border-radius: var(--border-radius);
-    overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.dialog-employee:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.dialog-employee-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem;
-    background-color: var(--surface-c);
-}
-
-.dialog-employee-name {
-    font-weight: 500;
-    flex: 1;
-}
-
-.dialog-employee-department {
-    font-size: 0.85rem;
-    color: var(--text-color-secondary);
-    margin-right: 1rem;
-}
-
-.dialog-employee-details {
-    padding: 0.75rem;
-}
-
-.dialog-employee-notes {
-    margin-bottom: 0.75rem;
-    font-size: 0.9rem;
-}
-
-.dialog-employee-period {
-    margin-top: 0.5rem;
-}
-
-.dialog-period-label {
-    font-size: 0.85rem;
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-}
-
-.dialog-employee-days {
-    display: flex;
-    gap: 4px;
-}
-
-.dialog-day-indicator {
-    width: 28px;
-    height: 28px;
-    border-radius: 4px;
-    border: 1px solid var(--surface-d);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    color: var(--text-color);
-}
-
-.dialog-day-indicator.has-status {
-    color: white;
-    font-weight: bold;
-}
-
-.dialog-day-indicator.active {
-    border-width: 2px;
-    border-color: var(--primary-color);
-}
-
-/* Responsive Styles */
-@media (max-width: 1024px) {
-    .calendar-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-
-    .view-controls {
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .filter-controls {
-        flex-direction: column;
-    }
-
-    .search-box,
-    .department-filter {
-        width: 100%;
-    }
-
-    .summary-section {
-        flex-direction: column;
-    }
-
-    .department-cards,
-    .status-cards {
-        flex-direction: column;
-    }
-
-    .summary-card {
-        width: 100%;
-    }
-}
-
-@media (max-width: 768px) {
-    .employee-name {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
-    }
-
-    .employee-row {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .employee-status,
-    .employee-notes {
-        padding-left: 3rem;
-    }
-
-    .legend-items {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .dialog-employee-header {
-        flex-wrap: wrap;
-    }
-
-    .day-view,
-    .week-view,
-    .month-view {
-        overflow-x: auto;
-    }
-}
-
-/* Filter Controls Styles */
-.filter-controls {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-}
-
-.search-box,
-.department-filter {
-    flex: 1;
-    min-width: 250px;
-}
-
-.dark-mode .p-inputtext {
-    background-color: #333;
-    color: #f0f0f0;
-    border-color: #555;
-}
-
-.dark-mode .p-inputtext::placeholder {
-    color: #aaa;
-}
-
-.dark-mode .p-multiselect {
-    background-color: #333;
-    color: #f0f0f0;
-    border-color: #555;
-}
-
-.dark-mode .p-multiselect-label {
-    color: #f0f0f0;
-}
-
-.dark-mode .p-multiselect-panel {
-    background-color: #333;
-    color: #f0f0f0;
-    border-color: #555;
-}
-
-.dark-mode .p-multiselect-item {
-    color: #f0f0f0;
-}
-
-.dark-mode .p-multiselect-item:hover {
-    background-color: #444;
-}
-
-.dark-mode .p-multiselect-item.p-highlight {
-    background-color: var(--primary-color);
-    color: var(--primary-color-text);
-}
-
-/* Dialog Styles for Dark Mode */
-.dark-mode .p-dialog {
-    background-color: #1e1e1e;
-    color: #f0f0f0;
-}
-
-.dark-mode .p-dialog-header {
-    background-color: #333;
-    color: #f0f0f0;
-    border-color: #444;
-}
-
-.dark-mode .p-dialog-content {
-    background-color: #1e1e1e;
-    color: #f0f0f0;
-}
-
-.dark-mode .dialog-summary-item {
-    background-color: #333;
-}
-
-.dark-mode .dialog-day-indicator {
-    border-color: #555;
-}
-
-/* Verbesserte Responsive Styles */
-@media (max-width: 640px) {
-    .calendar-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .view-controls {
-        margin-top: 1rem;
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .filter-controls {
-        flex-direction: column;
-    }
-
-    .search-box,
-    .department-filter {
-        width: 100%;
-        margin-bottom: 0.5rem;
-    }
-
-    .employee-row {
-        flex-direction: column;
-    }
-
-    .employee-status,
-    .employee-notes {
-        margin-top: 0.5rem;
-        padding-left: 0;
-    }
-
-    .day-cell,
-    .month-day-cell {
-        min-width: 40px;
-    }
-
-    .employee-name {
-        min-width: 150px;
-    }
-
-    .legend-items {
-        flex-wrap: wrap;
-    }
-}
-
-/* Hervorhebung des aktuellen Tages */
-.day-cell.today,
-.month-day-cell.today,
-.day-header.today,
-.day-number-header.today {
-    background-color: rgba(var(--primary-rgb, 59, 130, 246), 0.15);
-    font-weight: bold;
-    border: 1px solid rgba(var(--primary-rgb, 59, 130, 246), 0.5);
-}
-
-.dark-mode .day-cell.today,
-.dark-mode .month-day-cell.today,
-.dark-mode .day-header.today,
-.dark-mode .day-number-header.today {
-    background-color: rgba(var(--primary-rgb, 59, 130, 246), 0.25);
-    border-color: rgba(var(--primary-rgb, 59, 130, 246), 0.6);
+.birthday-icon {
+    animation: pulse 1.5s infinite;
 }
 </style>
 
