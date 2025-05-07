@@ -468,6 +468,7 @@ import Dialog from 'primevue/dialog';
 import VacationService from '@/Services/VacationService';
 import { useToast } from 'primevue/usetoast';
 import axios from 'axios';
+import HolidayService from '@/Services/holiday-service';
 
 // Initialize dayjs plugins
 dayjs.extend(weekOfYear);
@@ -532,92 +533,17 @@ const getDynamicGridCols = (count) => {
     return 'grid-cols-5'; // 5 oder mehr Elemente
 };
 
-// Lokale Berechnung der bayerischen Feiertage
-const calculateBavarianHolidays = (year) => {
-    // Funktion zur Berechnung des Ostersonntags (Gaußsche Osterformel)
-    const calculateEaster = (year) => {
-        const a = year % 19;
-        const b = Math.floor(year / 100);
-        const c = year % 100;
-        const d = Math.floor(b / 4);
-        const e = b % 4;
-        const f = Math.floor((b + 8) / 25);
-        const g = Math.floor((b - f + 1) / 3);
-        const h = (19 * a + b - d - g + 15) % 30;
-        const i = Math.floor(c / 4);
-        const k = c % 4;
-        const l = (32 + 2 * e + 2 * i - h - k) % 7;
-        const m = Math.floor((a + 11 * h + 22 * l) / 451);
-        const month = Math.floor((h + l - 7 * m + 114) / 31);
-        const day = ((h + l - 7 * m + 114) % 31) + 1;
-
-        return dayjs(`${year}-${month}-${day}`);
-    };
-
-    // Berechnung der beweglichen Feiertage basierend auf Ostern
-    const easterSunday = calculateEaster(year);
-    const goodFriday = easterSunday.subtract(2, 'day');
-    const easterMonday = easterSunday.add(1, 'day');
-    const ascensionDay = easterSunday.add(39, 'day');
-    const whitMonday = easterSunday.add(50, 'day');
-    const corpusChristi = easterSunday.add(60, 'day');
-
-    // Feste Feiertage in Bayern
-    return [
-        { date: dayjs(`${year}-01-01`), name: 'Neujahr' },
-        { date: dayjs(`${year}-01-06`), name: 'Heilige Drei Könige' },
-        { date: dayjs(`${year}-05-01`), name: 'Tag der Arbeit' },
-        { date: dayjs(`${year}-08-15`), name: 'Mariä Himmelfahrt' },
-        { date: dayjs(`${year}-10-03`), name: 'Tag der Deutschen Einheit' },
-        { date: dayjs(`${year}-11-01`), name: 'Allerheiligen' },
-        { date: dayjs(`${year}-12-25`), name: 'Erster Weihnachtstag' },
-        { date: dayjs(`${year}-12-26`), name: 'Zweiter Weihnachtstag' },
-        { date: goodFriday, name: 'Karfreitag' },
-        { date: easterMonday, name: 'Ostermontag' },
-        { date: ascensionDay, name: 'Christi Himmelfahrt' },
-        { date: whitMonday, name: 'Pfingstmontag' },
-        { date: corpusChristi, name: 'Fronleichnam' },
-    ];
-};
-
-// Feiertage über API laden oder lokal berechnen
+// Ersetze die fetchHolidays-Funktion mit:
 const fetchHolidays = async (year) => {
     isLoadingHolidays.value = true;
     try {
-        // Versuche zuerst, die Feiertage über einen CORS-Proxy zu laden
-        const corsProxy = 'https://corsproxy.io/?';
-        const apiUrl = `${corsProxy}https://feiertage-api.de/api/?jahr=${year}&nur_land=BY`;
-
-        const response = await axios.get(apiUrl, {
-            headers: {
-                // Entferne den x-requested-with Header, der CORS-Probleme verursacht
-                'X-Requested-With': null
-            }
-        });
-
-        // Umwandeln des API-Antwortformats in unser Format
-        const holidaysData = [];
-        for (const [name, data] of Object.entries(response.data)) {
-            holidaysData.push({
-                date: dayjs(data.datum),
-                name: name
-            });
-        }
-
-        holidays.value = holidaysData;
-        console.log(`Feiertage für ${year} über API geladen:`, holidaysData);
+        holidays.value = await HolidayService.getHolidays(year);
     } catch (error) {
-        console.warn('Fehler beim Laden der Feiertage über API, verwende lokale Berechnung:', error);
-
-        // Fallback: Lokale Berechnung der Feiertage
-        const calculatedHolidays = calculateBavarianHolidays(year);
-        holidays.value = calculatedHolidays;
-        console.log(`Feiertage für ${year} lokal berechnet:`, calculatedHolidays);
-
+        console.error('Fehler beim Laden der Feiertage:', error);
         toast.add({
-            severity: 'info',
-            summary: 'Hinweis',
-            detail: 'Feiertage wurden lokal berechnet.',
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Feiertage konnten nicht geladen werden.',
             life: 3000
         });
     } finally {
@@ -625,19 +551,14 @@ const fetchHolidays = async (year) => {
     }
 };
 
-// Prüft, ob ein Datum ein Feiertag ist
+// Ersetze die isHoliday-Funktion mit:
 const isHoliday = (date) => {
-    return holidays.value.some(holiday =>
-        holiday.date.format('YYYY-MM-DD') === date.format('YYYY-MM-DD')
-    );
+    return HolidayService.isHoliday(date, holidays.value);
 };
 
-// Gibt den Namen eines Feiertags zurück
+// Ersetze die getHolidayName-Funktion mit:
 const getHolidayName = (date) => {
-    const holiday = holidays.value.find(holiday =>
-        holiday.date.format('YYYY-MM-DD') === date.format('YYYY-MM-DD')
-    );
-    return holiday ? holiday.name : '';
+    return HolidayService.getHolidayName(date, holidays.value);
 };
 
 // Prüft, ob ein Tag im aktuellen Monat ein Feiertag ist

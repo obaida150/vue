@@ -66,14 +66,20 @@
                             :key="'day-' + dayIndex"
                             class="flex-1 min-w-[80px] border border-gray-200 dark:border-gray-700 p-1 sm:p-2 min-h-[80px] sm:min-h-[100px] cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
                             :class="{
-                            'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500': !day.currentMonth,
-                            'bg-blue-50 dark:bg-blue-900/20 font-bold border border-blue-300 dark:border-blue-700': day.isToday,
-                            'relative': hasEvents(day.date),
-                            'bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400': day.isWeekend
-                        }"
-                            @click="openEventDialog(day.date)"
+                                'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500': !day.currentMonth,
+                                'bg-blue-50 dark:bg-blue-900/20 font-bold border border-blue-300 dark:border-blue-700': day.isToday,
+                                'relative': hasEvents(day.date),
+                                'bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400': day.isWeekend,
+                                'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400': isHoliday(dayjs(day.date))
+                            }"
+                            @click="!isHoliday(dayjs(day.date)) ? openEventDialog(day.date) : showHolidayInfo(day.date)"
                         >
-                            <div class="text-center mb-1 sm:mb-2 text-xs sm:text-base">{{ day.dayNumber }}</div>
+                            <div class="text-center mb-1 sm:mb-2 text-xs sm:text-base">
+                                {{ day.dayNumber }}
+                                <span v-if="isHoliday(dayjs(day.date))" class="text-xs text-red-600 dark:text-red-400 block">
+                                    {{ getHolidayName(dayjs(day.date)) }}
+                                </span>
+                            </div>
                             <div class="flex flex-col gap-1">
                                 <div
                                     v-for="event in getEventsForDay(day.date)"
@@ -98,9 +104,9 @@
             v-else-if="calendarView === 'year'"
             class="grid gap-2 sm:gap-4 w-full"
             :class="{
-            'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-6': yearLayout === '6x2',
-            'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4': yearLayout === '4x3'
-        }"
+                'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-6': yearLayout === '6x2',
+                'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4': yearLayout === '4x3'
+            }"
         >
             <div
                 v-for="month in 12"
@@ -132,10 +138,11 @@
                             :key="'mini-day-' + dayIndex"
                             class="flex-1 flex flex-col items-center justify-center h-4 sm:h-5 text-[9px] sm:text-[11px] text-center relative"
                             :class="{
-                            'text-gray-400 dark:text-gray-500': !day.currentMonth,
-                            'bg-blue-500 text-white rounded-full font-bold': day.isToday,
-                            'text-gray-400 dark:text-gray-500': day.isWeekend
-                        }"
+                                'text-gray-400 dark:text-gray-500': !day.currentMonth,
+                                'bg-blue-500 text-white rounded-full font-bold': day.isToday,
+                                'text-gray-400 dark:text-gray-500': day.isWeekend,
+                                'bg-red-500 text-white rounded-full font-bold': isHoliday(dayjs(day.date))
+                            }"
                         >
                             <div class="z-10">{{ day.dayNumber }}</div>
                             <div
@@ -183,12 +190,14 @@
                             dateFormat="dd.mm.yy"
                             placeholder="Startdatum"
                             class="w-full"
+                            :disabledDates="disabledDates"
                         />
                         <DatePicker
                             v-model="newEvent.endDate"
                             dateFormat="dd.mm.yy"
                             placeholder="Enddatum"
                             class="w-full"
+                            :disabledDates="disabledDates"
                         />
                     </div>
                 </div>
@@ -340,10 +349,14 @@
                         v-for="(day, index) in weekDays"
                         :key="index"
                         class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+                        :class="{ 'bg-red-50 dark:bg-red-900/20': isHoliday(dayjs(day.date)) }"
                     >
                         <div class="bg-gray-100 dark:bg-gray-800 p-2 text-center">
                             <h3 class="text-sm sm:text-base font-medium m-0">{{ weekdays[index] }}</h3>
                             <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{{ formatDate(day.date) }}</div>
+                            <div v-if="isHoliday(dayjs(day.date))" class="text-xs text-red-600 dark:text-red-400 font-bold">
+                                {{ getHolidayName(dayjs(day.date)) }}
+                            </div>
                         </div>
 
                         <div class="p-2">
@@ -353,12 +366,14 @@
                                 optionLabel="name"
                                 placeholder="Status wählen"
                                 class="w-full mb-2"
+                                :disabled="isHoliday(dayjs(day.date))"
                             />
 
                             <InputText
                                 v-model="day.notes"
                                 placeholder="Notizen"
                                 class="w-full"
+                                :disabled="isHoliday(dayjs(day.date))"
                             />
 
                             <!-- Anzeige des Ereignis-Status, falls vorhanden -->
@@ -369,7 +384,7 @@
                                     class="text-xs"
                                 />
                                 <Button
-                                    v-if="day.eventId"
+                                    v-if="day.eventId && !isHoliday(dayjs(day.date))"
                                     icon="pi pi-trash"
                                     class="p-button-text p-button-danger p-button-sm"
                                     @click="removeWeekDayEvent(index)"
@@ -388,6 +403,24 @@
                 </div>
             </template>
         </Dialog>
+
+        <!-- Holiday Info Dialog -->
+        <Dialog
+            v-model:visible="holidayInfoVisible"
+            :style="{ width: '450px' }"
+            :header="selectedHolidayName"
+            :modal="true"
+            class="holiday-info-dialog"
+        >
+            <div class="p-4">
+                <p class="text-center mb-4">
+                    An diesem Tag können keine Ereignisse eingetragen werden, da es sich um einen Feiertag handelt.
+                </p>
+                <div class="flex justify-center">
+                    <Button label="Schließen" icon="pi pi-times" @click="holidayInfoVisible = false" class="p-button-sm sm:p-button-md" />
+                </div>
+            </div>
+        </Dialog>
     </div>
 </template>
 
@@ -402,6 +435,7 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrAfter';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isToday from 'dayjs/plugin/isToday';
 import axios from 'axios';
+import HolidayService from '@/Services/holiday-service';
 
 // PrimeVue Components
 import Button from 'primevue/button';
@@ -423,6 +457,7 @@ const navigateTo = (path) => {
 // Toast functionality - create a simple implementation if useToast is not available
 const toast = {
     add: (message) => {
+        console.log('Toast message:', message);
     }
 };
 
@@ -439,6 +474,12 @@ const calendarView = ref('month'); // 'month' or 'year'
 const yearLayout = ref('6x2'); // '6x2' or '4x3'
 const events = ref([]);
 const loading = ref(false);
+
+// Feiertage für das aktuelle Jahr
+const holidays = ref([]);
+const isLoadingHolidays = ref(false);
+const holidayInfoVisible = ref(false);
+const selectedHolidayName = ref('');
 
 // Event Dialog
 const eventDialogVisible = ref(false);
@@ -470,6 +511,52 @@ const savingWeekPlan = ref(false);
 const weekdays = ref(['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']);
 const weekdaysShort = ref(['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']);
 const eventTypes = ref([]);
+
+// Deaktivierte Daten für den DatePicker (Feiertage)
+const disabledDates = ref([]);
+
+// Funktion zum Aktualisieren der deaktivierten Daten
+const updateDisabledDates = () => {
+    // Leere das Array
+    disabledDates.value = [];
+
+    // Füge alle Feiertage des aktuellen Jahres hinzu
+    holidays.value.forEach(holiday => {
+        disabledDates.value.push(holiday.date.toDate());
+    });
+};
+
+// Feiertage laden
+const fetchHolidays = async (year) => {
+    isLoadingHolidays.value = true;
+    try {
+        holidays.value = await HolidayService.getHolidays(year);
+        updateDisabledDates(); // Aktualisiere die deaktivierten Daten
+    } catch (error) {
+        console.error('Fehler beim Laden der Feiertage:', error);
+    } finally {
+        isLoadingHolidays.value = false;
+    }
+};
+
+// Prüft, ob ein Datum ein Feiertag ist
+const isHoliday = (date) => {
+    return HolidayService.isHoliday(date, holidays.value);
+};
+
+// Gibt den Namen eines Feiertags zurück
+const getHolidayName = (date) => {
+    return HolidayService.getHolidayName(date, holidays.value);
+};
+
+// Zeigt Informationen zu einem Feiertag an
+const showHolidayInfo = (date) => {
+    const holidayName = getHolidayName(dayjs(date));
+    if (holidayName) {
+        selectedHolidayName.value = holidayName;
+        holidayInfoVisible.value = true;
+    }
+};
 
 // Lade die Ereignistypen vom Server
 const fetchEventTypes = async () => {
@@ -688,6 +775,12 @@ const getStatusSeverity = (status) => {
 
 // Event Dialog Methods
 const openEventDialog = (date) => {
+    // Prüfen, ob das Datum ein Feiertag ist
+    if (isHoliday(dayjs(date))) {
+        showHolidayInfo(date);
+        return;
+    }
+
     isEditMode.value = false;
     newEvent.value = {
         title: '',
@@ -713,6 +806,35 @@ const saveEvent = async () => {
             life: 3000
         });
         return;
+    }
+
+    // Prüfen, ob Start- oder Enddatum ein Feiertag ist
+    const startDate = dayjs(newEvent.value.startDate);
+    const endDate = dayjs(newEvent.value.endDate);
+
+    if (isHoliday(startDate) || isHoliday(endDate)) {
+        toast.add({
+            severity: 'error',
+            summary: 'Validierungsfehler',
+            detail: 'Ereignisse können nicht an Feiertagen eingetragen werden.',
+            life: 3000
+        });
+        return;
+    }
+
+    // Prüfen, ob ein Feiertag zwischen Start- und Enddatum liegt
+    let currentDate = startDate.clone();
+    while (currentDate.isBefore(endDate) || currentDate.isSame(endDate, 'day')) {
+        if (isHoliday(currentDate)) {
+            toast.add({
+                severity: 'error',
+                summary: 'Validierungsfehler',
+                detail: `Ereignisse können nicht an Feiertagen eingetragen werden. ${getHolidayName(currentDate)} (${currentDate.format('DD.MM.YYYY')}) liegt im gewählten Zeitraum.`,
+                life: 5000
+            });
+            return;
+        }
+        currentDate = currentDate.add(1, 'day');
     }
 
     saving.value = true;
@@ -1051,6 +1173,9 @@ const openWeekPlanDialog = (weekNumber, days) => {
 
     // Initialisiere die Wochentage mit vorhandenen Ereignissen
     weekDays.value = days.map(day => {
+        // Prüfen, ob der Tag ein Feiertag ist
+        const isHolidayDay = isHoliday(dayjs(day.date));
+
         // Suche nach vorhandenen Ereignissen für diesen Tag
         const existingEvents = getEventsForDay(day.date);
         const existingEvent = existingEvents.length > 0 ? existingEvents[0] : null;
@@ -1064,7 +1189,8 @@ const openWeekPlanDialog = (weekNumber, days) => {
                 eventId: existingEvent.id,
                 originalType: existingEvent.type,
                 originalNotes: existingEvent.description || '',
-                isEdited: false
+                isEdited: false,
+                isHoliday: isHolidayDay
             };
         }
 
@@ -1076,7 +1202,8 @@ const openWeekPlanDialog = (weekNumber, days) => {
             eventId: null,
             originalType: null,
             originalNotes: '',
-            isEdited: false
+            isEdited: false,
+            isHoliday: isHolidayDay
         };
     });
 
@@ -1136,6 +1263,11 @@ const saveWeekPlan = async () => {
         const toDelete = [];
 
         weekDays.value.forEach(day => {
+            // Wenn der Tag ein Feiertag ist, überspringe ihn
+            if (isHoliday(dayjs(day.date))) {
+                return;
+            }
+
             // Wenn das Ereignis gelöscht werden soll
             if (day.eventId && day.toDelete) {
                 toDelete.push(day.eventId);
@@ -1387,26 +1519,40 @@ const fetchEvents = async () => {
 onMounted(() => {
     fetchEventTypes();
     fetchEvents();
+    fetchHolidays(new Date().getFullYear());
 });
+
+// Beobachte Änderungen am Jahr und lade die Feiertage neu
+watch(
+    () => currentDate.value.year(),
+    (newYear, oldYear) => {
+        if (newYear !== oldYear) {
+            fetchHolidays(newYear);
+        }
+    }
+);
 </script>
 
 <style scoped>
 .event-dialog .p-dialog-header,
 .event-details-dialog .p-dialog-header,
-.delete-confirmation-dialog .p-dialog-header {
+.delete-confirmation-dialog .p-dialog-header,
+.holiday-info-dialog .p-dialog-header {
     padding: 1.5rem;
     border-bottom: 1px solid var(--surface-d);
 }
 
 .event-dialog .p-dialog-content,
 .event-details-dialog .p-dialog-content,
-.delete-confirmation-dialog .p-dialog-content {
+.delete-confirmation-dialog .p-dialog-content,
+.holiday-info-dialog .p-dialog-content {
     padding: 1.5rem;
 }
 
 .event-dialog .p-dialog-footer,
 .event-details-dialog .p-dialog-footer,
-.delete-confirmation-dialog .p-dialog-footer {
+.delete-confirmation-dialog .p-dialog-footer,
+.holiday-info-dialog .p-dialog-footer {
     padding: 1.5rem;
     border-top: 1px solid var(--surface-d);
 }

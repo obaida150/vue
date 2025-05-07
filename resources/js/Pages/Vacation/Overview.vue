@@ -380,6 +380,7 @@ import deLocale from "@fullcalendar/core/locales/de"
 import VacationService from "@/Services/VacationService"
 import Chart from "primevue/chart"
 import Dropdown from "primevue/dropdown"
+import HolidayService from '@/Services/holiday-service';
 
 dayjs.locale("de")
 
@@ -459,6 +460,41 @@ const vacationUsagePercentage = computed(() => {
 })
 // Urlaubsanträge
 const myVacationRequests = ref([])
+
+// Feiertage für das aktuelle Jahr
+const holidays = ref([]);
+
+// Feiertage laden
+const fetchHolidays = async (year) => {
+    try {
+        holidays.value = await HolidayService.getHolidays(year);
+    } catch (error) {
+        console.error('Fehler beim Laden der Feiertage:', error);
+    }
+};
+
+// Prüft, ob ein Datum ein Feiertag ist
+const isHoliday = (date) => {
+    return HolidayService.isHoliday(dayjs(date), holidays.value);
+};
+
+// Gibt den Namen eines Feiertags zurück
+const getHolidayName = (date) => {
+    return HolidayService.getHolidayName(dayjs(date), holidays.value);
+};
+
+// Füge diese Funktion hinzu, um Feiertage als Ereignisse zu formatieren
+const getHolidayEvents = () => {
+    return holidays.value.map(holiday => ({
+        title: holiday.name,
+        start: holiday.date.format('YYYY-MM-DD'),
+        allDay: true,
+        backgroundColor: '#FF0000',
+        borderColor: '#FF0000',
+        className: 'holiday-event',
+        display: 'background'
+    }));
+};
 
 // Kalender-Konfiguration
 const calendarOptions = ref({
@@ -566,22 +602,23 @@ const handleVacationRequestSubmitted = () => {
 
 // Kalender-Funktionen
 const updateCalendarEvents = () => {
-    const events = []
+    const events = [];
 
+    // Füge Urlaubsanträge hinzu
     myVacationRequests.value.forEach((request) => {
-        let color
+        let color;
         switch (request.status) {
             case "pending":
-                color = "#f59e0b"
+                color = "#f59e0b";
                 break // Amber
             case "approved":
-                color = "#9C27B0"
+                color = "#9C27B0";
                 break // Purple (für Urlaub)
             case "rejected":
-                color = "#ef4444"
+                color = "#ef4444";
                 break // Red
             default:
-                color = "#3b82f6"
+                color = "#3b82f6";
                 break // Blue
         }
 
@@ -596,13 +633,16 @@ const updateCalendarEvents = () => {
             extendedProps: {
                 status: request.status,
             },
-        })
-    })
+        });
+    });
+
+    // Füge Feiertage hinzu
+    events.push(...getHolidayEvents());
 
     if (calendarOptions.value) {
-        calendarOptions.value.events = events
+        calendarOptions.value.events = events;
     }
-}
+};
 
 // Bereinige Ressourcen vor dem Unmount
 onBeforeUnmount(() => {
@@ -728,6 +768,7 @@ try {
 
 onMounted(() => {
     fetchVacationData()
+    fetchHolidays(new Date().getFullYear());
 
     // Verfügbare Jahre für die Statistik laden
     const currentYear = new Date().getFullYear()
@@ -824,4 +865,3 @@ watch(selectedStatYear, (newYear) => {
     height: 100%;
 }
 </style>
-
