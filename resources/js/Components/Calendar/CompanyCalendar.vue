@@ -79,11 +79,14 @@
         <!-- Summary Cards -->
         <div class="flex flex-col gap-4 mb-6">
             <!-- Department Cards -->
-            <div class="flex flex-wrap gap-4">
+            <div :class="[
+                'grid gap-4',
+                getDynamicGridCols(departmentSummary.length)
+            ]">
                 <div
                     v-for="department in departmentSummary"
                     :key="department.name"
-                    class="flex-1 min-w-[150px] p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col items-center text-center border-l-4 border-l-blue-500"
+                    class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col items-center text-center border-l-4 border-l-blue-500"
                     @click="openDepartmentDialog(department.name)"
                 >
                     <div class="font-semibold mb-2">{{ department.name }}</div>
@@ -92,11 +95,14 @@
             </div>
 
             <!-- Status Cards -->
-            <div class="flex flex-wrap gap-4">
+            <div :class="[
+                'grid gap-4',
+                getDynamicGridCols(statusSummary.length)
+            ]">
                 <div
                     v-for="status in statusSummary"
                     :key="status.type.value"
-                    class="flex-1 min-w-[150px] p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col items-center text-center"
+                    class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col items-center text-center"
                     :style="{ borderLeftWidth: '4px', borderLeftColor: status.type.color }"
                     @click="openStatusDialog(status.type)"
                 >
@@ -265,9 +271,12 @@
         <!-- Legend -->
         <div class="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
             <div class="font-bold mb-2">Legende:</div>
-            <div class="flex flex-wrap gap-4">
+            <div :class="[
+                'grid gap-2',
+                getDynamicGridCols(activeEventTypes.length)
+            ]">
                 <div
-                    v-for="type in eventTypes"
+                    v-for="type in activeEventTypes"
                     :key="type.value"
                     class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
                     @click="openStatusDialog(type)"
@@ -294,11 +303,14 @@
                     <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
                 </div>
 
-                <div class="flex flex-wrap gap-4 justify-center">
+                <div :class="[
+                    'grid gap-2 justify-items-center',
+                    getDynamicGridCols(departmentStatusSummary.length)
+                ]">
                     <div
                         v-for="status in departmentStatusSummary"
                         :key="status.type.value"
-                        class="flex items-center gap-2 px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-800 shadow-sm"
+                        class="flex items-center gap-2 px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-800 shadow-sm w-full"
                     >
                         <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: status.type.color }"></div>
                         <div class="text-sm font-medium">{{ status.type.name }}: {{ status.count }}</div>
@@ -365,11 +377,14 @@
                     <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
                 </div>
 
-                <div class="flex flex-wrap gap-4 justify-center">
+                <div :class="[
+                    'grid gap-2 justify-items-center',
+                    getDynamicGridCols(statusDepartmentSummary.length)
+                ]">
                     <div
                         v-for="dept in statusDepartmentSummary"
                         :key="dept.name"
-                        class="px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-800 shadow-sm"
+                        class="px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-800 shadow-sm w-full"
                     >
                         <div class="text-sm font-medium">{{ dept.name }}: {{ dept.count }}</div>
                     </div>
@@ -394,17 +409,17 @@
                             </div>
                             <div v-if="calendarView !== 'day'">
                                 <div class="text-sm font-medium mb-3">Tage:</div>
-                                    <div class="flex flex-wrap gap-1">
-                                        <div
-                                                v-for="(day, index) in getEmployeePeriodDays(employee)"
-                                                :key="index"
-                                                class="w-9 h-7 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs"
-                                                :class="{ 'border-blue-500 dark:border-blue-400 border-2': day.status && day.status.value === selectedStatus.value }"
-                                                :style="{ backgroundColor: day.status && day.status.value === selectedStatus.value ? day.status.color : 'transparent' }"
-                                                :title="day.date.format('DD.MM.YYYY')"
-                                            >
-                                                {{ day.date.format('DD.MM') }}
-                                        </div>
+                                <div class="flex flex-wrap gap-1">
+                                    <div
+                                        v-for="(day, index) in getEmployeePeriodDays(employee)"
+                                        :key="index"
+                                        class="w-9 h-7 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs"
+                                        :class="{ 'border-blue-500 dark:border-blue-400 border-2': day.status && day.status.value === selectedStatus.value }"
+                                        :style="{ backgroundColor: day.status && day.status.value === selectedStatus.value ? day.status.color : 'transparent' }"
+                                        :title="day.date.format('DD.MM.YYYY')"
+                                    >
+                                        {{ day.date.format('DD.MM') }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -421,8 +436,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/de';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrAfter';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import MultiSelect from 'primevue/multiselect';
@@ -430,6 +444,7 @@ import Dialog from 'primevue/dialog';
 import VacationService from '@/Services/VacationService';
 import { useToast } from 'primevue/usetoast';
 import axios from 'axios';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 
 // Initialize dayjs plugins
 dayjs.extend(weekOfYear);
@@ -466,14 +481,26 @@ const toast = useToast();
 const vacationResponse = ref(null);
 const vacationError = ref(null);
 
+// Hilfsfunktion, um dynamische Grid-Spalten basierend auf der Anzahl der Elemente zu erhalten
+const getDynamicGridCols = (count) => {
+    if (count <= 0) return 'grid-cols-1';
+    if (count === 1) return 'grid-cols-1';
+    if (count === 2) return 'grid-cols-2';
+    if (count === 3) return 'grid-cols-3';
+    if (count === 4) return 'grid-cols-4';
+    return 'grid-cols-5'; // 5 oder mehr Elemente
+};
+
 // Daten vom Server laden
 const fetchCalendarData = async () => {
+    let employeesData = [];
+
     try {
         // Reguläre Kalenderdaten laden
         const response = await VacationService.getCompanyCalendarData();
 
         // Mitarbeiter und Abteilungen aus der regulären Antwort extrahieren
-        const employeesData = response.data.employees || [];
+        employeesData = response.data.employees || [];
         availableDepartments.value = Array.isArray(response.data.departments) ? response.data.departments : [];
         eventTypes.value = Array.isArray(response.data.eventTypes) ? response.data.eventTypes : [];
 
@@ -485,55 +512,6 @@ const fetchCalendarData = async () => {
         if (!eventTypes.value.some(type => type.value === 'birthday')) {
             eventTypes.value.push({ name: 'Geburtstag', value: 'birthday', color: '#FF4500' });
         }
-
-        try {
-            // Urlaubsanträge laden
-            const response = await axios.get('/api/vacation/all-requests');
-            vacationResponse.value = response;
-            vacationError.value = null;
-
-            // Urlaubsanträge in das richtige Format umwandeln
-            const vacationEvents = vacationResponse.value.data
-                .filter(vacation => vacation.status === 'approved') // Nur genehmigte Urlaubsanträge
-                .map(vacation => {
-                    return {
-                        user_id: vacation.user_id,
-                        date: vacation.start_date,
-                        start_date: vacation.start_date,
-                        end_date: vacation.end_date,
-                        type: {
-                            name: 'Urlaub',
-                            value: 'vacation',
-                            color: '#9C27B0'
-                        },
-                        notes: vacation.notes || 'Genehmigter Urlaub',
-                        employee_name: vacation.employee_name,
-                        department: vacation.department
-                    };
-                });
-
-            // Urlaubsanträge den entsprechenden Mitarbeitern zuordnen
-            employeesData.forEach(employee => {
-                // Finde alle Urlaubsanträge für diesen Mitarbeiter
-                const employeeVacations = vacationEvents.filter(vacation =>
-                    vacation.user_id === employee.id
-                );
-
-                // Füge die Urlaubsanträge zu den Events des Mitarbeiters hinzu
-                if (employeeVacations.length > 0) {
-                    employee.events = [...(employee.events || []), ...employeeVacations];
-                }
-            });
-        } catch (error) {
-            console.error('Fehler beim Laden der Urlaubsanträge:', error);
-            vacationResponse.value = null;
-            vacationError.value = error;
-            // Wir setzen den Prozess fort, auch wenn die Urlaubsanträge nicht geladen werden konnten
-        }
-
-        // Aktualisiere die Mitarbeiterliste
-        employees.value = employeesData;
-
     } catch (error) {
         console.error('Fehler beim Laden der Kalenderdaten:', error);
         toast.add({
@@ -544,7 +522,7 @@ const fetchCalendarData = async () => {
         });
 
         // Keine Fallback-Daten mehr verwenden, stattdessen leere Arrays
-        employees.value = [];
+        employeesData = [];
         availableDepartments.value = [];
         eventTypes.value = [
             { name: 'Homeoffice', value: 'homeoffice', color: '#4CAF50' },
@@ -556,6 +534,54 @@ const fetchCalendarData = async () => {
             { name: 'Sonstiges', value: 'other', color: '#607D8B' }
         ];
     }
+
+    try {
+        // Urlaubsanträge laden
+        const response = await axios.get('/api/vacation/all-requests');
+        vacationResponse.value = response;
+        vacationError.value = null;
+
+        // Urlaubsanträge in das richtige Format umwandeln
+        const vacationEvents = vacationResponse.value.data
+            .filter(vacation => vacation.status === 'approved') // Nur genehmigte Urlaubsanträge
+            .map(vacation => {
+                return {
+                    user_id: vacation.user_id,
+                    date: vacation.start_date,
+                    start_date: vacation.start_date,
+                    end_date: vacation.end_date,
+                    type: {
+                        name: 'Urlaub',
+                        value: 'vacation',
+                        color: '#9C27B0'
+                    },
+                    notes: vacation.notes || 'Genehmigter Urlaub',
+                    employee_name: vacation.employee_name,
+                    department: vacation.department
+                };
+            });
+
+        // Urlaubsanträge den entsprechenden Mitarbeitern zuordnen
+        employeesData.forEach(employee => {
+            // Finde alle Urlaubsanträge für diesen Mitarbeiter
+            const employeeVacations = vacationEvents.filter(vacation =>
+                vacation.user_id === employee.id
+            );
+
+            // Füge die Urlaubsanträge zu den Events des Mitarbeiters hinzu
+            if (employeeVacations.length > 0) {
+                employee.events = [...(employee.events || []), ...employeeVacations];
+            }
+        });
+    } catch (error) {
+        console.error('Fehler beim Laden der Urlaubsanträge:', error);
+        vacationResponse.value = null;
+        vacationError.value = error;
+        // Wir setzen den Prozess fort, auch wenn die Urlaubsanträge nicht geladen werden konnten
+    }
+
+    // Aktualisiere die Mitarbeiterliste
+    employees.value = employeesData;
 };
 
 // Computed properties for calendar display
@@ -688,27 +714,72 @@ const renderCell = (employee, date) => {
 const statusSummary = computed(() => {
     const statuses = {};
 
-    // Initialisiere alle Status
-    if (Array.isArray(eventTypes.value)) {
-        eventTypes.value.forEach(type => {
-            statuses[type.value] = {
-                type: type,
-                count: 0,
-                employees: []
-            };
-        });
-    }
-
-    // Zähle Mitarbeiter pro Status
+    // Zuerst alle Mitarbeiter durchgehen und ihre Status im aktuellen Zeitraum sammeln
     employees.value.forEach(employee => {
-        const status = getEmployeeCurrentStatus(employee);
-        if (status) {
-            statuses[status.value].count++;
-            statuses[status.value].employees.push(employee);
+        if (calendarView.value === 'day') {
+            // Für Tagesansicht
+            const status = getEmployeeStatusForDay(employee, currentDate.value);
+            if (status) {
+                if (!statuses[status.value]) {
+                    statuses[status.value] = {
+                        type: status,
+                        count: 0,
+                        employees: []
+                    };
+                }
+                statuses[status.value].count++;
+                statuses[status.value].employees.push(employee);
+            }
+        } else if (calendarView.value === 'week') {
+            // Für Wochenansicht - alle Tage der Woche prüfen
+            for (const day of weekDays.value) {
+                const status = getEmployeeStatusForDay(employee, day.date);
+                if (status) {
+                    if (!statuses[status.value]) {
+                        statuses[status.value] = {
+                            type: status,
+                            count: 0,
+                            employees: []
+                        };
+                    }
+                    // Nur einmal pro Mitarbeiter zählen, auch wenn er mehrere Tage denselben Status hat
+                    if (!statuses[status.value].employees.some(emp => emp.id === employee.id)) {
+                        statuses[status.value].count++;
+                        statuses[status.value].employees.push(employee);
+                    }
+                }
+            }
+        } else {
+            // Für Monatsansicht - alle Tage des Monats prüfen
+            for (const dayNum of daysInMonth.value) {
+                const date = getDayInMonth(dayNum);
+                const status = getEmployeeStatusForDay(employee, date);
+                if (status) {
+                    if (!statuses[status.value]) {
+                        statuses[status.value] = {
+                            type: status,
+                            count: 0,
+                            employees: []
+                        };
+                    }
+                    // Nur einmal pro Mitarbeiter zählen, auch wenn er mehrere Tage denselben Status hat
+                    if (!statuses[status.value].employees.some(emp => emp.id === employee.id)) {
+                        statuses[status.value].count++;
+                        statuses[status.value].employees.push(employee);
+                    }
+                }
+            }
         }
     });
 
-    return Object.values(statuses).filter(status => status.count > 0);
+    return Object.values(statuses);
+});
+
+// Füge eine neue computed-Eigenschaft direkt nach der statusSummary computed-Eigenschaft hinzu
+// Diese Eigenschaft gibt nur die Ereignistypen zurück, die in der aktuellen Ansicht (Tag, Woche, Monat) tatsächlich verwendet werden
+const activeEventTypes = computed(() => {
+    // Verwende die bereits berechneten Statustypen aus statusSummary
+    return statusSummary.value.map(status => status.type);
 });
 
 // Mitarbeiter für die ausgewählte Abteilung
@@ -753,8 +824,30 @@ const statusEmployees = computed(() => {
     if (!selectedStatus.value) return [];
 
     return employees.value.filter(employee => {
-        const status = getEmployeeCurrentStatus(employee);
-        return status && status.value === selectedStatus.value.value;
+        // Prüfen, ob der Mitarbeiter den ausgewählten Status im aktuellen Zeitraum hat
+        if (calendarView.value === 'day') {
+            const status = getEmployeeStatusForDay(employee, currentDate.value);
+            return status && status.value === selectedStatus.value.value;
+        } else if (calendarView.value === 'week') {
+            // Für Wochenansicht - alle Tage der Woche prüfen
+            for (const day of weekDays.value) {
+                const status = getEmployeeStatusForDay(employee, day.date);
+                if (status && status.value === selectedStatus.value.value) {
+                    return true;
+                }
+            }
+            return false;
+        } else {
+            // Für Monatsansicht - alle Tage des Monats prüfen
+            for (const dayNum of daysInMonth.value) {
+                const date = getDayInMonth(dayNum);
+                const status = getEmployeeStatusForDay(employee, date);
+                if (status && status.value === selectedStatus.value.value) {
+                    return true;
+                }
+            }
+            return false;
+        }
     });
 });
 
@@ -950,7 +1043,7 @@ const getEmployeeCurrentStatus = (employee) => {
     if (calendarView.value === 'day') {
         return getEmployeeStatusForDay(employee, currentDate.value);
     } else if (calendarView.value === 'week') {
-        // Für die Wochenansicht nehmen wir den ersten verfügbaren Status
+        // Für die Wochenansicht prüfen wir alle Tage
         for (let i = 0; i < 7; i++) {
             const date = weekStart.value.add(i, 'day');
             const status = getEmployeeStatusForDay(employee, date);
@@ -958,7 +1051,7 @@ const getEmployeeCurrentStatus = (employee) => {
         }
         return null;
     } else {
-        // Für die Monatsansicht nehmen wir den ersten verfügbaren Status
+        // Für die Monatsansicht prüfen wir alle Tage
         for (let dayNum of daysInMonth.value) {
             const status = getEmployeeStatusForMonthDay(employee, dayNum);
             if (status) return status;
@@ -1091,4 +1184,3 @@ onMounted(() => {
     animation: pulse 1.5s infinite;
 }
 </style>
-
