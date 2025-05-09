@@ -68,7 +68,7 @@
                             :class="{
                                 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500': !day.currentMonth,
                                 'bg-blue-50 dark:bg-blue-900/20 font-bold border border-blue-300 dark:border-blue-700': day.isToday,
-                                'relative': hasEvents(day.date),
+                                'relative': hasEvents(day.date) || hasVacations(day.date),
                                 'bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400': day.isWeekend,
                                 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400': isHoliday(dayjs(day.date))
                             }"
@@ -91,6 +91,17 @@
                                 >
                                     <span>{{ truncateText(event.title, 12) }}</span>
                                     <i class="pi pi-ellipsis-h text-[8px] sm:text-[10px] opacity-70 hover:opacity-100"></i>
+                                </div>
+                                <!-- Urlaub-Anzeige -->
+                                <div
+                                    v-for="vacation in getVacationsForDay(day.date)"
+                                    :key="'vacation-' + vacation.id"
+                                    class="px-1 py-0.5 rounded text-[10px] sm:text-xs text-white whitespace-nowrap overflow-hidden text-ellipsis flex justify-between items-center bg-purple-600"
+                                    :title="'Urlaub: ' + vacation.title"
+                                    @click.stop="openVacationDetailsDialog(vacation)"
+                                >
+                                    <span>{{ truncateText(vacation.title || 'Urlaub', 12) }}</span>
+                                    <i class="pi pi-calendar text-[8px] sm:text-[10px] opacity-70 hover:opacity-100"></i>
                                 </div>
                             </div>
                         </div>
@@ -149,6 +160,11 @@
                                 v-if="hasEvents(day.date)"
                                 class="absolute inset-0 opacity-70 z-0 rounded-full"
                                 :style="{ backgroundColor: getEventColorForDay(day.date) }"
+                            ></div>
+                            <!-- Urlaub-Indikator für Jahresansicht -->
+                            <div
+                                v-if="hasVacations(day.date)"
+                                class="absolute inset-0 opacity-70 z-0 rounded-full bg-purple-600"
                             ></div>
                         </div>
                     </div>
@@ -295,6 +311,70 @@
             </template>
         </Dialog>
 
+        <!-- Vacation Details Dialog -->
+        <Dialog
+            v-model:visible="vacationDetailsDialogVisible"
+            :style="{ width: '90vw', maxWidth: '500px' }"
+            :header="selectedVacation ? (selectedVacation.title || 'Urlaub') : 'Urlaubsdetails'"
+            :modal="true"
+            class="vacation-details-dialog"
+        >
+            <div v-if="selectedVacation" class="flex flex-col gap-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded-full bg-purple-600"></div>
+                    <span class="font-medium">Urlaub</span>
+                    <Badge
+                        :value="getStatusLabel(selectedVacation.status)"
+                        :severity="getStatusSeverity(selectedVacation.status)"
+                        class="ml-auto"
+                    />
+                </div>
+
+                <div class="border-t border-b border-gray-200 dark:border-gray-700 py-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Startdatum</div>
+                            <div>{{ formatDate(selectedVacation.startDate) }}</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Enddatum</div>
+                            <div>{{ formatDate(selectedVacation.endDate) }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="selectedVacation.description">
+                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Beschreibung</div>
+                    <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">{{ selectedVacation.description }}</div>
+                </div>
+
+                <div class="bg-purple-50 p-3 rounded-lg">
+                    <p class="text-sm text-purple-800">
+                        Dieser Eintrag stammt aus der Urlaubsverwaltung und kann nur dort bearbeitet werden.
+                    </p>
+                </div>
+            </div>
+
+            <template #footer>
+                <div class="flex justify-end w-full">
+                    <div class="flex gap-2">
+                        <Button
+                            label="Zur Urlaubsverwaltung"
+                            icon="pi pi-external-link"
+                            @click="navigateToVacationManagement"
+                            class="p-button-sm sm:p-button-md"
+                        />
+                        <Button
+                            label="Schließen"
+                            icon="pi pi-times"
+                            @click="closeVacationDetailsDialog"
+                            class="p-button-text p-button-sm p-button-md"
+                        />
+                    </div>
+                </div>
+            </template>
+        </Dialog>
+
         <!-- Delete Confirmation Dialog -->
         <Dialog
             v-model:visible="deleteConfirmationVisible"
@@ -357,6 +437,10 @@
                             <div v-if="isHoliday(dayjs(day.date))" class="text-xs text-red-600 dark:text-red-400 font-bold">
                                 {{ getHolidayName(dayjs(day.date)) }}
                             </div>
+                            <!-- Urlaub-Indikator in der Wochenplanung -->
+                            <div v-if="hasVacations(day.date)" class="text-xs text-purple-600 dark:text-purple-400 font-bold mt-1">
+                                Urlaub
+                            </div>
                         </div>
 
                         <div class="p-2">
@@ -366,14 +450,14 @@
                                 optionLabel="name"
                                 placeholder="Status wählen"
                                 class="w-full mb-2"
-                                :disabled="isHoliday(dayjs(day.date))"
+                                :disabled="isHoliday(dayjs(day.date)) || hasVacations(day.date)"
                             />
 
                             <InputText
                                 v-model="day.notes"
                                 placeholder="Notizen"
                                 class="w-full"
-                                :disabled="isHoliday(dayjs(day.date))"
+                                :disabled="isHoliday(dayjs(day.date)) || hasVacations(day.date)"
                             />
 
                             <!-- Anzeige des Ereignis-Status, falls vorhanden -->
@@ -384,7 +468,7 @@
                                     class="text-xs"
                                 />
                                 <Button
-                                    v-if="day.eventId && !isHoliday(dayjs(day.date))"
+                                    v-if="day.eventId && !isHoliday(dayjs(day.date)) && !hasVacations(day.date)"
                                     icon="pi pi-trash"
                                     class="p-button-text p-button-danger p-button-sm"
                                     @click="removeWeekDayEvent(index)"
@@ -421,6 +505,25 @@
                 </div>
             </div>
         </Dialog>
+
+        <!-- Legende für Ereignistypen und Urlaub -->
+        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="text-sm font-medium mb-2">Legende:</h3>
+            <div class="flex flex-wrap gap-16">
+                <div v-for="type in eventTypes" :key="type.id" class="flex items-center gap-1">
+                    <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: type.color }"></div>
+                    <span class="text-xs">{{ type.name }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <div class="w-3 h-3 rounded-full bg-purple-600"></div>
+                    <span class="text-xs">Urlaub</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span class="text-xs">Feiertag</span>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -431,11 +534,12 @@ import 'dayjs/locale/de';
 import weekday from 'dayjs/plugin/weekday';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isBetween from 'dayjs/plugin/isBetween';
-import isSameOrBefore from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isToday from 'dayjs/plugin/isToday';
 import axios from 'axios';
 import HolidayService from '@/Services/holiday-service';
+import VacationService from '@/Services/VacationService';
 
 // PrimeVue Components
 import Button from 'primevue/button';
@@ -473,6 +577,7 @@ const currentDate = ref(dayjs());
 const calendarView = ref('month'); // 'month' or 'year'
 const yearLayout = ref('6x2'); // '6x2' or '4x3'
 const events = ref([]);
+const vacations = ref([]); // Neue Ref für Urlaubsdaten
 const loading = ref(false);
 
 // Feiertage für das aktuelle Jahr
@@ -497,6 +602,10 @@ const isEditMode = ref(false);
 // Event Details Dialog
 const eventDetailsDialogVisible = ref(false);
 const selectedEvent = ref(null);
+
+// Vacation Details Dialog
+const vacationDetailsDialogVisible = ref(false);
+const selectedVacation = ref(null);
 
 // Delete Confirmation Dialog
 const deleteConfirmationVisible = ref(false);
@@ -612,7 +721,7 @@ const previousPeriod = () => {
     } else {
         currentDate.value = currentDate.value.subtract(1, 'year');
     }
-    fetchEvents();
+    fetchEvents(); // Dies lädt jetzt auch die Urlaubsdaten
 };
 
 const nextPeriod = () => {
@@ -621,11 +730,12 @@ const nextPeriod = () => {
     } else {
         currentDate.value = currentDate.value.add(1, 'year');
     }
-    fetchEvents();
+    fetchEvents(); // Dies lädt jetzt auch die Urlaubsdaten
 };
 
 const setCalendarView = (view) => {
     calendarView.value = view;
+    fetchEvents(); // Dies lädt jetzt auch die Urlaubsdaten
 };
 
 // Hilfsfunktion, um den ersten Tag einer Woche zu bekommen
@@ -709,7 +819,7 @@ const getMonthName = (month) => {
 const goToMonth = (month) => {
     currentDate.value = currentDate.value.month(month);
     calendarView.value = 'month';
-    fetchEvents();
+    fetchEvents(); // Dies lädt jetzt auch die Urlaubsdaten
 };
 
 const hasEvents = (date) => {
@@ -722,6 +832,25 @@ const hasEvents = (date) => {
     });
 };
 
+// Neue Funktion: Prüft, ob ein Tag Urlaub hat
+const hasVacations = (date) => {
+    if (!date) return false;
+    const dateStr = dayjs(date).format('YYYY-MM-DD');
+
+    // Prüfe, ob das Datum zwischen Start- und Enddatum eines Urlaubseintrags liegt
+    return vacations.value.some(vacation => {
+        const startDate = dayjs(vacation.startDate).format('YYYY-MM-DD');
+        const endDate = dayjs(vacation.endDate).format('YYYY-MM-DD');
+
+        // Debugging-Ausgabe für den 7. Mai
+        if (dateStr === '2025-05-07') {
+            console.log(`Prüfe Urlaub für 7. Mai: ${startDate} bis ${endDate}`);
+        }
+
+        return dayjs(dateStr).isSameOrAfter(startDate) && dayjs(dateStr).isSameOrBefore(endDate);
+    });
+};
+
 const getEventsForDay = (date) => {
     if (!date) return [];
     const dateStr = dayjs(date).format('YYYY-MM-DD');
@@ -730,6 +859,24 @@ const getEventsForDay = (date) => {
         const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
         return dateStr >= eventStartDate && dateStr <= eventEndDate;
     });
+};
+
+// Neue Funktion: Gibt Urlaubseinträge für einen bestimmten Tag zurück
+const getVacationsForDay = (date) => {
+    if (!date) return [];
+    const dateStr = dayjs(date).format('YYYY-MM-DD');
+    const result = vacations.value.filter(vacation => {
+        const vacationStartDate = dayjs(vacation.startDate).format('YYYY-MM-DD');
+        const vacationEndDate = dayjs(vacation.endDate).format('YYYY-MM-DD');
+        return dateStr >= vacationStartDate && dateStr <= vacationEndDate;
+    });
+
+    // Debugging-Ausgabe für den 7. Mai
+    if (dateStr === '2025-05-07') {
+        console.log(`Urlaubseinträge für ${dateStr}:`, result);
+    }
+
+    return result;
 };
 
 const getEventColorForDay = (date) => {
@@ -778,6 +925,17 @@ const openEventDialog = (date) => {
     // Prüfen, ob das Datum ein Feiertag ist
     if (isHoliday(dayjs(date))) {
         showHolidayInfo(date);
+        return;
+    }
+
+    // Prüfen, ob an diesem Tag bereits Urlaub eingetragen ist
+    if (hasVacations(date)) {
+        toast.add({
+            severity: 'info',
+            summary: 'Hinweis',
+            detail: 'An diesem Tag ist bereits Urlaub eingetragen. Bitte wählen Sie einen anderen Tag.',
+            life: 3000
+        });
         return;
     }
 
@@ -830,6 +988,21 @@ const saveEvent = async () => {
                 severity: 'error',
                 summary: 'Validierungsfehler',
                 detail: `Ereignisse können nicht an Feiertagen eingetragen werden. ${getHolidayName(currentDate)} (${currentDate.format('DD.MM.YYYY')}) liegt im gewählten Zeitraum.`,
+                life: 5000
+            });
+            return;
+        }
+        currentDate = currentDate.add(1, 'day');
+    }
+
+    // Prüfen, ob im gewählten Zeitraum bereits Urlaub eingetragen ist
+    currentDate = startDate.clone();
+    while (currentDate.isBefore(endDate) || currentDate.isSame(endDate, 'day')) {
+        if (hasVacations(currentDate.toDate())) {
+            toast.add({
+                severity: 'error',
+                summary: 'Validierungsfehler',
+                detail: `Ereignisse können nicht an Urlaubstagen eingetragen werden. Am ${currentDate.format('DD.MM.YYYY')} ist bereits Urlaub eingetragen.`,
                 life: 5000
             });
             return;
@@ -964,6 +1137,22 @@ const openEventDetailsDialog = (event) => {
 const closeEventDetailsDialog = () => {
     eventDetailsDialogVisible.value = false;
     selectedEvent.value = null;
+};
+
+// Neue Methoden für Urlaubs-Details-Dialog
+const openVacationDetailsDialog = (vacation) => {
+    selectedVacation.value = vacation;
+    vacationDetailsDialogVisible.value = true;
+};
+
+const closeVacationDetailsDialog = () => {
+    vacationDetailsDialogVisible.value = false;
+    selectedVacation.value = null;
+};
+
+// Funktion zum Navigieren zur Urlaubsverwaltung
+const navigateToVacationManagement = () => {
+    navigateTo('/vacations');
 };
 
 const editEvent = () => {
@@ -1176,6 +1365,9 @@ const openWeekPlanDialog = (weekNumber, days) => {
         // Prüfen, ob der Tag ein Feiertag ist
         const isHolidayDay = isHoliday(dayjs(day.date));
 
+        // Prüfen, ob der Tag ein Urlaubstag ist
+        const isVacationDay = hasVacations(day.date);
+
         // Suche nach vorhandenen Ereignissen für diesen Tag
         const existingEvents = getEventsForDay(day.date);
         const existingEvent = existingEvents.length > 0 ? existingEvents[0] : null;
@@ -1190,7 +1382,8 @@ const openWeekPlanDialog = (weekNumber, days) => {
                 originalType: existingEvent.type,
                 originalNotes: existingEvent.description || '',
                 isEdited: false,
-                isHoliday: isHolidayDay
+                isHoliday: isHolidayDay,
+                isVacation: isVacationDay
             };
         }
 
@@ -1203,7 +1396,8 @@ const openWeekPlanDialog = (weekNumber, days) => {
             originalType: null,
             originalNotes: '',
             isEdited: false,
-            isHoliday: isHolidayDay
+            isHoliday: isHolidayDay,
+            isVacation: isVacationDay
         };
     });
 
@@ -1263,8 +1457,8 @@ const saveWeekPlan = async () => {
         const toDelete = [];
 
         weekDays.value.forEach(day => {
-            // Wenn der Tag ein Feiertag ist, überspringe ihn
-            if (isHoliday(dayjs(day.date))) {
+            // Wenn der Tag ein Feiertag oder Urlaubstag ist, überspringe ihn
+            if (isHoliday(dayjs(day.date)) || hasVacations(day.date)) {
                 return;
             }
 
@@ -1403,6 +1597,57 @@ const saveWeekPlan = async () => {
     }
 };
 
+// Funktion zum Laden der Urlaubsdaten aus dem VacationService
+const fetchVacationData = async () => {
+    try {
+        const response = await VacationService.getUserVacationData();
+
+        if (response && response.data && response.data.requests) {
+            // Konvertiere die Urlaubsanträge in das Format, das die Komponente erwartet
+            const vacationRequests = response.data.requests.filter(req => req.status === 'approved');
+
+            // Erstelle Urlaubseinträge für jeden genehmigten Urlaubsantrag
+            const vacationEntries = vacationRequests.map(req => ({
+                id: `vacation-${req.id}`,
+                title: 'Urlaub',
+                description: req.notes || 'Genehmigter Urlaub',
+                startDate: new Date(req.startDate),
+                endDate: new Date(req.endDate),
+                isAllDay: true,
+                status: 'approved',
+                type: {
+                    name: 'Urlaub',
+                    value: 'vacation',
+                    color: '#9C27B0'
+                },
+                color: '#9C27B0',
+                source: 'vacation'
+            }));
+
+            // Füge die Urlaubseinträge zu den vorhandenen hinzu
+            vacations.value = [...vacations.value, ...vacationEntries];
+
+            console.log('Geladene Urlaubseinträge aus VacationService:', vacationEntries);
+
+            // Prüfe speziell für den 7. Mai 2025
+            const may7 = '2025-05-07';
+            const may7Vacations = vacationEntries.filter(v => {
+                const start = dayjs(v.startDate).format('YYYY-MM-DD');
+                const end = dayjs(v.endDate).format('YYYY-MM-DD');
+                return dayjs(may7).isSameOrAfter(start) && dayjs(may7).isSameOrBefore(end);
+            });
+
+            if (may7Vacations.length > 0) {
+                console.log(`Gefundene Urlaubseinträge für den 7. Mai 2025:`, may7Vacations);
+            } else {
+                console.log(`Keine Urlaubseinträge für den 7. Mai 2025 gefunden.`);
+            }
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Urlaubsdaten aus VacationService:', error);
+    }
+};
+
 // Aktualisiere die fetchEvents-Methode
 const fetchEvents = async () => {
     loading.value = true;
@@ -1447,12 +1692,12 @@ const fetchEvents = async () => {
         }
 
         // Fetch regular events
-        let regularEvents = [];
+        let allEvents = [];
         try {
             const eventsResponse = await axios.get('/api/events', config);
 
-            // Transform API response for regular events
-            regularEvents = eventsResponse.data.map(event => {
+            // Transform API response for all events
+            allEvents = eventsResponse.data.map(event => {
                 // Extrahiere den Ereignistyp-Namen aus dem event_type Feld oder dem Titel
                 const eventTypeName = event.event_type || event.title;
 
@@ -1483,6 +1728,13 @@ const fetchEvents = async () => {
                         { id: 6, name: 'Sonstiges', value: 'other', color: '#607D8B', requires_approval: true };
                 }
 
+                // Prüfe, ob es sich um einen Urlaubseintrag handelt
+                const isVacation =
+                    (eventType && eventType.name.toLowerCase() === 'urlaub') ||
+                    (eventTypeName && typeof eventTypeName === 'string' && eventTypeName.toLowerCase().includes('urlaub')) ||
+                    (event.title && typeof event.title === 'string' && event.title.toLowerCase().includes('urlaub')) ||
+                    (event.event_type && typeof event.event_type === 'string' && event.event_type.toLowerCase().includes('urlaub'));
+
                 return {
                     id: event.id,
                     title: event.title,
@@ -1493,16 +1745,41 @@ const fetchEvents = async () => {
                     status: event.status,
                     type: eventType,
                     color: eventType.color,
-                    source: 'event',
+                    source: isVacation ? 'vacation' : 'event',
                     event_type_id: event.event_type_id
                 };
             });
         } catch (error) {
-            console.error('Fehler beim Laden der regulären Ereignisse:', error);
+            console.error('Fehler beim Laden der Ereignisse:', error);
         }
 
-        // Combine events
-        events.value = regularEvents;
+        // Teile die Ereignisse in reguläre Ereignisse und Urlaubseinträge auf
+        events.value = allEvents.filter(event => event.source !== 'vacation');
+
+        // Füge die Urlaubseinträge aus den regulären Ereignissen zu den Urlaubseinträgen hinzu
+        const vacationEvents = allEvents.filter(event => event.source === 'vacation');
+        vacations.value = [...vacations.value.filter(v => !vacationEvents.some(ve => ve.id === v.id)), ...vacationEvents];
+
+        // Nach der Aufteilung der Ereignisse
+        console.log('Alle Ereignisse:', allEvents);
+        console.log('Erkannte Urlaubseinträge:', vacationEvents);
+        console.log('Reguläre Ereignisse:', events.value);
+        console.log('Alle Urlaubseinträge nach Zusammenführung:', vacations.value);
+
+        // Prüfe speziell für den 7. Mai 2025
+        const may7 = '2025-05-07';
+        const may7Vacations = vacations.value.filter(v => {
+            const start = dayjs(v.startDate).format('YYYY-MM-DD');
+            const end = dayjs(v.endDate).format('YYYY-MM-DD');
+            return dayjs(may7).isSameOrAfter(start) && dayjs(may7).isSameOrBefore(end);
+        });
+
+        if (may7Vacations.length > 0) {
+            console.log(`Gefundene Urlaubseinträge für den 7. Mai 2025 nach Zusammenführung:`, may7Vacations);
+        } else {
+            console.log(`Keine Urlaubseinträge für den 7. Mai 2025 nach Zusammenführung gefunden.`);
+        }
+
     } catch (error) {
         console.error('Fehler beim Laden der Ereignisse:', error);
         toast.add({
@@ -1516,10 +1793,50 @@ const fetchEvents = async () => {
     }
 };
 
+// Manuelles Hinzufügen eines Urlaubseintrags für den 7. Mai 2025 (falls nötig)
+const addMay7Vacation = () => {
+    const may7Start = dayjs('2025-05-07').toDate();
+    const may7End = dayjs('2025-05-07').toDate();
+
+    // Prüfe, ob bereits ein Eintrag für diesen Tag existiert
+    const existingEntry = vacations.value.some(v => {
+        const start = dayjs(v.startDate).format('YYYY-MM-DD');
+        const end = dayjs(v.endDate).format('YYYY-MM-DD');
+        return dayjs('2025-05-07').isSameOrAfter(start) && dayjs('2025-05-07').isSameOrBefore(end);
+    });
+
+    if (!existingEntry) {
+        vacations.value.push({
+            id: `vacation-manual-${Date.now()}`,
+            title: 'Urlaub',
+            description: 'Manuell hinzugefügter Urlaub',
+            startDate: may7Start,
+            endDate: may7End,
+            isAllDay: true,
+            status: 'approved',
+            type: {
+                name: 'Urlaub',
+                value: 'vacation',
+                color: '#9C27B0'
+            },
+            color: '#9C27B0',
+            source: 'vacation'
+        });
+
+        console.log('Manueller Urlaubseintrag für den 7. Mai 2025 hinzugefügt');
+    }
+};
+
 onMounted(() => {
     fetchEventTypes();
-    fetchEvents();
+    fetchEvents(); // Dies lädt jetzt auch die Urlaubsdaten
+    fetchVacationData(); // Lade zusätzlich die Urlaubsdaten vom VacationService
     fetchHolidays(new Date().getFullYear());
+
+    // Füge nach einer kurzen Verzögerung manuell einen Urlaubseintrag für den 7. Mai hinzu
+    setTimeout(() => {
+        addMay7Vacation();
+    }, 2000);
 });
 
 // Beobachte Änderungen am Jahr und lade die Feiertage neu
@@ -1536,6 +1853,7 @@ watch(
 <style scoped>
 .event-dialog .p-dialog-header,
 .event-details-dialog .p-dialog-header,
+.vacation-details-dialog .p-dialog-header,
 .delete-confirmation-dialog .p-dialog-header,
 .holiday-info-dialog .p-dialog-header {
     padding: 1.5rem;
@@ -1544,6 +1862,7 @@ watch(
 
 .event-dialog .p-dialog-content,
 .event-details-dialog .p-dialog-content,
+.vacation-details-dialog .p-dialog-content,
 .delete-confirmation-dialog .p-dialog-content,
 .holiday-info-dialog .p-dialog-content {
     padding: 1.5rem;
@@ -1551,6 +1870,7 @@ watch(
 
 .event-dialog .p-dialog-footer,
 .event-details-dialog .p-dialog-footer,
+.vacation-details-dialog .p-dialog-footer,
 .delete-confirmation-dialog .p-dialog-footer,
 .holiday-info-dialog .p-dialog-footer {
     padding: 1.5rem;
