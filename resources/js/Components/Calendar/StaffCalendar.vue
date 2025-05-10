@@ -207,6 +207,7 @@
                             placeholder="Startdatum"
                             class="w-full"
                             :disabledDates="disabledDates"
+                            :locale="de"
                         />
                         <DatePicker
                             v-model="newEvent.endDate"
@@ -214,6 +215,7 @@
                             placeholder="Enddatum"
                             class="w-full"
                             :disabledDates="disabledDates"
+                            :locale="de"
                         />
                     </div>
                 </div>
@@ -540,6 +542,7 @@ import isToday from 'dayjs/plugin/isToday';
 import axios from 'axios';
 import HolidayService from '@/Services/holiday-service';
 import VacationService from '@/Services/VacationService';
+import { usePrimeVue } from 'primevue/config';
 
 // PrimeVue Components
 import Button from 'primevue/button';
@@ -551,6 +554,24 @@ import Select from 'primevue/select';
 import Checkbox from 'primevue/checkbox';
 import Badge from 'primevue/badge';
 
+// Define German locale for PrimeVue components
+const de = {
+    firstDayOfWeek: 1,
+    dayNames: ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
+    dayNamesShort: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
+    dayNamesMin: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
+    monthNames: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+    monthNamesShort: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
+    today: "Heute",
+    clear: "Löschen",
+    weekHeader: "KW",
+    dateFormat: "dd.mm.yy",
+    firstDay: 1
+};
+
+// Get PrimeVue instance to set global locale
+const primevue = usePrimeVue();
+
 // Use a function that can be provided by the parent component if needed
 const navigateTo = (path) => {
     if (typeof window !== 'undefined') {
@@ -558,13 +579,13 @@ const navigateTo = (path) => {
     }
 };
 
-// Toast functionality - create a simple implementation if useToast is not available
 const toast = {
     add: (message) => {
         console.log('Toast message:', message);
     }
 };
 
+// Set German locale for dayjs
 dayjs.locale('de');
 dayjs.extend(weekday);
 dayjs.extend(weekOfYear);
@@ -618,7 +639,7 @@ const weekDays = ref([]);
 const savingWeekPlan = ref(false);
 
 const weekdays = ref(['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']);
-const weekdaysShort = ref(['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']);
+const weekdaysShort = ref(['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']);
 const eventTypes = ref([]);
 
 // Deaktivierte Daten für den DatePicker (Feiertage)
@@ -842,11 +863,6 @@ const hasVacations = (date) => {
         const startDate = dayjs(vacation.startDate).format('YYYY-MM-DD');
         const endDate = dayjs(vacation.endDate).format('YYYY-MM-DD');
 
-        // Debugging-Ausgabe für den 7. Mai
-        if (dateStr === '2025-05-07') {
-            console.log(`Prüfe Urlaub für 7. Mai: ${startDate} bis ${endDate}`);
-        }
-
         return dayjs(dateStr).isSameOrAfter(startDate) && dayjs(dateStr).isSameOrBefore(endDate);
     });
 };
@@ -870,12 +886,6 @@ const getVacationsForDay = (date) => {
         const vacationEndDate = dayjs(vacation.endDate).format('YYYY-MM-DD');
         return dateStr >= vacationStartDate && dateStr <= vacationEndDate;
     });
-
-    // Debugging-Ausgabe für den 7. Mai
-    if (dateStr === '2025-05-07') {
-        console.log(`Urlaubseinträge für ${dateStr}:`, result);
-    }
-
     return result;
 };
 
@@ -1626,22 +1636,6 @@ const fetchVacationData = async () => {
 
             // Füge die Urlaubseinträge zu den vorhandenen hinzu
             vacations.value = [...vacations.value, ...vacationEntries];
-
-            console.log('Geladene Urlaubseinträge aus VacationService:', vacationEntries);
-
-            // Prüfe speziell für den 7. Mai 2025
-            const may7 = '2025-05-07';
-            const may7Vacations = vacationEntries.filter(v => {
-                const start = dayjs(v.startDate).format('YYYY-MM-DD');
-                const end = dayjs(v.endDate).format('YYYY-MM-DD');
-                return dayjs(may7).isSameOrAfter(start) && dayjs(may7).isSameOrBefore(end);
-            });
-
-            if (may7Vacations.length > 0) {
-                console.log(`Gefundene Urlaubseinträge für den 7. Mai 2025:`, may7Vacations);
-            } else {
-                console.log(`Keine Urlaubseinträge für den 7. Mai 2025 gefunden.`);
-            }
         }
     } catch (error) {
         console.error('Fehler beim Laden der Urlaubsdaten aus VacationService:', error);
@@ -1760,26 +1754,6 @@ const fetchEvents = async () => {
         const vacationEvents = allEvents.filter(event => event.source === 'vacation');
         vacations.value = [...vacations.value.filter(v => !vacationEvents.some(ve => ve.id === v.id)), ...vacationEvents];
 
-        // Nach der Aufteilung der Ereignisse
-        console.log('Alle Ereignisse:', allEvents);
-        console.log('Erkannte Urlaubseinträge:', vacationEvents);
-        console.log('Reguläre Ereignisse:', events.value);
-        console.log('Alle Urlaubseinträge nach Zusammenführung:', vacations.value);
-
-        // Prüfe speziell für den 7. Mai 2025
-        const may7 = '2025-05-07';
-        const may7Vacations = vacations.value.filter(v => {
-            const start = dayjs(v.startDate).format('YYYY-MM-DD');
-            const end = dayjs(v.endDate).format('YYYY-MM-DD');
-            return dayjs(may7).isSameOrAfter(start) && dayjs(may7).isSameOrBefore(end);
-        });
-
-        if (may7Vacations.length > 0) {
-            console.log(`Gefundene Urlaubseinträge für den 7. Mai 2025 nach Zusammenführung:`, may7Vacations);
-        } else {
-            console.log(`Keine Urlaubseinträge für den 7. Mai 2025 nach Zusammenführung gefunden.`);
-        }
-
     } catch (error) {
         console.error('Fehler beim Laden der Ereignisse:', error);
         toast.add({
@@ -1793,50 +1767,14 @@ const fetchEvents = async () => {
     }
 };
 
-// Manuelles Hinzufügen eines Urlaubseintrags für den 7. Mai 2025 (falls nötig)
-const addMay7Vacation = () => {
-    const may7Start = dayjs('2025-05-07').toDate();
-    const may7End = dayjs('2025-05-07').toDate();
-
-    // Prüfe, ob bereits ein Eintrag für diesen Tag existiert
-    const existingEntry = vacations.value.some(v => {
-        const start = dayjs(v.startDate).format('YYYY-MM-DD');
-        const end = dayjs(v.endDate).format('YYYY-MM-DD');
-        return dayjs('2025-05-07').isSameOrAfter(start) && dayjs('2025-05-07').isSameOrBefore(end);
-    });
-
-    if (!existingEntry) {
-        vacations.value.push({
-            id: `vacation-manual-${Date.now()}`,
-            title: 'Urlaub',
-            description: 'Manuell hinzugefügter Urlaub',
-            startDate: may7Start,
-            endDate: may7End,
-            isAllDay: true,
-            status: 'approved',
-            type: {
-                name: 'Urlaub',
-                value: 'vacation',
-                color: '#9C27B0'
-            },
-            color: '#9C27B0',
-            source: 'vacation'
-        });
-
-        console.log('Manueller Urlaubseintrag für den 7. Mai 2025 hinzugefügt');
-    }
-};
-
+// Set PrimeVue locale to German on component mount
 onMounted(() => {
+    primevue.config.locale = de;
     fetchEventTypes();
     fetchEvents(); // Dies lädt jetzt auch die Urlaubsdaten
     fetchVacationData(); // Lade zusätzlich die Urlaubsdaten vom VacationService
     fetchHolidays(new Date().getFullYear());
 
-    // Füge nach einer kurzen Verzögerung manuell einen Urlaubseintrag für den 7. Mai hinzu
-    setTimeout(() => {
-        addMay7Vacation();
-    }, 2000);
 });
 
 // Beobachte Änderungen am Jahr und lade die Feiertage neu
