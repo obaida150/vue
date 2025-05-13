@@ -62,6 +62,7 @@
                                     :disabledDates="disabledDates"
                                     class="w-full"
                                     @date-select="updatePeriodDays(index)"
+                                    :locale="de"
                                 />
                                 <small v-if="period.errors.startDate" class="p-error">{{ period.errors.startDate }}</small>
                             </div>
@@ -76,6 +77,7 @@
                                     :disabledDates="disabledDates"
                                     class="w-full"
                                     @date-select="updatePeriodDays(index)"
+                                    :locale="de"
                                 />
                                 <small v-if="period.errors.endDate" class="p-error">{{ period.errors.endDate }}</small>
                             </div>
@@ -209,12 +211,31 @@ import Toast from "primevue/toast"
 import ProgressBar from "primevue/progressbar"
 import Tag from "primevue/tag"
 import { useToast } from "primevue/usetoast"
+import { usePrimeVue } from "primevue/config"
 import VacationService from "@/Services/VacationService"
 import HolidayService from "@/Services/holiday-service"
 
 dayjs.extend(isSameOrBefore)
 dayjs.extend(isSameOrAfter)
 dayjs.locale("de")
+
+// Deutsche Lokalisierung für PrimeVue
+const de = {
+    firstDayOfWeek: 1,
+    dayNames: ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
+    dayNamesShort: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
+    dayNamesMin: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
+    monthNames: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+    monthNamesShort: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
+    today: "Heute",
+    clear: "Löschen",
+    weekHeader: "KW",
+    dateFormat: "dd.mm.yy",
+    firstDay: 1
+};
+
+// PrimeVue global konfigurieren
+const primevue = usePrimeVue();
 
 // Wir verwenden try-catch, um Fehler abzufangen, falls der Toast-Service nicht verfügbar ist
 //let toast
@@ -589,6 +610,9 @@ watch(
 
 // Komponente initialisieren
 onMounted(() => {
+    // Setze die globale PrimeVue-Lokalisierung
+    primevue.config.locale = de;
+
     fetchVacationData()
     fetchHolidays()
 })
