@@ -236,6 +236,9 @@ class VacationController extends Controller
                 'monthlyStats' => $monthlyStats
             ]);
         } catch (\Exception $e) {
+            Log::error('Error in getUserData: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -327,6 +330,9 @@ class VacationController extends Controller
                 'details' => $details
             ]);
         } catch (\Exception $e) {
+            Log::error('Error in getYearlyVacationData: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -401,6 +407,9 @@ class VacationController extends Controller
                 'rejected' => $rejected
             ]);
         } catch (\Exception $e) {
+            Log::error('Error in getRequests: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -430,6 +439,9 @@ class VacationController extends Controller
 
             return response()->json($requests);
         } catch (\Exception $e) {
+            Log::error('Error in getAllRequests: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -472,6 +484,9 @@ class VacationController extends Controller
 
             return response()->json($requests);
         } catch (\Exception $e) {
+            Log::error('Error in getUserRequests: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -487,10 +502,7 @@ class VacationController extends Controller
             // Debug-Informationen
             Log::info('Urlaubsantrag empfangen', [
                 'user' => $user->id,
-                'request_data' => $request->all(),
-                'headers' => $request->header(),
-                'csrf_token' => $request->header('X-CSRF-TOKEN'),
-                'session_token' => csrf_token()
+                'request_data' => $request->all()
             ]);
 
             // Validierung
@@ -503,53 +515,106 @@ class VacationController extends Controller
                 'notes' => 'nullable|string'
             ]);
 
-            $createdRequests = [];
             $teamId = $user->currentTeam ? $user->currentTeam->id : null;
 
-            // Für jeden Zeitraum einen Urlaubsantrag erstellen
+            // Erstelle für jeden Zeitraum einen separaten Urlaubsantrag
+            $createdRequests = [];
+
             foreach ($request->periods as $period) {
                 $vacationRequest = new VacationRequest();
                 $vacationRequest->user_id = $user->id;
                 $vacationRequest->team_id = $teamId;
+                $vacationRequest->substitute_id = $request->substitute;
+                $vacationRequest->notes = $request->notes;
+                $vacationRequest->status = 'pending';
 
-                // Fix: Ensure dates are stored correctly without timezone adjustment
-                // Convert the date strings to Carbon instances with the correct date
+                // Setze Start- und Enddatum für diesen Zeitraum
                 $startDate = Carbon::parse($period['startDate'])->startOfDay();
                 $endDate = Carbon::parse($period['endDate'])->startOfDay();
 
                 $vacationRequest->start_date = $startDate;
                 $vacationRequest->end_date = $endDate;
-
-                // WICHTIG: Verwende die Tage, die vom Frontend berechnet wurden
-                // Das Frontend berücksichtigt bereits Wochenenden und Feiertage
                 $vacationRequest->days = $period['days'];
 
-                $vacationRequest->substitute_id = $request->substitute;
-
-                // Wichtig: Stelle sicher, dass die Anmerkungen korrekt gespeichert werden
-                $vacationRequest->notes = $request->notes;
-
-                $vacationRequest->status = 'pending';
                 $vacationRequest->save();
 
                 Log::info('Urlaubsantrag erstellt', [
                     'request_id' => $vacationRequest->id,
-                    'start_date' => $startDate->format('Y-m-d'),
-                    'end_date' => $endDate->format('Y-m-d'),
-                    'days' => $vacationRequest->days,
-                    'notes' => $request->notes // Log der Anmerkungen
+                    'start_date' => $vacationRequest->start_date->format('Y-m-d'),
+                    'end_date' => $vacationRequest->end_date->format('Y-m-d'),
+                    'days' => $vacationRequest->days
                 ]);
 
                 $createdRequests[] = $vacationRequest;
+            }
 
-                // Rest des Codes bleibt unverändert...
+            // Lade den ersten Urlaubsantrag mit allen Beziehungen für die E-Mail
+            $firstRequest = $createdRequests[0];
+            $firstRequest->load(['user', 'substitute']);
+
+            // Finde den Abteilungsleiter
+            $departmentHead = null;
+            if ($user->currentTeam) {
+                // FIXED: Use the role_id column or relationship instead of 'role'
+                // Assuming there's a role_id column or a role relationship
+                $departmentHead = User::whereHas('teams', function($query) use ($user) {
+                    $query->where('teams.id', $user->currentTeam->id);
+                })
+                    ->whereHas('role', function($query) {
+                        $query->where('name', 'Abteilungsleiter');
+                    })
+                    ->first();
+
+                // If there's no role relationship but a role_id column, use this instead:
+                // ->where('role_id', function($query) {
+                //     $query->select('id')->from('roles')->where('name', 'Abteilungsleiter');
+                // })
+            }
+
+            // Fallback: Wenn kein Abteilungsleiter gefunden wurde, sende an HR oder Admin
+            if (!$departmentHead) {
+                // FIXED: Use the role relationship or role_id column
+                $departmentHead = User::whereHas('role', function($query) {
+                    $query->where('name', 'HR')->orWhere('name', 'Admin');
+                })->first();
+
+                // If there's no role relationship but a role_id column, use this instead:
+                // $departmentHead = User::whereIn('role_id', function($query) {
+                //     $query->select('id')->from('roles')->whereIn('name', ['HR', 'Admin']);
+                // })->first();
+            }
+
+            // Sende eine E-Mail an den Abteilungsleiter
+            if ($departmentHead) {
+                try {
+                    Log::info('Sende E-Mail an Abteilungsleiter', [
+                        'department_head_id' => $departmentHead->id,
+                        'department_head_email' => $departmentHead->email
+                    ]);
+
+                    // Finde überlappende Urlaubsanträge
+                    $overlappingRequests = $this->getOverlappingRequests($firstRequest);
+
+                    // Sende eine E-Mail mit allen Zeiträumen
+                    Mail::to($departmentHead->email)
+                        ->send(new VacationRequestMail(
+                            $firstRequest,
+                            $user,
+                            $overlappingRequests,
+                            $firstRequest->substitute,
+                            $createdRequests
+                        ));
+
+                    Log::info('E-Mail erfolgreich gesendet');
+                } catch (\Exception $e) {
+                    Log::error('Fehler beim Senden der E-Mail', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                }
             }
 
             // Erfolgreiche Antwort
-            Log::info('Urlaubsantrag erfolgreich eingereicht', [
-                'request_ids' => collect($createdRequests)->pluck('id')->toArray()
-            ]);
-
             return response()->json([
                 'message' => 'Urlaubsantrag erfolgreich eingereicht',
                 'requests' => $createdRequests
@@ -565,6 +630,40 @@ class VacationController extends Controller
                 'error' => 'Fehler beim Einreichen des Urlaubsantrags: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Finde überlappende Urlaubsanträge
+     */
+    private function getOverlappingRequests(VacationRequest $vacationRequest)
+    {
+        $user = $vacationRequest->user;
+        $teamId = $user->currentTeam ? $user->currentTeam->id : null;
+
+        if (!$teamId) {
+            return collect();
+        }
+
+        // Finde alle genehmigten Urlaubsanträge im gleichen Team, die mit dem neuen Antrag überlappen
+        $overlappingRequests = VacationRequest::with(['user'])
+            ->where('status', 'approved')
+            ->where('user_id', '!=', $user->id)
+            ->where('team_id', $teamId)
+            ->where(function($query) use ($vacationRequest) {
+                $query->where(function($q) use ($vacationRequest) {
+                    $q->where('start_date', '<=', $vacationRequest->end_date)
+                        ->where('end_date', '>=', $vacationRequest->start_date);
+                });
+            })
+            ->get();
+
+        return $overlappingRequests->map(function($request) {
+            return [
+                'employee_name' => $request->user->full_name,
+                'start_date' => $request->start_date->format('d.m.Y'),
+                'end_date' => $request->end_date->format('d.m.Y')
+            ];
+        });
     }
 
     /**
@@ -721,11 +820,6 @@ class VacationController extends Controller
             $vacationRequest->rejected_by = $user->id;
             $vacationRequest->rejected_date = now();
             $vacationRequest->rejection_reason = $request->reason;
-
-            // WICHTIG: Stelle sicher, dass alle anderen Felder unverändert bleiben
-            // Wir müssen hier nichts explizit tun, da wir nur die oben genannten Felder aktualisieren
-            // und die Methode save() nur die geänderten Felder aktualisiert
-
             $vacationRequest->save();
 
             // Antragsteller finden
@@ -736,7 +830,7 @@ class VacationController extends Controller
                 'user_id' => $employee->id,
                 'title' => 'Urlaubsantrag abgelehnt',
                 'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} wurde abgelehnt.",
-                'type' => 'error', // Ändere 'danger' zu 'error' oder einem anderen gültigen Wert
+                'type' => 'error',
                 'is_read' => false,
                 'related_entity_type' => 'vacation_request',
                 'related_entity_id' => $vacationRequest->id,
@@ -748,10 +842,9 @@ class VacationController extends Controller
                 Log::info('Sende Ablehnungs-E-Mail an Antragsteller', [
                     'employee_id' => $employee->id,
                     'employee_email' => $employee->email,
-                    'notes' => $vacationRequest->notes // Log der Anmerkungen
+                    'notes' => $vacationRequest->notes
                 ]);
 
-                // Mail senden mit verbesserter Fehlerbehandlung
                 if ($employee->email) {
                     // CC und BCC Empfänger definieren
                     $ccRecipients = [];
@@ -794,7 +887,6 @@ class VacationController extends Controller
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
-                // Wir werfen den Fehler nicht weiter, damit der Prozess fortgesetzt werden kann
             }
 
             // Erfolgreiche Antwort
@@ -864,6 +956,9 @@ class VacationController extends Controller
                 'message' => 'Urlaubsantrag erfolgreich zurückgezogen'
             ]);
         } catch (\Exception $e) {
+            Log::error('Error in cancelRequest: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

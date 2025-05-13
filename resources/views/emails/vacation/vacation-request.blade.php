@@ -80,27 +80,56 @@
             <th>Mitarbeiter:</th>
             <td>{{ $employee->full_name }}</td>
         </tr>
-        <tr>
-            <th>Zeitraum:</th>
-            <td>Von {{ $vacationRequest->start_date->format('d.m.Y') }} bis {{ $vacationRequest->end_date->format('d.m.Y') }}</td>
-        </tr>
-        <tr>
-            <th>Anzahl der Tage:</th>
-            <td>{{ $vacationRequest->days }} Arbeitstage</td>
-        </tr>
-        @if ($vacationRequest->notes)
-            <tr>
-                <th>Anmerkungen:</th>
-                <td>{{ $vacationRequest->notes }}</td>
-            </tr>
-        @endif
         @if ($substitute)
             <tr>
                 <th>Vertretung:</th>
                 <td>{{ $substitute->full_name }}</td>
             </tr>
         @endif
+        @if ($vacationRequest->notes)
+            <tr>
+                <th>Anmerkungen:</th>
+                <td>{{ $vacationRequest->notes }}</td>
+            </tr>
+        @endif
     </table>
+
+    @if(isset($allRequests) && count($allRequests) > 0)
+        <h3>Urlaubszeiträume:</h3>
+        <table>
+            <tr>
+                <th>Zeitraum</th>
+                <th>Anzahl der Tage</th>
+            </tr>
+            @php
+                $totalDays = 0;
+            @endphp
+            @foreach($allRequests as $request)
+                <tr>
+                    <td>Von {{ $request->start_date->format('d.m.Y') }} bis {{ $request->end_date->format('d.m.Y') }}</td>
+                    <td>{{ $request->days }} Arbeitstage</td>
+                </tr>
+                @php
+                    $totalDays += $request->days;
+                @endphp
+            @endforeach
+            <tr>
+                <th>Gesamt</th>
+                <th>{{ $totalDays }} Arbeitstage</th>
+            </tr>
+        </table>
+    @else
+        <table>
+            <tr>
+                <th>Zeitraum:</th>
+                <td>Von {{ $vacationRequest->start_date->format('d.m.Y') }} bis {{ $vacationRequest->end_date->format('d.m.Y') }}</td>
+            </tr>
+            <tr>
+                <th>Anzahl der Tage:</th>
+                <td>{{ $vacationRequest->days }} Arbeitstage</td>
+            </tr>
+        </table>
+    @endif
 
     @if ($overlappingRequests->isNotEmpty())
         <h3>Überlappende Urlaubsanträge:</h3>
