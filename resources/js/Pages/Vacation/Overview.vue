@@ -483,19 +483,6 @@ const getHolidayName = (date) => {
     return HolidayService.getHolidayName(dayjs(date), holidays.value);
 };
 
-// Füge diese Funktion hinzu, um Feiertage als Ereignisse zu formatieren
-const getHolidayEvents = () => {
-    return holidays.value.map(holiday => ({
-        title: holiday.name,
-        start: holiday.date.format('YYYY-MM-DD'),
-        allDay: true,
-        backgroundColor: '#FF0000',
-        borderColor: '#FF0000',
-        className: 'holiday-event',
-        display: 'background'
-    }));
-};
-
 // Kalender-Konfiguration
 const calendarOptions = ref({
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -637,7 +624,17 @@ const updateCalendarEvents = () => {
     });
 
     // Füge Feiertage hinzu
-    events.push(...getHolidayEvents());
+    holidays.value.forEach(holiday => {
+        events.push({
+            title: holiday.name,
+            start: holiday.date.format('YYYY-MM-DD'),
+            allDay: true,
+            backgroundColor: '#FF0000',
+            borderColor: '#FF0000',
+            className: 'holiday-event',
+            display: 'background'
+        });
+    });
 
     if (calendarOptions.value) {
         calendarOptions.value.events = events;
@@ -781,6 +778,7 @@ onMounted(() => {
 // Beobachte Änderungen am ausgewählten Jahr und aktualisiere die Daten entsprechend
 watch(selectedStatYear, (newYear) => {
     updateYearlyStats()
+    fetchHolidays(newYear);
 })
 
 
