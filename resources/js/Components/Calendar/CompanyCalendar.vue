@@ -513,6 +513,12 @@ const birthdayEventType = {
     color: '#FFD700' // Gold für Geburtstage
 };
 
+const sicknessEventType = {
+    name: 'Krankheit',
+    value: 'sick',
+    color: '#F44336' // Red color for sickness events
+};
+
 const toast = useToast();
 
 // Initialize vacationResponse and vacationError refs
@@ -600,6 +606,11 @@ const fetchCalendarData = async () => {
         // Sicherstellen, dass eventTypes ein Array ist und Urlaub und Geburtstag enthält
         if (!eventTypes.value.some(type => type.value === 'vacation')) {
             eventTypes.value.push({ name: 'Urlaub', value: 'vacation', color: '#9C27B0' });
+        }
+
+        // Ensure sickness event type is included
+        if (!eventTypes.value.some(type => type.value === 'sick')) {
+            eventTypes.value.push(sicknessEventType);
         }
 
         // Geburtstage mit der neuen Farbe aktualisieren
@@ -1069,6 +1080,10 @@ const getEmployeeStatusForDay = (employee, date) => {
 
     // First check for exact date match
     const exactEvent = employee.events.find(e => e.date === dateStr);
+    // Make sure sickness events are displayed regardless of weekend status
+    if (exactEvent && exactEvent.type.value === 'sick') {
+        return exactEvent.type;
+    }
     if (exactEvent) {
         // Wenn es ein Geburtstag oder ein sonstiges Ereignis ist, zeige es auch am Wochenende an
         if (exactEvent.type.value === 'birthday' || exactEvent.type.value === 'other' || exactEvent.type.value === 'sonstiges') {
@@ -1087,6 +1102,10 @@ const getEmployeeStatusForDay = (employee, date) => {
         if (event.start_date && event.end_date) {
             const startDate = dayjs(event.start_date);
             const endDate = dayjs(event.end_date);
+            // Make sure sickness events are displayed regardless of weekend status
+            if (event.type.value === 'sick') {
+                return event.type;
+            }
             if (date.isSameOrAfter(startDate, 'day') && date.isSameOrBefore(endDate, 'day')) {
                 // Wenn es ein Geburtstag oder ein sonstiges Ereignis ist, zeige es auch am Wochenende an
                 if (event.type.value === 'birthday' || event.type.value === 'other' || event.type.value === 'sonstiges') {
