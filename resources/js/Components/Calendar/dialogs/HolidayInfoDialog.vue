@@ -1,25 +1,31 @@
 <template>
     <Dialog
-        :visible="visible"
-        @update:visible="$emit('update:visible', $event)"
+        :visible="localVisible"
+        @update:visible="updateVisible"
         :style="{ width: '450px' }"
-        :header="holidayName"
+        header="Feiertag"
         :modal="true"
-        class="holiday-info-dialog"
+        :closable="true"
+        class="p-fluid"
     >
-        <div class="p-4">
-            <p class="text-center mb-4">
-                An diesem Tag können keine Ereignisse eingetragen werden, da es sich um einen Feiertag handelt.
-            </p>
-            <div class="flex justify-center">
-                <Button label="Schließen" icon="pi pi-times" @click="$emit('update:visible', false)" class="p-button-sm sm:p-button-md" />
-            </div>
+        <div class="mb-4">
+            <h3 class="text-xl font-bold text-center">{{ holidayName }}</h3>
+            <p class="text-center mt-2">An diesem Tag ist ein gesetzlicher Feiertag.</p>
         </div>
+
+        <template #footer>
+            <Button
+                label="Schließen"
+                icon="pi pi-times"
+                class="p-button-text"
+                @click="onClose"
+            />
+        </template>
     </Dialog>
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { ref, watch } from 'vue';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 
@@ -28,27 +34,36 @@ const props = defineProps({
         type: Boolean,
         required: true
     },
+    modelValue: {
+        type: Boolean,
+        default: false
+    },
     holidayName: {
         type: String,
-        default: 'Feiertag'
+        required: true
     }
 });
 
-defineEmits(['update:visible']);
+const emit = defineEmits(['update:visible', 'update:modelValue', 'close']);
+
+// Lokale Variable für die Sichtbarkeit
+const localVisible = ref(props.visible);
+
+// Aktualisiere die lokale Variable, wenn sich die Prop ändert
+watch(() => props.visible, (newValue) => {
+    localVisible.value = newValue;
+});
+
+// Aktualisiere die Prop, wenn sich die lokale Variable ändert
+const updateVisible = (value) => {
+    localVisible.value = value;
+    emit('update:visible', value);
+    if (!value) {
+        emit('close');
+    }
+};
+
+const onClose = () => {
+    updateVisible(false);
+};
 </script>
-
-<style scoped>
-.holiday-info-dialog .p-dialog-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--surface-d);
-}
-
-.holiday-info-dialog .p-dialog-content {
-    padding: 1.5rem;
-}
-
-.holiday-info-dialog .p-dialog-footer {
-    padding: 1.5rem;
-    border-top: 1px solid var(--surface-d);
-}
-</style>

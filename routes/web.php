@@ -181,6 +181,12 @@ Route::middleware([
 // Ereignistypen API - KORRIGIERT: Entfernen Sie das doppelte /api/ im Pfad
     Route::get('/event-types', [EventTypeController::class, 'index'])->name('api.event-types.index');
 
+// Benutzerrolle API
+    Route::get('/user/role', [CalendarController::class, 'getUserRole'])->name('api.user.role');
+
+// Mitarbeiterliste API
+    Route::get('/employees', [CalendarController::class, 'getEmployees'])->name('api.employees');
+
 // Benachrichtigungen API
     Route::get('/notifications/birthdays', [NotificationController::class, 'getBirthdayNotifications'])
         ->name('api.notifications.birthdays');

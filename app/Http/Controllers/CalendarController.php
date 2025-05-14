@@ -220,5 +220,62 @@ class CalendarController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-}
 
+    /**
+     * Get the current user's role ID
+     */
+    public function getUserRole()
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json(['error' => 'User not authenticated'], 401);
+            }
+
+            return response()->json([
+                'role_id' => $user->role_id,
+                'user_id' => $user->id,
+                'role_name' => $user->role ? $user->role->name : null
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Fehler beim Abrufen der Benutzerrolle: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get all active employees
+     */
+    public function getEmployees()
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json(['error' => 'User not authenticated'], 401);
+            }
+
+            // Prüfen, ob der Benutzer die HR-Rolle hat
+            if ($user->role_id !== 2) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            // Alle aktiven Mitarbeiter laden
+            $employees = User::where('is_active', true)
+                ->select('id', 'first_name', 'last_name')
+                ->get()
+                ->map(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->first_name . ' ' . $user->last_name
+                    ];
+                });
+
+            return response()->json($employees);
+        } catch (\Exception $e) {
+            Log::error('Fehler beim Abrufen der Mitarbeiterliste: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+}

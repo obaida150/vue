@@ -1,47 +1,38 @@
 <template>
     <Dialog
-        :visible="visible"
-        @update:visible="$emit('update:visible', $event)"
+        :visible="localVisible"
+        @update:visible="updateVisible"
         :style="{ width: '450px' }"
         header="Ereignis löschen"
         :modal="true"
-        :closable="false"
-        class="delete-confirmation-dialog"
+        :closable="true"
+        class="p-fluid"
     >
-        <div class="flex flex-col gap-4">
-            <div class="flex items-start gap-3">
-                <i class="pi pi-exclamation-triangle text-yellow-500 text-2xl mt-1"></i>
-                <div>
-                    <h3 class="text-lg font-semibold mb-2">Sind Sie sicher?</h3>
-                    <p class="text-gray-600 dark:text-gray-400">
-                        Möchten Sie dieses Ereignis wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
-                    </p>
-                </div>
-            </div>
+        <div class="mb-4">
+            <p>Sind Sie sicher, dass Sie dieses Ereignis löschen möchten?</p>
+            <p class="text-red-500 mt-2">Diese Aktion kann nicht rückgängig gemacht werden.</p>
         </div>
 
         <template #footer>
-            <div class="flex justify-end gap-2">
-                <Button
-                    label="Abbrechen"
-                    icon="pi pi-times"
-                    @click="$emit('cancel')"
-                    class="p-button-text p-button-sm sm:p-button-md"
-                />
-                <Button
-                    label="Löschen"
-                    icon="pi pi-trash"
-                    @click="$emit('delete')"
-                    :loading="deleting"
-                    class="p-button-danger p-button-sm sm:p-button-md"
-                />
-            </div>
+            <Button
+                label="Abbrechen"
+                icon="pi pi-times"
+                class="p-button-text"
+                @click="onCancel"
+            />
+            <Button
+                label="Löschen"
+                icon="pi pi-trash"
+                class="p-button-danger"
+                :loading="deleting"
+                @click="onDelete"
+            />
         </template>
     </Dialog>
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { ref, watch } from 'vue';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 
@@ -50,27 +41,40 @@ const props = defineProps({
         type: Boolean,
         required: true
     },
+    modelValue: {
+        type: Boolean,
+        default: false
+    },
     deleting: {
         type: Boolean,
-        required: true
+        default: false
     }
 });
 
-defineEmits(['update:visible', 'cancel', 'delete']);
+const emit = defineEmits(['update:visible', 'update:modelValue', 'cancel', 'delete']);
+
+// Lokale Variable für die Sichtbarkeit
+const localVisible = ref(props.visible);
+
+// Aktualisiere die lokale Variable, wenn sich die Prop ändert
+watch(() => props.visible, (newValue) => {
+    localVisible.value = newValue;
+});
+
+// Aktualisiere die Prop, wenn sich die lokale Variable ändert
+const updateVisible = (value) => {
+    localVisible.value = value;
+    emit('update:visible', value);
+    if (!value) {
+        emit('cancel');
+    }
+};
+
+const onCancel = () => {
+    updateVisible(false);
+};
+
+const onDelete = () => {
+    emit('delete');
+};
 </script>
-
-<style scoped>
-.delete-confirmation-dialog .p-dialog-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--surface-d);
-}
-
-.delete-confirmation-dialog .p-dialog-content {
-    padding: 1.5rem;
-}
-
-.delete-confirmation-dialog .p-dialog-footer {
-    padding: 1.5rem;
-    border-top: 1px solid var(--surface-d);
-}
-</style>
