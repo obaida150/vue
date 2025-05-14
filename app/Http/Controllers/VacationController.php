@@ -359,13 +359,19 @@ class VacationController extends Controller
                     });
                 });
             }
-            // Wenn der Benutzer weder HR noch Admin noch Abteilungsleiter ist, keine Daten zurückgeben
+            // Wenn der Benutzer ein normaler Mitarbeiter ist, zeige nur Anträge, bei denen er als Vertreter eingetragen ist
             elseif ($role !== 'HR' && $role !== 'Admin') {
-                return response()->json([
-                    'pending' => [],
-                    'approved' => [],
-                    'rejected' => []
-                ]);
+                $query->where('substitute_id', $user->id);
+
+                // Wenn keine Anträge gefunden werden, bei denen der Benutzer als Vertreter eingetragen ist,
+                // gib leere Arrays zurück
+                if ($query->count() === 0) {
+                    return response()->json([
+                        'pending' => [],
+                        'approved' => [],
+                        'rejected' => []
+                    ]);
+                }
             }
 
             $allRequests = $query->orderBy('created_at', 'desc')
@@ -595,15 +601,33 @@ class VacationController extends Controller
                     // Finde überlappende Urlaubsanträge
                     $overlappingRequests = $this->getOverlappingRequests($firstRequest);
 
+                    // CC-Empfänger definieren
+                    $ccRecipients = [];
+
+                    // Wenn ein Vertreter ausgewählt wurde, füge ihn als CC-Empfänger hinzu
+                    if ($firstRequest->substitute) {
+                        $ccRecipients[] = $firstRequest->substitute->email;
+                        Log::info('Vertreter als CC hinzugefügt', [
+                            'substitute_id' => $firstRequest->substitute->id,
+                            'substitute_email' => $firstRequest->substitute->email
+                        ]);
+                    }
+
                     // Sende eine E-Mail mit allen Zeiträumen
-                    Mail::to($departmentHead->email)
-                        ->send(new VacationRequestMail(
-                            $firstRequest,
-                            $user,
-                            $overlappingRequests,
-                            $firstRequest->substitute,
-                            $createdRequests
-                        ));
+                    $mail = Mail::to($departmentHead->email);
+
+                    // CC hinzufügen falls vorhanden
+                    if (!empty($ccRecipients)) {
+                        $mail->cc($ccRecipients);
+                    }
+
+                    $mail->send(new VacationRequestMail(
+                        $firstRequest,
+                        $user,
+                        $overlappingRequests,
+                        $firstRequest->substitute,
+                        $createdRequests
+                    ));
 
                     Log::info('E-Mail erfolgreich gesendet');
                 } catch (\Exception $e) {
@@ -690,6 +714,25 @@ class VacationController extends Controller
                 ], 400);
             }
 
+            // Prüfen, ob der Benutzer berechtigt ist, den Antrag zu genehmigen
+            $role = $user->role ? $user->role->name : null;
+            $isAuthorized = false;
+
+            // Abteilungsleiter, HR oder Admin dürfen immer genehmigen
+            if (in_array($role, ['Abteilungsleiter', 'HR', 'Admin'])) {
+                $isAuthorized = true;
+            }
+            // Vertreter darf nur genehmigen, wenn er als Vertreter eingetragen ist
+            elseif ($vacationRequest->substitute_id === $user->id) {
+                $isAuthorized = true;
+            }
+
+            if (!$isAuthorized) {
+                return response()->json([
+                    'error' => 'Sie sind nicht berechtigt, diesen Urlaubsantrag zu genehmigen.'
+                ], 403);
+            }
+
             // Antrag genehmigen
             $vacationRequest->status = 'approved';
             $vacationRequest->approved_by = $user->id;
@@ -733,6 +776,29 @@ class VacationController extends Controller
                     $hrEmail = env('HR_EMAIL', 'personal@dittmeier.de');
                     if ($hrEmail) {
                         $bccRecipients[] = $hrEmail;
+                    }
+
+                    // Wenn der Genehmiger ein Vertreter ist, füge den Abteilungsleiter als CC hinzu
+                    if ($vacationRequest->substitute_id === $user->id) {
+                        // Finde den Abteilungsleiter
+                        $departmentHead = null;
+                        if ($employee->currentTeam) {
+                            $departmentHead = User::whereHas('teams', function($query) use ($employee) {
+                                $query->where('teams.id', $employee->currentTeam->id);
+                            })
+                                ->whereHas('role', function($query) {
+                                    $query->where('name', 'Abteilungsleiter');
+                                })
+                                ->first();
+                        }
+
+                        if ($departmentHead) {
+                            $ccRecipients[] = $departmentHead->email;
+                            Log::info('Abteilungsleiter als CC hinzugefügt', [
+                                'department_head_id' => $departmentHead->id,
+                                'department_head_email' => $departmentHead->email
+                            ]);
+                        }
                     }
 
                     // Mail senden
@@ -815,6 +881,25 @@ class VacationController extends Controller
                 ], 400);
             }
 
+            // Prüfen, ob der Benutzer berechtigt ist, den Antrag abzulehnen
+            $role = $user->role ? $user->role->name : null;
+            $isAuthorized = false;
+
+            // Abteilungsleiter, HR oder Admin dürfen immer ablehnen
+            if (in_array($role, ['Abteilungsleiter', 'HR', 'Admin'])) {
+                $isAuthorized = true;
+            }
+            // Vertreter darf nur ablehnen, wenn er als Vertreter eingetragen ist
+            elseif ($vacationRequest->substitute_id === $user->id) {
+                $isAuthorized = true;
+            }
+
+            if (!$isAuthorized) {
+                return response()->json([
+                    'error' => 'Sie sind nicht berechtigt, diesen Urlaubsantrag abzulehnen.'
+                ], 403);
+            }
+
             // Antrag ablehnen
             $vacationRequest->status = 'rejected';
             $vacationRequest->rejected_by = $user->id;
@@ -854,6 +939,29 @@ class VacationController extends Controller
                     $hrEmail = env('HR_EMAIL', 'personal@dittmeier.de');
                     if ($hrEmail) {
                         $bccRecipients[] = $hrEmail;
+                    }
+
+                    // Wenn der Ablehner ein Vertreter ist, füge den Abteilungsleiter als CC hinzu
+                    if ($vacationRequest->substitute_id === $user->id) {
+                        // Finde den Abteilungsleiter
+                        $departmentHead = null;
+                        if ($employee->currentTeam) {
+                            $departmentHead = User::whereHas('teams', function($query) use ($employee) {
+                                $query->where('teams.id', $employee->currentTeam->id);
+                            })
+                                ->whereHas('role', function($query) {
+                                    $query->where('name', 'Abteilungsleiter');
+                                })
+                                ->first();
+                        }
+
+                        if ($departmentHead) {
+                            $ccRecipients[] = $departmentHead->email;
+                            Log::info('Abteilungsleiter als CC hinzugefügt', [
+                                'department_head_id' => $departmentHead->id,
+                                'department_head_email' => $departmentHead->email
+                            ]);
+                        }
                     }
 
                     // Mail senden
