@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use App\Models\VacationRequest;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class CalendarController extends Controller
 {
@@ -103,6 +104,7 @@ class CalendarController extends Controller
                     'id' => $user->id,
                     'name' => $user->full_name,
                     'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
+                    'team_id' => $user->current_team_id,
                     'events' => $events,
                     'birth_date' => $user->birth_date ? $user->birth_date->format('Y-m-d') : null
                 ];
@@ -233,10 +235,46 @@ class CalendarController extends Controller
                 return response()->json(['error' => 'User not authenticated'], 401);
             }
 
+            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+            $isTeamManager = false;
+            $teamId = null;
+            $teamMembers = [];
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+
+                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+
+                // Wenn der Benutzer ein Abteilungsleiter ist, hole alle Teammitglieder
+                if ($isTeamManager) {
+                    $teamMembers = DB::table('team_user')
+                        ->where('team_id', $teamId)
+                        ->where('user_id', '!=', $user->id)
+                        ->join('users', 'team_user.user_id', '=', 'users.id')
+                        ->select('users.id', 'users.first_name', 'users.last_name')
+                        ->get()
+                        ->map(function($member) {
+                            return [
+                                'id' => $member->id,
+                                'name' => $member->first_name . ' ' . $member->last_name
+                            ];
+                        });
+                }
+            }
+
             return response()->json([
                 'role_id' => $user->role_id,
                 'user_id' => $user->id,
-                'role_name' => $user->role ? $user->role->name : null
+                'role_name' => $user->role ? $user->role->name : null,
+                'is_team_manager' => $isTeamManager,
+                'team_id' => $teamId,
+                'team_members' => $teamMembers
             ]);
         } catch (\Exception $e) {
             Log::error('Fehler beim Abrufen der Benutzerrolle: ' . $e->getMessage());
@@ -256,19 +294,44 @@ class CalendarController extends Controller
                 return response()->json(['error' => 'User not authenticated'], 401);
             }
 
-            // Prüfen, ob der Benutzer die HR-Rolle hat
-            if ($user->role_id !== 2) {
+            // Prüfen, ob der Benutzer die HR-Rolle hat oder ein Abteilungsleiter ist
+            $isHR = $user->role_id === 2;
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+
+                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+            }
+
+            if (!$isHR && !$isTeamManager) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
-            // Alle aktiven Mitarbeiter laden
-            $employees = User::where('is_active', true)
-                ->select('id', 'first_name', 'last_name')
+            // Mitarbeiter laden basierend auf der Rolle
+            $query = User::where('is_active', true);
+
+            // Wenn der Benutzer ein Abteilungsleiter ist, nur Mitarbeiter aus seinem Team laden
+            if ($isTeamManager && !$isHR) {
+                $query->whereHas('teams', function($q) use ($teamId) {
+                    $q->where('teams.id', $teamId);
+                });
+            }
+
+            $employees = $query->select('id', 'first_name', 'last_name', 'current_team_id')
                 ->get()
                 ->map(function ($user) {
                     return [
                         'id' => $user->id,
-                        'name' => $user->first_name . ' ' . $user->last_name
+                        'name' => $user->first_name . ' ' . $user->last_name,
+                        'team_id' => $user->current_team_id
                     ];
                 });
 

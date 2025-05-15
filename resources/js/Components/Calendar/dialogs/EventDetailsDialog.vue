@@ -63,14 +63,14 @@
             <div class="flex justify-end w-full">
                 <div class="flex gap-2">
                     <Button
-                        v-if="event && event.source !== 'vacation' && canDeleteEvent"
+                        v-if="event && event.source !== 'vacation' && (isHr || isTeamManager || event.user_id === currentUserId)"
                         label="Löschen"
                         icon="pi pi-trash"
                         class="p-button-danger p-button-sm sm:p-button-md"
                         @click="onDelete"
                     />
                     <Button
-                        v-if="event && event.source !== 'vacation' && (isHrUser || !isKrankheitEvent)"
+                        v-if="event && event.source !== 'vacation' && (isHr || isTeamManager || event.user_id === currentUserId)"
                         label="Bearbeiten"
                         icon="pi pi-pencil"
                         class="p-button-primary p-button-sm sm:p-button-md"
@@ -88,110 +88,82 @@
     </Dialog>
 </template>
 
-<script setup>
-import { ref, watch, computed } from 'vue';
+<script>
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import Badge from 'primevue/badge';
 
-const props = defineProps({
-    visible: {
-        type: Boolean,
-        required: true
+export default {
+    components: {
+        Dialog,
+        Button,
+        Badge
     },
-    modelValue: {
-        type: Boolean,
-        default: false
+    props: {
+        visible: {
+            type: Boolean,
+            default: false
+        },
+        event: {
+            type: Object,
+            default: null
+        },
+        formatDate: {
+            type: Function,
+            default: () => ''
+        },
+        getStatusLabel: {
+            type: Function,
+            default: () => ''
+        },
+        getStatusSeverity: {
+            type: Function,
+            default: () => ''
+        },
+        isHr: {
+            type: Boolean,
+            default: false
+        },
+        isTeamManager: {
+            type: Boolean,
+            default: false
+        },
+        currentUserId: {
+            type: Number,
+            default: null
+        }
     },
-    event: {
-        type: Object,
-        default: null
+    emits: ['update:visible', 'edit', 'delete', 'close'],
+    data() {
+        return {
+            localVisible: false
+        };
     },
-    getStatusLabel: {
-        type: Function,
-        required: true
+    watch: {
+        visible(newVisible) {
+            this.localVisible = newVisible;
+        }
     },
-    getStatusSeverity: {
-        type: Function,
-        required: true
-    },
-    formatDate: {
-        type: Function,
-        required: true
-    },
-    isHr: {
-        type: Boolean,
-        default: false
-    },
-    isHrUser: {
-        type: Boolean,
-        default: false
+    methods: {
+        updateVisible(value) {
+            this.localVisible = value;
+            this.$emit('update:visible', value);
+        },
+        onEdit() {
+            this.$emit('edit', this.event);
+        },
+        onDelete() {
+            this.$emit('delete', this.event);
+        },
+        onClose() {
+            this.updateVisible(false);
+            this.$emit('close');
+        }
     }
-});
-
-const emit = defineEmits(['update:visible', 'update:modelValue', 'close', 'edit', 'delete']);
-
-// Lokale Variable für die Sichtbarkeit
-const localVisible = ref(props.visible);
-
-// Aktualisiere die lokale Variable, wenn sich die Prop ändert
-watch(() => props.visible, (newValue) => {
-    localVisible.value = newValue;
-});
-
-// Aktualisiere die Prop, wenn sich die lokale Variable ändert
-const updateVisible = (value) => {
-    localVisible.value = value;
-    emit('update:visible', value);
-    if (!value) {
-        emit('close');
-    }
-};
-
-const canDeleteEvent = computed(() => {
-    if (!props.event) return false;
-
-    // Wenn es ein Krankheitseintrag ist und der Benutzer kein HR-Mitarbeiter ist
-    if (props.event.type &&
-        props.event.type.name === 'Krankheit' &&
-        !props.isHr) {
-        return false;
-    }
-
-    return true;
-});
-
-// Computed property, um zu prüfen, ob es sich um einen Krankheitseintrag handelt
-const isKrankheitEvent = computed(() => {
-    if (!props.event || !props.event.type) return false;
-    return props.event.type.name === 'Krankheit';
-});
-
-const onClose = () => {
-    updateVisible(false);
-};
-
-const onEdit = () => {
-    emit('edit');
-};
-
-const onDelete = () => {
-    emit('delete');
 };
 </script>
 
 <style scoped>
-.event-details-dialog .p-dialog-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--surface-d);
-}
-
-.event-details-dialog .p-dialog-content {
-    padding: 1.5rem;
-}
-
-.event-details-dialog .p-dialog-footer {
-    padding: 1.5rem;
-    border-top: 1px solid var(--surface-d);
+.event-details-dialog {
 }
 </style>

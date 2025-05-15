@@ -61,59 +61,87 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps } from 'vue';
 import dayjs from 'dayjs';
 
 const props = defineProps({
-  currentDate: {
-    type: Object,
-    required: true
-  },
-  yearLayout: {
-    type: String,
-    required: true
-  },
-  weekdaysShort: {
-    type: Array,
-    required: true
-  },
-  holidays: {
-    type: Array,
-    required: true
-  },
-  events: {
-    type: Array,
-    required: true
-  },
-  vacations: {
-    type: Array,
-    required: true
-  },
-  isHoliday: {
-    type: Function,
-    required: true
-  },
-  hasEvents: {
-    type: Function,
-    required: true
-  },
-  hasVacations: {
-    type: Function,
-    required: true
-  },
-  getEventColorForDay: {
-    type: Function,
-    required: true
-  },
-  getMonthName: {
-    type: Function,
-    required: true
-  },
-  getWeeksInMonthForMini: {
-    type: Function,
-    required: true
-  }
+    currentDate: {
+        type: Object,
+        required: true
+    },
+    yearLayout: {
+        type: String,
+        default: '6x2'
+    },
+    weekdaysShort: {
+        type: Array,
+        required: true
+    },
+    holidays: {
+        type: Array,
+        default: () => []
+    },
+    events: {
+        type: Array,
+        default: () => []
+    },
+    vacations: {
+        type: Array,
+        default: () => []
+    },
+    isHoliday: {
+        type: Function,
+        required: true
+    },
+    hasEvents: {
+        type: Function,
+        required: true
+    },
+    hasVacations: {
+        type: Function,
+        required: true
+    },
+    getEventColorForDay: {
+        type: Function,
+        required: true
+    },
+    getMonthName: {
+        type: Function,
+        required: true
+    },
+    getWeeksInMonthForMini: {
+        type: Function,
+        required: true
+    },
+    currentUserId: {
+        type: Number,
+        required: true
+    }
 });
 
-defineEmits(['month-click', 'week-plan']);
+// Farbe eines Ereignisses für einen bestimmten Tag finden (nur eigene Ereignisse)
+const getEventColorForDay = (date) => {
+    if (!date) return null;
+    const dateStr = dayjs(date).format('YYYY-MM-DD');
+    const event = props.events.find(event => {
+        const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+        const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+        // Nur eigene Ereignisse berücksichtigen (vergleiche mit currentUserId)
+        return dateStr >= eventStartDate && dateStr <= eventEndDate && event.user_id === props.currentUserId;
+    });
+    return event ? event.color : null;
+};
+
+// Prüft, ob ein Tag Ereignisse hat (nur eigene Ereignisse)
+const hasEvents = (date) => {
+    if (!date) return false;
+    const dateStr = dayjs(date).format('YYYY-MM-DD');
+    return props.events.some(event => {
+        const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+        const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+        // Nur eigene Ereignisse berücksichtigen
+        return dateStr >= eventStartDate && dateStr <= eventEndDate && event.user_id === props.currentUserId;
+    });
+};
+
 </script>

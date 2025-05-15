@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 class EventController extends Controller
 {
@@ -23,16 +24,37 @@ class EventController extends Controller
             $startDate = $request->input('start_date');
             $endDate = $request->input('end_date');
 
+            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+
+                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+            }
+
             $query = Event::with('eventType', 'user')
-                ->where(function($query) use ($user) {
-                    // Eigene Ereignisse oder Ereignisse, bei denen der Benutzer HR ist
-                    $query->where('user_id', $user->id)
-                        ->orWhere(function($q) use ($user) {
-                            // HR-Benutzer können alle Ereignisse sehen
-                            if ($user->role_id === 2) {
-                                $q->whereNotNull('id'); // Immer wahr
-                            }
+                ->where(function($query) use ($user, $isTeamManager, $teamId) {
+                    // Eigene Ereignisse
+                    $query->where('user_id', $user->id);
+
+                    // Wenn HR-Benutzer, dann alle Ereignisse
+                    if ($user->role_id === 2) {
+                        $query->orWhereNotNull('id'); // Immer wahr
+                    }
+                    // Wenn Abteilungsleiter, dann Ereignisse der Teammitglieder
+                    else if ($isTeamManager && $teamId) {
+                        $query->orWhere(function($q) use ($teamId) {
+                            $q->where('team_id', $teamId);
                         });
+                    }
                 });
 
             if ($startDate && $endDate) {
@@ -60,6 +82,7 @@ class EventController extends Controller
                     'event_type_id' => $event->event_type_id,
                     'event_type' => $event->eventType ? $event->eventType->name : null,
                     'user_id' => $event->user_id,
+                    'team_id' => $event->team_id,
                     'employee_name' => $event->user ? $event->user->first_name . ' ' . $event->user->last_name : null
                 ];
             });
@@ -77,6 +100,22 @@ class EventController extends Controller
         try {
             $user = Auth::user();
 
+            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+
+                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+            }
+
             // Validierung
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
@@ -93,8 +132,23 @@ class EventController extends Controller
 
             // Wenn ein anderer Benutzer als der aktuelle ausgewählt wurde
             if ($userId != $user->id) {
-                // Nur HR-Benutzer dürfen für andere Benutzer Ereignisse erstellen
-                if ($user->role_id !== 2) {
+                // HR-Benutzer dürfen für alle Benutzer Ereignisse erstellen
+                if ($user->role_id === 2) {
+                    // Erlaubt
+                }
+                // Abteilungsleiter dürfen nur für Mitglieder ihres Teams Ereignisse erstellen
+                else if ($isTeamManager) {
+                    // Prüfen, ob der ausgewählte Benutzer im Team des Abteilungsleiters ist
+                    $isTeamMember = DB::table('team_user')
+                        ->where('team_id', $teamId)
+                        ->where('user_id', $userId)
+                        ->exists();
+
+                    if (!$isTeamMember) {
+                        return response()->json(['error' => 'Sie sind nicht berechtigt, Ereignisse für Benutzer außerhalb Ihres Teams zu erstellen.'], 403);
+                    }
+                }
+                else {
                     return response()->json(['error' => 'Sie sind nicht berechtigt, Ereignisse für andere Benutzer zu erstellen.'], 403);
                 }
 
@@ -138,8 +192,39 @@ class EventController extends Controller
             $user = Auth::user();
             $event = Event::with('eventType', 'user')->findOrFail($id);
 
+            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+
+                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+            }
+
             // Prüfen, ob der Benutzer berechtigt ist, das Ereignis zu sehen
-            if ($event->user_id !== $user->id && $user->role_id !== 2) {
+            $canView = false;
+
+            // Eigene Ereignisse darf jeder sehen
+            if ($event->user_id === $user->id) {
+                $canView = true;
+            }
+            // HR-Benutzer dürfen alle Ereignisse sehen
+            else if ($user->role_id === 2) {
+                $canView = true;
+            }
+            // Abteilungsleiter dürfen Ereignisse ihrer Teammitglieder sehen
+            else if ($isTeamManager && $event->team_id === $teamId) {
+                $canView = true;
+            }
+
+            if (!$canView) {
                 return response()->json(['error' => 'Sie sind nicht berechtigt, dieses Ereignis zu sehen.'], 403);
             }
 
@@ -154,6 +239,7 @@ class EventController extends Controller
                 'event_type_id' => $event->event_type_id,
                 'event_type' => $event->eventType ? $event->eventType->name : null,
                 'user_id' => $event->user_id,
+                'team_id' => $event->team_id,
                 'employee_name' => $event->user ? $event->user->first_name . ' ' . $event->user->last_name : null
             ]);
         } catch (\Exception $e) {
@@ -171,8 +257,39 @@ class EventController extends Controller
             $user = Auth::user();
             $event = Event::findOrFail($id);
 
+            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+
+                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+            }
+
             // Prüfen, ob der Benutzer berechtigt ist, das Ereignis zu aktualisieren
-            if ($event->user_id !== $user->id && $user->role_id !== 2) {
+            $canEdit = false;
+
+            // Eigene Ereignisse darf jeder bearbeiten
+            if ($event->user_id === $user->id) {
+                $canEdit = true;
+            }
+            // HR-Benutzer dürfen alle Ereignisse bearbeiten
+            else if ($user->role_id === 2) {
+                $canEdit = true;
+            }
+            // Abteilungsleiter dürfen Ereignisse ihrer Teammitglieder bearbeiten
+            else if ($isTeamManager && $event->team_id === $teamId) {
+                $canEdit = true;
+            }
+
+            if (!$canEdit) {
                 return response()->json(['error' => 'Sie sind nicht berechtigt, dieses Ereignis zu aktualisieren.'], 403);
             }
 
@@ -192,8 +309,23 @@ class EventController extends Controller
 
             // Wenn ein anderer Benutzer als der aktuelle ausgewählt wurde
             if ($userId != $user->id) {
-                // Nur HR-Benutzer dürfen für andere Benutzer Ereignisse aktualisieren
-                if ($user->role_id !== 2) {
+                // HR-Benutzer dürfen für alle Benutzer Ereignisse aktualisieren
+                if ($user->role_id === 2) {
+                    // Erlaubt
+                }
+                // Abteilungsleiter dürfen nur für Mitglieder ihres Teams Ereignisse aktualisieren
+                else if ($isTeamManager) {
+                    // Prüfen, ob der ausgewählte Benutzer im Team des Abteilungsleiters ist
+                    $isTeamMember = DB::table('team_user')
+                        ->where('team_id', $teamId)
+                        ->where('user_id', $userId)
+                        ->exists();
+
+                    if (!$isTeamMember) {
+                        return response()->json(['error' => 'Sie sind nicht berechtigt, Ereignisse für Benutzer außerhalb Ihres Teams zu aktualisieren.'], 403);
+                    }
+                }
+                else {
                     return response()->json(['error' => 'Sie sind nicht berechtigt, Ereignisse für andere Benutzer zu aktualisieren.'], 403);
                 }
 
@@ -240,8 +372,39 @@ class EventController extends Controller
             $user = Auth::user();
             $event = Event::findOrFail($id);
 
+            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+
+                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+            }
+
             // Prüfen, ob der Benutzer berechtigt ist, das Ereignis zu löschen
-            if ($event->user_id !== $user->id && $user->role_id !== 2) {
+            $canDelete = false;
+
+            // Eigene Ereignisse darf jeder löschen
+            if ($event->user_id === $user->id) {
+                $canDelete = true;
+            }
+            // HR-Benutzer dürfen alle Ereignisse löschen
+            else if ($user->role_id === 2) {
+                $canDelete = true;
+            }
+            // Abteilungsleiter dürfen Ereignisse ihrer Teammitglieder löschen
+            else if ($isTeamManager && $event->team_id === $teamId) {
+                $canDelete = true;
+            }
+
+            if (!$canDelete) {
                 return response()->json(['error' => 'Sie sind nicht berechtigt, dieses Ereignis zu löschen.'], 403);
             }
 
@@ -261,6 +424,22 @@ class EventController extends Controller
     {
         try {
             $user = Auth::user();
+
+            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+
+                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+            }
 
             // Validierung
             $validated = $request->validate([
@@ -282,8 +461,23 @@ class EventController extends Controller
 
                 // Wenn ein anderer Benutzer als der aktuelle ausgewählt wurde
                 if ($userId != $user->id) {
-                    // Nur HR-Benutzer dürfen für andere Benutzer Ereignisse erstellen
-                    if ($user->role_id !== 2) {
+                    // HR-Benutzer dürfen für alle Benutzer Ereignisse erstellen
+                    if ($user->role_id === 2) {
+                        // Erlaubt
+                    }
+                    // Abteilungsleiter dürfen nur für Mitglieder ihres Teams Ereignisse erstellen
+                    else if ($isTeamManager) {
+                        // Prüfen, ob der ausgewählte Benutzer im Team des Abteilungsleiters ist
+                        $isTeamMember = DB::table('team_user')
+                            ->where('team_id', $teamId)
+                            ->where('user_id', $userId)
+                            ->exists();
+
+                        if (!$isTeamMember) {
+                            continue; // Überspringe dieses Ereignis
+                        }
+                    }
+                    else {
                         continue; // Überspringe dieses Ereignis
                     }
 

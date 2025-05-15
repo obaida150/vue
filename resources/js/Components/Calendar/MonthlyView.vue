@@ -53,8 +53,8 @@
                     {{ getHolidayName(dayjs(day.date)) }}
                 </div>
 
-                <!-- HR-Ansicht mit Zusammenfassung für Tage mit vielen Ereignissen -->
-                <div v-if="isHrUser && day.currentMonth">
+                <!-- HR-Ansicht oder Abteilungsleiter-Ansicht mit Zusammenfassung für Tage mit vielen Ereignissen -->
+                <div v-if="(isHrUser || isTeamManager) && day.currentMonth">
                     <!-- Zusammenfassung anzeigen, wenn zu viele Ereignisse vorhanden sind -->
                     <div v-if="getEventsForDay(day.date).length > eventDisplayLimit" class="event-summary">
                         <button
@@ -112,8 +112,9 @@
                     >
                         <div class="flex items-center">
                             <div class="w-2 h-2 rounded-full mr-1" :style="{ backgroundColor: event.color }"></div>
-                            <span class="truncate">{{ event.title }}</span>
+                            <span class="font-medium">{{ event.employee_name || 'Unbekannt' }}</span>
                         </div>
+                        <div class="pl-3 truncate">{{ event.title }}</div>
                     </div>
                 </div>
 
@@ -266,6 +267,18 @@ const props = defineProps({
     isHrUser: {
         type: Boolean,
         default: false
+    },
+    isTeamManager: {
+        type: Boolean,
+        default: false
+    },
+    showOnlyOwnEvents: {
+        type: Boolean,
+        default: false
+    },
+    currentUserId: {
+        type: Number,
+        default: null
     }
 });
 

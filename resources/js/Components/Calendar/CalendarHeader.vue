@@ -1,67 +1,128 @@
 <template>
-  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-2 sm:gap-4">
-    <div class="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-      <Button icon="pi pi-chevron-left" @click="$emit('previous')" class="p-button-sm sm:p-button-md" />
-      <h2 class="text-lg sm:text-xl font-semibold capitalize m-0">
-        <span v-if="calendarView === 'month'">{{ currentDate.format('MMMM YYYY') }}</span>
-        <span v-else>{{ currentDate.year() }}</span>
-      </h2>
-      <Button icon="pi pi-chevron-right" @click="$emit('next')" class="p-button-sm sm:p-button-md" />
-    </div>
-    <div class="flex items-center gap-2 sm:gap-4 flex-wrap w-full sm:w-auto justify-start sm:justify-end mt-2 sm:mt-0">
-      <!-- Buttons für die Ansichtsumschaltung -->
-      <div class="flex gap-1">
-        <Button
-          :class="{ 'p-button-primary': calendarView === 'month', 'p-button-outlined': calendarView !== 'month' }"
-          label="Monat"
-          @click="$emit('set-view', 'month')"
-          class="p-button-sm sm:p-button-md"
-        />
-        <Button
-          :class="{ 'p-button-primary': calendarView === 'year', 'p-button-outlined': calendarView !== 'year' }"
-          label="Jahr"
-          @click="$emit('set-view', 'year')"
-          class="p-button-sm sm:p-button-md"
-        />
-      </div>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div class="flex items-center gap-4">
+            <Button icon="pi pi pi-chevron-left" @click="$emit('previous')" class="p-button-rounded p-button-text" />
+            <h2 class="text-2xl font-semibold capitalize m-0">
+                <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
+                <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
+                <span v-else-if="calendarView === 'month'">{{ currentMonthName }} {{ currentYear }}</span>
+                <span v-else>{{ currentYear }}</span>
+            </h2>
+            <Button icon="pi pi pi-chevron-right" @click="$emit('next')" class="p-button-rounded p-button-text" />
+        </div>
+        <div class="flex items-center gap-4 w-full md:w-auto">
+            <!-- Toggle-Button für Abteilungsleiter -->
+            <div v-if="isTeamManager" class="mr-2">
+                <ToggleButton
+                    v-model="localShowOnlyOwnEvents"
+                    onLabel="Nur eigene"
+                    offLabel="Team"
+                    onIcon="pi pi-user"
+                    offIcon="pi pi-users"
+                    class="p-button-sm"
+                    @change="$emit('toggle-event-filter')"
+                />
+            </div>
 
-      <!-- Buttons für das Jahres-Layout -->
-      <div v-if="calendarView === 'year'" class="flex gap-1">
-        <Button
-          :class="{ 'p-button-primary': yearLayout === '6x2', 'p-button-outlined': yearLayout !== '6x2' }"
-          label="6×2"
-          @click="$emit('set-layout', '6x2')"
-          class="p-button-sm sm:p-button-md"
-        />
-        <Button
-          :class="{ 'p-button-primary': yearLayout === '4x3', 'p-button-outlined': yearLayout !== '4x3' }"
-          label="4×3"
-          @click="$emit('set-layout', '4x3')"
-          class="p-button-sm sm:p-button-md"
-        />
-      </div>
+            <div class="flex gap-1">
+                <Button
+                    :class="{ 'p-button-primary': calendarView === 'month', 'p-button-outlined': calendarView !== 'month' }"
+                    label="Monat"
+                    @click="setView('month')"
+                    class="p-button-rounded"
+                />
+                <Button
+                    :class="{ 'p-button-primary': calendarView === 'year', 'p-button-outlined': calendarView !== 'year' }"
+                    label="Jahr"
+                    @click="setView('year')"
+                    class="p-button-rounded"
+                />
+            </div>
+
+            <div v-if="calendarView === 'year'" class="flex gap-1">
+                <Button
+                    :class="{ 'p-button-primary': yearLayout === '6x2', 'p-button-outlined': yearLayout !== '6x2' }"
+                    label="6x2"
+                    @click="$emit('set-layout', '6x2')"
+                    class="p-button-rounded"
+                />
+                <Button
+                    :class="{ 'p-button-primary': yearLayout === '4x3', 'p-button-outlined': yearLayout !== '4x3' }"
+                    label="4x3"
+                    @click="$emit('set-layout', '4x3')"
+                    class="p-button-rounded"
+                />
+            </div>
+        </div>
     </div>
-  </div>
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { ref, computed, watch } from 'vue';
+import dayjs from 'dayjs';
 import Button from 'primevue/button';
+import ToggleButton from 'primevue/togglebutton';
 
 const props = defineProps({
-  calendarView: {
-    type: String,
-    required: true
-  },
-  currentDate: {
-    type: Object,
-    required: true
-  },
-  yearLayout: {
-    type: String,
-    required: true
-  }
+    calendarView: {
+        type: String,
+        required: true
+    },
+    currentDate: {
+        type: Object,
+        required: true
+    },
+    yearLayout: {
+        type: String,
+        default: '6x2'
+    },
+    isTeamManager: {
+        type: Boolean,
+        default: false
+    },
+    showOnlyOwnEvents: {
+        type: Boolean,
+        default: false
+    }
 });
 
-defineEmits(['previous', 'next', 'set-view', 'set-layout']);
+const emit = defineEmits(['previous', 'next', 'set-view', 'set-layout', 'toggle-event-filter']);
+
+// Lokale Kopie des showOnlyOwnEvents-Werts
+const localShowOnlyOwnEvents = ref(props.showOnlyOwnEvents);
+
+// Aktualisiere die lokale Variable, wenn sich die Prop ändert
+watch(() => props.showOnlyOwnEvents, (newValue) => {
+    localShowOnlyOwnEvents.value = newValue;
+});
+
+// Computed Properties
+const currentYear = computed(() => props.currentDate.year());
+const currentMonthName = computed(() => props.currentDate.format('MMMM'));
+const currentWeekNumber = computed(() => props.currentDate.week());
+
+// Wochenstart und -ende berechnen
+const weekStart = computed(() => {
+    const day = props.currentDate.day();
+    const diff = day === 0 ? 6 : day - 1;
+    return props.currentDate.subtract(diff, 'day');
+});
+
+const weekEnd = computed(() => {
+    return weekStart.value.add(6, 'day');
+});
+
+// Formatierungsfunktionen
+const formatDate = (date) => {
+    return date.format('dddd, DD. MMMM YYYY');
+};
+
+const formatDateRange = (start, end) => {
+    return `${start.format('DD.MM.')} - ${end.format('DD.MM.YYYY')}`;
+};
+
+// Ansicht ändern
+const setView = (view) => {
+    emit('set-view', view);
+};
 </script>
