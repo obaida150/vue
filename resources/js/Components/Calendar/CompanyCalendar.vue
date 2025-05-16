@@ -35,19 +35,19 @@
                     <Button
                         :class="{ 'p-button-primary': calendarView === 'day', 'p-button-outlined': calendarView !== 'day' }"
                         label="Tag"
-                        @click="calendarView = 'day'"
+                        @click="() => setCalendarView('day')"
                         class="p-button-rounded"
                     />
                     <Button
                         :class="{ 'p-button-primary': calendarView === 'week', 'p-button-outlined': calendarView !== 'week' }"
                         label="Woche"
-                        @click="calendarView = 'week'"
+                        @click="() => setCalendarView('week')"
                         class="p-button-rounded"
                     />
                     <Button
                         :class="{ 'p-button-primary': calendarView === 'month', 'p-button-outlined': calendarView !== 'month' }"
                         label="Monat"
-                        @click="calendarView = 'month'"
+                        @click="() => setCalendarView('month')"
                         class="p-button-rounded"
                     />
                 </div>
@@ -59,7 +59,6 @@
             <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
                 <div class="w-full md:flex-1">
                     <span class="p-input-icon-left w-full">
-<!--                        <i class="pi pi-search" />-->
                         <InputText v-model="searchQuery" placeholder="Mitarbeiter suchen..." class="w-full" />
                     </span>
                 </div>
@@ -81,7 +80,7 @@
             <!-- Department Cards -->
             <div :class="[
                 'grid gap-4',
-                getDynamicGridCols(departmentSummary.length)
+                getDynamicGridClass(departmentSummary.length)
             ]">
                 <div
                     v-for="department in departmentSummary"
@@ -97,7 +96,7 @@
             <!-- Status Cards -->
             <div :class="[
                 'grid gap-4',
-                getDynamicGridCols(statusSummary.length)
+                getDynamicGridClass(statusSummary.length)
             ]">
                 <div
                     v-for="status in statusSummary"
@@ -120,19 +119,23 @@
                 <span v-if="isHoliday(currentDate)" class="ml-2 text-red-500 font-bold">({{ getHolidayName(currentDate) }})</span>
             </h3>
 
-            <div class="flex flex-col w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
-                <div class="flex bg-gray-100 dark:bg-gray-800 font-bold p-3">
-                    <div class="flex-2 px-2">Mitarbeiter</div>
-                    <div class="flex-1 px-2">Status</div>
-                    <div class="flex-1 px-2">Notizen</div>
+            <!-- Desktop View (md und größer) -->
+            <div class="hidden md:flex md:flex-col w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
+                <!-- Table Header -->
+                <div class="grid grid-cols-12 bg-gray-100 dark:bg-gray-800 font-bold p-3">
+                    <div class="col-span-3">Mitarbeiter</div>
+                    <div class="col-span-4">Status</div>
+                    <div class="col-span-5">Notizen</div>
                 </div>
 
+                <!-- Table Body -->
                 <div
                     v-for="employee in filteredEmployees"
                     :key="employee.id"
-                    class="flex border-t border-gray-200 dark:border-gray-700 p-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
+                    class="grid grid-cols-12 border-t border-gray-200 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
                 >
-                    <div class="flex-2 flex items-center gap-3 px-2">
+                    <!-- Employee Column -->
+                    <div class="col-span-3 p-3 flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
                             {{ getInitials(employee.name) }}
                         </div>
@@ -142,52 +145,203 @@
                         </div>
                     </div>
 
-                    <div class="flex-1 flex items-center px-2">
-                        <div
-                            v-if="getEmployeeStatusForDay(employee, currentDate)"
-                            class="px-2 py-1 rounded text-sm text-white shadow-sm"
-                            :style="{ backgroundColor: getEmployeeStatusForDay(employee, currentDate).color }"
-                        >
-                            {{ getEmployeeStatusForDay(employee, currentDate).name }}
+                    <!-- Status Column -->
+                    <div class="col-span-4 p-3">
+                        <div class="flex flex-col gap-2">
+                            <div
+                                v-for="(event, eventIndex) in getEmployeeEventsForDay(employee, currentDate)"
+                                :key="eventIndex"
+                                class="px-3 py-1.5 rounded text-sm text-white shadow-sm flex justify-between items-center"
+                                :style="{ backgroundColor: event.type.color }"
+                            >
+                                <span>{{ event.type.name }}</span>
+                                <span v-if="getEmployeeEventsForDay(employee, currentDate).length > 1" class="text-xs bg-white bg-opacity-20 px-1.5 py-0.5 rounded-full">
+                                    {{ eventIndex + 1 }}/{{ getEmployeeEventsForDay(employee, currentDate).length }}
+                                </span>
+                            </div>
+                            <div v-if="getEmployeeEventsForDay(employee, currentDate).length === 0" class="px-3 py-1.5 rounded text-sm bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                Nicht eingetragen
+                            </div>
                         </div>
-                        <div v-else class="px-2 py-1 rounded text-sm bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">Nicht eingetragen</div>
                     </div>
 
-                    <div class="flex-1 flex items-center px-2">
-                        {{ getEmployeeNotesForDay(employee, currentDate) || '-' }}
+                    <!-- Notes Column -->
+                    <div class="col-span-5 p-3">
+                        <div class="flex flex-col gap-2">
+                            <div v-for="(event, eventIndex) in getEmployeeEventsForDay(employee, currentDate)" :key="eventIndex">
+                                <div v-if="event.notes" class="border border-gray-200 dark:border-gray-700 rounded">
+                                    <div class="text-xs font-medium text-gray-600 dark:text-gray-400 px-3 py-1 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                        {{ event.type.name }}:
+                                    </div>
+                                    <div class="px-3 py-1.5 text-sm">{{ event.notes }}</div>
+                                </div>
+                            </div>
+                            <div v-if="getEmployeeEventsForDay(employee, currentDate).length === 0 || !getEmployeeEventsForDay(employee, currentDate).some(e => e.notes)" class="py-1.5 text-gray-400">
+                                -
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile View (sm und kleiner) -->
+            <div class="md:hidden flex flex-col gap-4">
+                <div
+                    v-for="employee in filteredEmployees"
+                    :key="employee.id"
+                    class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm"
+                >
+                    <!-- Employee Info -->
+                    <div class="p-3 bg-gray-100 dark:bg-gray-800 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                            {{ getInitials(employee.name) }}
+                        </div>
+                        <div>
+                            <div class="font-medium">{{ employee.name }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Status and Notes -->
+                    <div class="p-3">
+                        <div class="mb-3">
+                            <div class="font-medium text-sm mb-1">Status:</div>
+                            <div class="flex flex-col gap-2">
+                                <div
+                                    v-for="(event, eventIndex) in getEmployeeEventsForDay(employee, currentDate)"
+                                    :key="eventIndex"
+                                    class="px-3 py-1.5 rounded text-sm text-white shadow-sm flex justify-between items-center"
+                                    :style="{ backgroundColor: event.type.color }"
+                                >
+                                    <span>{{ event.type.name }}</span>
+                                    <span v-if="getEmployeeEventsForDay(employee, currentDate).length > 1" class="text-xs bg-white bg-opacity-20 px-1.5 py-0.5 rounded-full">
+                                        {{ eventIndex + 1 }}/{{ getEmployeeEventsForDay(employee, currentDate).length }}
+                                    </span>
+                                </div>
+                                <div v-if="getEmployeeEventsForDay(employee, currentDate).length === 0" class="px-3 py-1.5 rounded text-sm bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                    Nicht eingetragen
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="font-medium text-sm mb-1">Notizen:</div>
+                            <div class="flex flex-col gap-2">
+                                <div v-for="(event, eventIndex) in getEmployeeEventsForDay(employee, currentDate)" :key="eventIndex">
+                                    <div v-if="event.notes" class="border border-gray-200 dark:border-gray-700 rounded">
+                                        <div class="text-xs font-medium text-gray-600 dark:text-gray-400 px-3 py-1 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                            {{ event.type.name }}:
+                                        </div>
+                                        <div class="px-3 py-1.5 text-sm">{{ event.notes }}</div>
+                                    </div>
+                                </div>
+                                <div v-if="getEmployeeEventsForDay(employee, currentDate).length === 0 || !getEmployeeEventsForDay(employee, currentDate).some(e => e.notes)" class="py-1.5 text-gray-400">
+                                    -
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Week View -->
-        <div v-else-if="calendarView === 'week'" class="w-full overflow-x-auto rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="flex min-w-[800px]">
-                <div class="w-[200px] min-w-[200px] p-3 bg-gray-100 dark:bg-gray-800 font-bold">Mitarbeiter</div>
-                <div
-                    v-for="(day, index) in weekDays"
-                    :key="index"
-                    class="flex-1 min-w-[100px] p-3 text-center font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
-                    :class="{
-                        'bg-blue-50 dark:bg-blue-900/20': day.isToday,
-                        'bg-red-50 dark:bg-red-900/20': isHoliday(day.date),
-                        'bg-gray-100 dark:bg-gray-800': !day.isToday && !day.isWeekend && !isHoliday(day.date),
-                        'bg-gray-200 dark:bg-gray-700': day.isWeekend && !isHoliday(day.date)
-                    }"
-                >
-                    <div class="font-bold">{{ day.dayName }}</div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ formatDayMonth(day.date) }}</div>
-                    <div v-if="isHoliday(day.date)" class="text-xs text-red-500 font-semibold mt-1">{{ getHolidayName(day.date) }}</div>
+        <div v-else-if="calendarView === 'week'" class="w-full">
+            <!-- Desktop View (lg und größer) -->
+            <div class="hidden lg:block overflow-x-auto rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                <div class="flex min-w-[800px]">
+                    <div class="w-[200px] min-w-[200px] p-3 bg-gray-100 dark:bg-gray-800 font-bold">Mitarbeiter</div>
+                    <div
+                        v-for="(day, index) in weekDays"
+                        :key="index"
+                        class="flex-1 min-w-[100px] p-3 text-center font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
+                        :class="{
+                            'bg-blue-50 dark:bg-blue-900/20': day.isToday,
+                            'bg-red-50 dark:bg-red-900/20': isHoliday(day.date),
+                            'bg-gray-100 dark:bg-gray-800': !day.isToday && !day.isWeekend && !isHoliday(day.date),
+                            'bg-gray-200 dark:bg-gray-700': day.isWeekend && !isHoliday(day.date)
+                        }"
+                    >
+                        <div class="font-bold">{{ day.dayName }}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ formatDayMonth(day.date) }}</div>
+                        <div v-if="isHoliday(day.date)" class="text-xs text-red-500 font-semibold mt-1">{{ getHolidayName(day.date) }}</div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col min-w-[800px]">
+                    <div
+                        v-for="employee in filteredEmployees"
+                        :key="employee.id"
+                        class="flex border-t border-gray-200 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
+                    >
+                        <div class="w-[200px] min-w-[200px] p-3 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                                {{ getInitials(employee.name) }}
+                            </div>
+                            <div>
+                                <div class="font-medium">{{ employee.name }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
+                            </div>
+                        </div>
+
+                        <div
+                            v-for="(day, index) in weekDays"
+                            :key="index"
+                            class="flex-1 min-w-[100px] p-3 flex flex-col items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors"
+                            :class="{
+                                'bg-blue-50 dark:bg-blue-900/20': day.isToday,
+                                'bg-red-50 dark:bg-red-900/20': isHoliday(day.date),
+                                'bg-gray-200 dark:bg-gray-700': day.isWeekend && !isHoliday(day.date)
+                            }"
+                        >
+                            <div class="flex flex-col gap-1 w-full">
+                                <div
+                                    v-for="(event, eventIndex) in getEmployeeEventsForDay(employee, day.date)"
+                                    :key="eventIndex"
+                                    class="px-2 py-1 rounded text-xs text-white shadow-sm text-center truncate"
+                                    :style="{ backgroundColor: event.type.color }"
+                                    :title="event.type.name + (event.notes ? ': ' + event.notes : '')"
+                                >
+                                    {{ event.type.name }}
+                                </div>
+                                <div v-if="getEmployeeEventsForDay(employee, day.date).length === 0" class="px-2 py-1 rounded text-xs bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-center">
+                                    -
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="flex flex-col min-w-[800px]">
+            <!-- Mobile View (md und kleiner) - Tagesweise mit Swipe/Scroll -->
+            <div class="lg:hidden flex flex-col gap-4">
+                <!-- Day Navigation -->
+                <div class="flex justify-between items-center mb-2">
+                    <Button icon="pi pi-chevron-left" @click="mobileWeekDay = Math.max(0, mobileWeekDay - 1)" class="p-button-rounded p-button-text" :disabled="mobileWeekDay === 0" />
+
+                    <div class="flex-1 text-center">
+                        <div class="font-bold">{{ weekDays[mobileWeekDay]?.dayName }}</div>
+                        <div class="text-sm">{{ formatDayMonth(weekDays[mobileWeekDay]?.date) }}</div>
+                        <div v-if="isHoliday(weekDays[mobileWeekDay]?.date)" class="text-xs text-red-500 font-semibold">
+                            {{ getHolidayName(weekDays[mobileWeekDay]?.date) }}
+                        </div>
+                    </div>
+
+                    <Button icon="pi pi-chevron-right" @click="mobileWeekDay = Math.min(6, mobileWeekDay + 1)" class="p-button-rounded p-button-text" :disabled="mobileWeekDay === 6" />
+                </div>
+
+                <!-- Employees for the selected day -->
                 <div
                     v-for="employee in filteredEmployees"
                     :key="employee.id"
-                    class="flex border-t border-gray-200 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
+                    class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm"
+                    :class="{
+                        'bg-blue-50/20 dark:bg-blue-900/10': weekDays[mobileWeekDay]?.isToday,
+                        'bg-red-50/20 dark:bg-red-900/10': isHoliday(weekDays[mobileWeekDay]?.date)
+                    }"
                 >
-                    <div class="w-[200px] min-w-[200px] p-3 flex items-center gap-3">
+                    <!-- Employee Info -->
+                    <div class="p-3 bg-gray-100 dark:bg-gray-800 flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
                             {{ getInitials(employee.name) }}
                         </div>
@@ -197,81 +351,185 @@
                         </div>
                     </div>
 
-                    <div
-                        v-for="(day, index) in weekDays"
-                        :key="index"
-                        class="flex-1 min-w-[100px] p-3 flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors"
-                        :class="{
-                            'bg-blue-50 dark:bg-blue-900/20': day.isToday,
-                            'bg-red-50 dark:bg-red-900/20': isHoliday(day.date),
-                            'bg-gray-200 dark:bg-gray-700': day.isWeekend && !isHoliday(day.date)
-                        }"
-                    >
-                        <div
-                            v-if="getEmployeeStatusForDay(employee, day.date)"
-                            class="px-2 py-1 rounded text-sm text-white shadow-sm"
-                            :style="{ backgroundColor: getEmployeeStatusForDay(employee, day.date).color }"
-                        >
-                            {{ getEmployeeStatusForDay(employee, day.date).name }}
+                    <!-- Status for selected day -->
+                    <div class="p-3">
+                        <div class="flex flex-col gap-2">
+                            <div
+                                v-for="(event, eventIndex) in getEmployeeEventsForDay(employee, weekDays[mobileWeekDay]?.date)"
+                                :key="eventIndex"
+                                class="px-3 py-1.5 rounded text-sm text-white shadow-sm flex justify-between items-center"
+                                :style="{ backgroundColor: event.type.color }"
+                            >
+                                <span>{{ event.type.name }}</span>
+                                <span v-if="event.notes" class="text-xs bg-white bg-opacity-20 px-1.5 py-0.5 rounded-full cursor-pointer" @click="showEventDetails(event)">
+                                    <i class="pi pi-comment"></i>
+                                </span>
+                            </div>
+                            <div v-if="getEmployeeEventsForDay(employee, weekDays[mobileWeekDay]?.date).length === 0" class="px-3 py-1.5 rounded text-sm bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                Nicht eingetragen
+                            </div>
                         </div>
-                        <div v-else class="px-2 py-1 rounded text-sm bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">-</div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Month View -->
-        <div v-else-if="calendarView === 'month'" class="w-full overflow-x-auto rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="flex min-w-[1200px]">
-                <div class="w-[200px] min-w-[200px] p-2 bg-gray-100 dark:bg-gray-800 font-bold">Mitarbeiter</div>
-                <div
-                    v-for="dayNum in daysInMonth"
-                    :key="dayNum"
-                    class="w-[30px] min-w-[30px] py-2 text-center text-sm font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
-                    :class="{
-                        'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
-                        'bg-red-50 dark:bg-red-900/20': isHolidayInMonth(dayNum),
-                        'bg-gray-100 dark:bg-gray-800': !isToday(dayNum) && !isWeekend(dayNum) && !isHolidayInMonth(dayNum),
-                        'bg-gray-200 dark:bg-gray-700': isWeekend(dayNum) && !isHolidayInMonth(dayNum)
-                    }"
-                >
-                    <div :class="{ 'text-red-500': isHolidayInMonth(dayNum) }">{{ dayNum }}</div>
-                    <div v-if="isHolidayInMonth(dayNum)" class="absolute w-2 h-2 bg-red-500 rounded-full top-0 right-0 m-1" :title="getHolidayNameInMonth(dayNum)"></div>
-                </div>
-            </div>
-
-            <div class="flex flex-col min-w-[1200px]">
-                <div
-                    v-for="employee in filteredEmployees"
-                    :key="employee.id"
-                    class="flex border-t border-gray-200 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
-                >
-                    <div class="w-[200px] min-w-[200px] p-2 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                            {{ getInitials(employee.name) }}
-                        </div>
-                        <div class="overflow-hidden">
-                            <div class="font-medium">{{ employee.name }}</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
-                        </div>
-                    </div>
-
+        <div v-else-if="calendarView === 'month'" class="w-full">
+            <!-- Desktop View (xl und größer) -->
+            <div class="hidden xl:block overflow-x-auto rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                <div class="flex min-w-[1200px]">
+                    <div class="w-[200px] min-w-[200px] p-2 bg-gray-100 dark:bg-gray-800 font-bold">Mitarbeiter</div>
                     <div
                         v-for="dayNum in daysInMonth"
                         :key="dayNum"
-                        class="w-[30px] min-w-[30px] h-[30px] flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors relative"
+                        class="w-[30px] min-w-[30px] py-2 text-center text-sm font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
                         :class="{
                             'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
                             'bg-red-50 dark:bg-red-900/20': isHolidayInMonth(dayNum),
+                            'bg-gray-100 dark:bg-gray-800': !isToday(dayNum) && !isWeekend(dayNum) && !isHolidayInMonth(dayNum),
                             'bg-gray-200 dark:bg-gray-700': isWeekend(dayNum) && !isHolidayInMonth(dayNum)
                         }"
                     >
+                        <div :class="{ 'text-red-500': isHolidayInMonth(dayNum) }">{{ dayNum }}</div>
+                        <div v-if="isHolidayInMonth(dayNum)" class="absolute w-2 h-2 bg-red-500 rounded-full top-0 right-0 m-1" :title="getHolidayNameInMonth(dayNum)"></div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col min-w-[1200px]">
+                    <div
+                        v-for="employee in filteredEmployees"
+                        :key="employee.id"
+                        class="flex border-t border-gray-200 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
+                    >
+                        <div class="w-[200px] min-w-[200px] p-2 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                                {{ getInitials(employee.name) }}
+                            </div>
+                            <div class="overflow-hidden">
+                                <div class="font-medium">{{ employee.name }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
+                            </div>
+                        </div>
+
                         <div
-                            v-if="getEmployeeStatusForMonthDay(employee, dayNum)"
-                            class="w-5 h-5 rounded-full"
-                            :style="{ backgroundColor: getEmployeeStatusForMonthDay(employee, dayNum).color }"
-                            :title="getEmployeeStatusForMonthDay(employee, dayNum).name"
-                        ></div>
+                            v-for="dayNum in daysInMonth"
+                            :key="dayNum"
+                            class="w-[30px] min-w-[30px] h-[30px] flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors relative"
+                            :class="{
+                                'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
+                                'bg-red-50 dark:bg-red-900/20': isHolidayInMonth(dayNum),
+                                'bg-gray-200 dark:bg-gray-700': isWeekend(dayNum) && !isHolidayInMonth(dayNum)
+                            }"
+                        >
+                            <div class="relative w-full h-full flex items-center justify-center">
+                                <div
+                                    v-if="getEmployeeEventsForMonthDay(employee, dayNum).length > 0"
+                                    class="flex flex-wrap gap-0.5 absolute top-0 left-0 right-0 bottom-0 items-center justify-center"
+                                >
+                                    <div
+                                        v-for="(event, eventIndex) in getEmployeeEventsForMonthDay(employee, dayNum).slice(0, 3)"
+                                        :key="eventIndex"
+                                        class="w-2 h-2 rounded-full"
+                                        :style="{ backgroundColor: event.type.color }"
+                                        :title="event.type.name + (event.notes ? ': ' + event.notes : '')"
+                                    ></div>
+                                    <div
+                                        v-if="getEmployeeEventsForMonthDay(employee, dayNum).length > 3"
+                                        class="w-2 h-2 rounded-full bg-gray-500"
+                                        :title="`${getEmployeeEventsForMonthDay(employee, dayNum).length} Ereignisse`"
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile View (lg und kleiner) - Karten pro Mitarbeiter -->
+            <div class="xl:hidden">
+                <!-- Monats-Navigation -->
+                <div class="mb-4 flex justify-center">
+                    <div class="inline-flex p-2 rounded-lg bg-gray-100 dark:bg-gray-800">
+                        <div class="text-center">
+                            <div class="font-bold text-xl">{{ currentMonthName }} {{ currentYear }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">
+                                {{ getDaysWithEvents() }} Tage mit Einträgen
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mitarbeiter-Karten -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div
+                        v-for="employee in filteredEmployees"
+                        :key="employee.id"
+                        class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm"
+                    >
+                        <!-- Mitarbeiter-Info -->
+                        <div class="p-3 bg-gray-100 dark:bg-gray-800 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                                {{ getInitials(employee.name) }}
+                            </div>
+                            <div>
+                                <div class="font-medium">{{ employee.name }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
+                            </div>
+                        </div>
+
+                        <!-- Kalender-Miniansicht -->
+                        <div class="p-3">
+                            <div class="grid grid-cols-7 gap-1 mb-1 text-center text-xs">
+                                <div v-for="day in weekdaysShort" :key="day" class="font-medium">{{ day }}</div>
+                            </div>
+
+                            <div class="grid grid-cols-7 gap-1">
+                                <!-- Leere Tage vor Monatsbeginn -->
+                                <div
+                                    v-for="i in getMonthStartDay()"
+                                    :key="`empty-start-${i}`"
+                                    class="w-8 h-8 opacity-0"
+                                ></div>
+
+                                <!-- Tage des Monats -->
+                                <div
+                                    v-for="dayNum in daysInMonth"
+                                    :key="`day-${dayNum}`"
+                                    class="w-8 h-8 flex items-center justify-center text-xs rounded-full relative cursor-pointer"
+                                    :class="{
+                                        'bg-blue-500 text-white': isToday(dayNum),
+                                        'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200': !isToday(dayNum) && isHolidayInMonth(dayNum),
+                                        'bg-gray-200 dark:bg-gray-700': !isToday(dayNum) && isWeekend(dayNum) && !isHolidayInMonth(dayNum),
+                                        'font-bold': getEmployeeEventsForMonthDay(employee, dayNum).length > 0
+                                    }"
+                                    @click="openDayDetailsDialog(employee, dayNum)"
+                                >
+                                    {{ dayNum }}
+                                    <div
+                                        v-if="getEmployeeEventsForMonthDay(employee, dayNum).length > 0"
+                                        class="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                                        :style="{ backgroundColor: getEventColorForMonthDay(employee, dayNum) }"
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zusammenfassung -->
+                        <div class="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                            <div class="text-sm">
+                                <div class="flex flex-wrap gap-2">
+                                    <div
+                                        v-for="(type, typeIndex) in getEmployeeMonthSummary(employee)"
+                                        :key="typeIndex"
+                                        class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full"
+                                    >
+                                        <div class="w-2 h-2 rounded-full" :style="{ backgroundColor: type.color }"></div>
+                                        <span>{{ type.name }}: {{ type.count }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -282,7 +540,7 @@
             <div class="font-bold mb-2">Legende:</div>
             <div :class="[
                 'grid gap-2',
-                getDynamicGridCols(allActiveEventTypes.length)
+                getDynamicGridClass(allActiveEventTypes.length)
             ]">
                 <div
                     v-for="type in allActiveEventTypes"
@@ -300,7 +558,7 @@
         <Dialog
             v-model:visible="departmentDialogVisible"
             :header="`Abteilung: ${selectedDepartment}`"
-            :style="{ width: '80vw', maxWidth: '1000px' }"
+            :style="{ width: '90vw', maxWidth: '1000px' }"
             :modal="true"
             :closable="true"
             :closeOnEscape="true"
@@ -314,7 +572,7 @@
 
                 <div :class="[
                     'grid gap-2 justify-items-center',
-                    getDynamicGridCols(departmentStatusSummary.length)
+                    getDynamicGridClass(departmentStatusSummary.length)
                 ]">
                     <div
                         v-for="status in departmentStatusSummary"
@@ -332,22 +590,36 @@
                         :key="employee.id"
                         class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                     >
-                        <div class="flex items-center gap-4 p-3 bg-gray-100 dark:bg-gray-800">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                                {{ getInitials(employee.name) }}
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-4 p-3 bg-gray-100 dark:bg-gray-800">
+                            <div class="flex items-center gap-3 flex-1">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
+                                    {{ getInitials(employee.name) }}
+                                </div>
+                                <div class="font-medium">{{ employee.name }}</div>
                             </div>
-                            <div class="font-medium flex-1">{{ employee.name }}</div>
                             <div
                                 v-if="getEmployeeCurrentStatus(employee)"
-                                class="px-2 py-1 rounded text-sm text-white shadow-sm"
+                                class="px-2 py-1 rounded text-sm text-white shadow-sm self-start sm:self-auto"
                                 :style="{ backgroundColor: getEmployeeCurrentStatus(employee).color }"
                             >
                                 {{ getEmployeeCurrentStatus(employee).name }}
                             </div>
                         </div>
                         <div class="p-3">
-                            <div class="text-sm mb-3">
-                                {{ getEmployeeCurrentNotes(employee) || 'Keine Notizen' }}
+                            <div v-if="calendarView === 'day'" class="text-sm mb-3">
+                                <div v-for="(eventNote, noteIndex) in getEmployeeNotesForSpecificDay(employee, currentDate)" :key="noteIndex" class="mb-2">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: eventNote.type.color }"></div>
+                                        <span class="font-medium">{{ eventNote.type.name }}:</span>
+                                    </div>
+                                    <div class="pl-5">{{ eventNote.notes }}</div>
+                                </div>
+                                <div v-if="getEmployeeNotesForSpecificDay(employee, currentDate).length === 0">
+                                    Keine Notizen
+                                </div>
+                            </div>
+                            <div v-else class="text-sm mb-3">
+                                Notizen werden in der Tagesansicht angezeigt
                             </div>
                             <div v-if="calendarView !== 'day'">
                                 <div class="text-sm font-medium mb-2">Tage:</div>
@@ -373,15 +645,16 @@
             </div>
         </Dialog>
 
-        <!-- Status Dialog -->
+        <!-- Status Dialog - auch hier responsiver machen -->
         <Dialog
             v-model:visible="statusDialogVisible"
             :header="`Status: ${selectedStatus ? selectedStatus.name : ''}`"
-            :style="{ width: '80vw', maxWidth: '1000px' }"
+            :style="{ width: '90vw', maxWidth: '1000px' }"
             :modal="true"
             :closable="true"
             :closeOnEscape="true"
         >
+            <!-- Inhalt bleibt gleich, nur Anpassungen für Grid-Layouts -->
             <div class="flex flex-col gap-6">
                 <div class="text-xl font-medium text-center">
                     <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
@@ -391,7 +664,7 @@
 
                 <div :class="[
                     'grid gap-2 justify-items-center',
-                    getDynamicGridCols(statusDepartmentSummary.length)
+                    getDynamicGridClass(statusDepartmentSummary.length)
                 ]">
                     <div
                         v-for="dept in statusDepartmentSummary"
@@ -416,8 +689,20 @@
                             <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
                         </div>
                         <div class="p-3">
-                            <div class="text-sm mb-3">
-                                {{ getEmployeeCurrentNotes(employee) || 'Keine Notizen' }}
+                            <div v-if="calendarView === 'day'" class="text-sm mb-3">
+                                <div v-for="(eventNote, noteIndex) in getEmployeeNotesForSpecificDay(employee, currentDate)" :key="noteIndex" class="mb-2">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: eventNote.type.color }"></div>
+                                        <span class="font-medium">{{ eventNote.type.name }}:</span>
+                                    </div>
+                                    <div class="pl-5">{{ eventNote.notes }}</div>
+                                </div>
+                                <div v-if="getEmployeeNotesForSpecificDay(employee, currentDate).length === 0">
+                                    Keine Notizen
+                                </div>
+                            </div>
+                            <div v-else class="text-sm mb-3">
+                                Notizen werden in der Tagesansicht angezeigt
                             </div>
                             <div v-if="calendarView !== 'day'">
                                 <div class="text-sm font-medium mb-3">Tage:</div>
@@ -439,6 +724,68 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </Dialog>
+
+        <!-- Mobile Event Details Dialog -->
+        <Dialog
+            v-model:visible="eventDetailsDialogVisible"
+            :header="selectedEvent ? selectedEvent.type.name : 'Ereignisdetails'"
+            modal
+            :style="{ width: '95%', maxWidth: '500px' }"
+            :closable="true"
+            :closeOnEscape="true"
+        >
+            <div v-if="selectedEvent">
+                <div class="p-3 mb-3 rounded-lg" :style="{ backgroundColor: selectedEvent.type.color + '20' }">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: selectedEvent.type.color }"></div>
+                        <div class="font-medium">{{ selectedEvent.type.name }}</div>
+                    </div>
+                    <div v-if="selectedEvent.notes" class="mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        {{ selectedEvent.notes }}
+                    </div>
+                </div>
+
+                <div class="flex justify-center">
+                    <Button label="Schließen" @click="eventDetailsDialogVisible = false" class="p-button-sm" />
+                </div>
+            </div>
+        </Dialog>
+
+        <!-- Mobile Day Details Dialog -->
+        <Dialog
+            v-model:visible="dayDetailsDialogVisible"
+            :header="`${selectedEmployee?.name || ''} - ${formatDayMonthYear(getDayInMonth(selectedDayNum))}`"
+            modal
+            :style="{ width: '95%', maxWidth: '500px' }"
+            :closable="true"
+            :closeOnEscape="true"
+        >
+            <div v-if="selectedEmployee && selectedDayNum">
+                <div class="flex flex-col gap-3">
+                    <div
+                        v-for="(event, eventIndex) in getEmployeeEventsForMonthDay(selectedEmployee, selectedDayNum)"
+                        :key="eventIndex"
+                        class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+                    >
+                        <div class="p-2 font-medium" :style="{ backgroundColor: event.type.color, color: 'white' }">
+                            {{ event.type.name }}
+                        </div>
+                        <div class="p-3">
+                            <div v-if="event.notes" class="text-sm">{{ event.notes }}</div>
+                            <div v-else class="text-sm text-gray-500 dark:text-gray-400">Keine Notizen</div>
+                        </div>
+                    </div>
+
+                    <div v-if="getEmployeeEventsForMonthDay(selectedEmployee, selectedDayNum).length === 0" class="text-center p-4 text-gray-500 dark:text-gray-400">
+                        Keine Einträge für diesen Tag
+                    </div>
+                </div>
+
+                <div class="flex justify-center mt-4">
+                    <Button label="Schließen" @click="dayDetailsDialogVisible = false" class="p-button-sm" />
                 </div>
             </div>
         </Dialog>
@@ -530,13 +877,15 @@ const holidays = ref([]);
 const isLoadingHolidays = ref(false);
 
 // Hilfsfunktion, um dynamische Grid-Spalten basierend auf der Anzahl der Elemente zu erhalten
-const getDynamicGridCols = (count) => {
+const getDynamicGridClass = (count) => {
     if (count <= 0) return 'grid-cols-1';
     if (count === 1) return 'grid-cols-1';
     if (count === 2) return 'grid-cols-2';
     if (count === 3) return 'grid-cols-3';
     if (count === 4) return 'grid-cols-4';
-    return 'grid-cols-5'; // 5 oder mehr Elemente
+    if (count === 5) return 'grid-cols-5';
+    if (count === 6) return 'grid-cols-6';
+    return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'; // Mehr als 6 Elemente
 };
 
 // Ersetze die fetchHolidays-Funktion mit:
@@ -1073,54 +1422,59 @@ const getInitialsColor = (name) => {
     return `hsl(${hue}, 70%, 60%)`;
 };
 
-const getEmployeeStatusForDay = (employee, date) => {
-    // Prüfen, ob es ein Wochenende ist
+const getEmployeeEventsForDay = (employee, date) => {
+    if (!employee || !employee.events || !Array.isArray(employee.events)) return [];
+
     const isWeekend = date.day() === 0 || date.day() === 6; // 0 = Sonntag, 6 = Samstag
     const dateStr = date.format('YYYY-MM-DD');
+    const events = [];
 
-    // First check for exact date match
-    const exactEvent = employee.events.find(e => e.date === dateStr);
-    // Make sure sickness events are displayed regardless of weekend status
-    if (exactEvent && exactEvent.type.value === 'sick') {
-        return exactEvent.type;
-    }
-    if (exactEvent) {
-        // Wenn es ein Geburtstag oder ein sonstiges Ereignis ist, zeige es auch am Wochenende an
-        if (exactEvent.type.value === 'birthday' || exactEvent.type.value === 'other' || exactEvent.type.value === 'sonstiges') {
-            return exactEvent.type;
+    // Exakte Datumstreffer finden
+    const exactEvents = employee.events.filter(e => e.date === dateStr);
+
+    // Ereignisse mit Zeitspannen finden
+    const rangeEvents = employee.events.filter(e => {
+        if (e.start_date && e.end_date) {
+            const startDate = dayjs(e.start_date);
+            const endDate = dayjs(e.end_date);
+            return date.isSameOrAfter(startDate, 'day') && date.isSameOrBefore(endDate, 'day');
         }
+        return false;
+    });
 
-        // Für andere Ereignistypen (wie Urlaub) prüfen, ob es ein Wochenende ist
-        if (!isWeekend) {
-            return exactEvent.type;
-        }
-    }
+    // Alle gefundenen Ereignisse kombinieren und Duplikate entfernen
+    const allEvents = [...exactEvents, ...rangeEvents];
+    const uniqueEvents = [];
 
-    // Then check for events that span multiple days
-    for (const event of employee.events || []) {
-        // If this is a multi-day event (has start_date and end_date)
-        if (event.start_date && event.end_date) {
-            const startDate = dayjs(event.start_date);
-            const endDate = dayjs(event.end_date);
-            // Make sure sickness events are displayed regardless of weekend status
-            if (event.type.value === 'sick') {
-                return event.type;
-            }
-            if (date.isSameOrAfter(startDate, 'day') && date.isSameOrBefore(endDate, 'day')) {
-                // Wenn es ein Geburtstag oder ein sonstiges Ereignis ist, zeige es auch am Wochenende an
-                if (event.type.value === 'birthday' || event.type.value === 'other' || event.type.value === 'sonstiges') {
-                    return event.type;
+    // Duplikate entfernen (basierend auf event.id oder einer Kombination aus Typ und Datum)
+    allEvents.forEach(event => {
+        const isDuplicate = uniqueEvents.some(e =>
+            (e.id && e.id === event.id) ||
+            (e.type.value === event.type.value && e.date === event.date)
+        );
+
+        if (!isDuplicate) {
+            // Für Wochenenden: Nur bestimmte Ereignistypen anzeigen
+            if (isWeekend) {
+                if (event.type.value === 'sick' ||
+                    event.type.value === 'birthday' ||
+                    event.type.value === 'other' ||
+                    event.type.value === 'sonstiges') {
+                    uniqueEvents.push(event);
                 }
-
-                // Für andere Ereignistypen (wie Urlaub) prüfen, ob es ein Wochenende ist
-                if (!isWeekend) {
-                    return event.type;
-                }
+            } else {
+                uniqueEvents.push(event);
             }
         }
-    }
+    });
 
-    return null;
+    return uniqueEvents;
+};
+
+// Behalte die alte Funktion für Kompatibilität, aber nutze die neue Implementierung
+const getEmployeeStatusForDay = (employee, date) => {
+    const events = getEmployeeEventsForDay(employee, date);
+    return events.length > 0 ? events[0].type : null;
 };
 
 // Füge eine Methode hinzu, um zu prüfen, ob ein Mitarbeiter an einem bestimmten Tag Geburtstag hat
@@ -1129,6 +1483,11 @@ const hasBirthdayOnDay = (employee, date) => {
 
     const birthDate = dayjs(employee.birth_date);
     return birthDate.month() === date.month() && birthDate.date() === date.date();
+};
+
+const getEmployeeEventsForMonthDay = (employee, dayNum) => {
+    const date = getDayInMonth(dayNum);
+    return getEmployeeEventsForDay(employee, date);
 };
 
 const getEmployeeStatusForMonthDay = (employee, dayNum) => {
@@ -1142,14 +1501,22 @@ const getEmployeeNotesForDay = (employee, date) => {
     return event ? event.notes : '';
 };
 
+const getEmployeeNotesForSpecificDay = (employee, date) => {
+    const events = getEmployeeEventsForDay(employee, date);
+    return events.map(event => ({
+        type: event.type,
+        notes: event.notes || ''
+    })).filter(item => item.notes);
+};
+
 // Prüft, ob ein Mitarbeiter im aktuellen Zeitraum (Tag/Woche/Monat) einen Eintrag hat
 const hasEmployeeEventInCurrentPeriod = (employee) => {
     if (calendarView.value === 'day') {
-        return getEmployeeStatusForDay(employee, currentDate.value) !== null;
+        return getEmployeeEventsForDay(employee, currentDate.value).length > 0;
     } else if (calendarView.value === 'week') {
         for (let i = 0; i < 7; i++) {
             const date = weekStart.value.add(i, 'day');
-            if (getEmployeeStatusForDay(employee, date) !== null) {
+            if (getEmployeeEventsForDay(employee, date).length > 0) {
                 return true;
             }
         }
@@ -1157,7 +1524,7 @@ const hasEmployeeEventInCurrentPeriod = (employee) => {
     } else {
         // Monatsansicht
         for (let dayNum of daysInMonth.value) {
-            if (getEmployeeStatusForMonthDay(employee, dayNum) !== null) {
+            if (getEmployeeEventsForMonthDay(employee, dayNum).length > 0) {
                 return true;
             }
         }
@@ -1168,20 +1535,21 @@ const hasEmployeeEventInCurrentPeriod = (employee) => {
 // Gibt den aktuellen Status eines Mitarbeiters zurück (abhängig von der Ansicht)
 const getEmployeeCurrentStatus = (employee) => {
     if (calendarView.value === 'day') {
-        return getEmployeeStatusForDay(employee, currentDate.value);
+        const events = getEmployeeEventsForDay(employee, currentDate.value);
+        return events.length > 0 ? events[0].type : null;
     } else if (calendarView.value === 'week') {
         // Für die Wochenansicht prüfen wir alle Tage
         for (let i = 0; i < 7; i++) {
             const date = weekStart.value.add(i, 'day');
-            const status = getEmployeeStatusForDay(employee, date);
-            if (status) return status;
+            const events = getEmployeeEventsForDay(employee, date);
+            if (events.length > 0) return events[0].type;
         }
         return null;
     } else {
         // Für die Monatsansicht prüfen wir alle Tage
         for (let dayNum of daysInMonth.value) {
-            const status = getEmployeeStatusForMonthDay(employee, dayNum);
-            if (status) return status;
+            const events = getEmployeeEventsForMonthDay(employee, dayNum);
+            if (events.length > 0) return events[0].type;
         }
         return null;
     }
@@ -1310,6 +1678,90 @@ onMounted(() => {
     // Fetch data from the server
     fetchCalendarData();
 });
+
+const setCalendarView = (view) => {
+    calendarView.value = view;
+};
+
+// Neue Variablen für mobile Ansicht
+const mobileWeekDay = ref(0); // Für die mobile Wochenansicht
+const selectedEvent = ref(null); // Für den Event-Details-Dialog
+const eventDetailsDialogVisible = ref(false);
+const dayDetailsDialogVisible = ref(false);
+const selectedEmployee = ref(null);
+const selectedDayNum = ref(null);
+
+// Für die mobile Monatsansicht
+const weekdaysShort = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+// Dialog für Event-Details in der mobilen Ansicht öffnen
+const showEventDetails = (event) => {
+    selectedEvent.value = event;
+    eventDetailsDialogVisible.value = true;
+};
+
+// Dialog für Tag-Details in der mobilen Monatsansicht öffnen
+const openDayDetailsDialog = (employee, dayNum) => {
+    selectedEmployee.value = employee;
+    selectedDayNum.value = dayNum;
+    dayDetailsDialogVisible.value = true;
+};
+
+// Formatiert ein Datum zu Tag, Monat und Jahr
+const formatDayMonthYear = (date) => {
+    return date.format('DD.MM.YYYY');
+};
+
+// Gibt den Wochentag des ersten Tags im Monat zurück (0 = Montag, 6 = Sonntag)
+const getMonthStartDay = () => {
+    const firstDayOfMonth = currentDate.value.startOf('month');
+    const dayOfWeek = firstDayOfMonth.day(); // 0 = Sonntag, 1 = Montag, ...
+    return dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Anpassung für Montag als ersten Tag der Woche
+};
+
+// Gibt die Farbe des ersten Events für einen Tag in der Monatsansicht zurück
+const getEventColorForMonthDay = (employee, dayNum) => {
+    const events = getEmployeeEventsForMonthDay(employee, dayNum);
+    return events.length > 0 ? events[0].type.color : '#ccc';
+};
+
+// Gibt eine Zusammenfassung der Events eines Mitarbeiters für den aktuellen Monat zurück
+const getEmployeeMonthSummary = (employee) => {
+    const summary = {};
+
+    for (const dayNum of daysInMonth.value) {
+        const events = getEmployeeEventsForMonthDay(employee, dayNum);
+        events.forEach(event => {
+            const type = event.type;
+            if (!summary[type.value]) {
+                summary[type.value] = {
+                    name: type.name,
+                    color: type.color,
+                    count: 0
+                };
+            }
+            summary[type.value].count++;
+        });
+    }
+
+    return Object.values(summary);
+};
+
+// Gibt die Anzahl der Tage mit Events im aktuellen Monat zurück
+const getDaysWithEvents = () => {
+    let count = 0;
+    for (const dayNum of daysInMonth.value) {
+        let hasEvents = false;
+        for (const employee of filteredEmployees.value) {
+            if (getEmployeeEventsForMonthDay(employee, dayNum).length > 0) {
+                hasEvents = true;
+                break;
+            }
+        }
+        if (hasEvents) count++;
+    }
+    return count;
+};
 </script>
 
 <style scoped>
