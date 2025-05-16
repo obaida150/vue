@@ -22,10 +22,12 @@
                         'border-blue-300 dark:border-blue-700': day.isToday,
                         'bg-red-50 dark:bg-red-900/20': isHoliday(dayjs(day.date)),
                         'bg-purple-50 dark:bg-purple-900/20': hasVacations(day.date),
-                        'bg-amber-50 dark:bg-amber-900/20': isUserAbsent(day.date)
+                        'bg-amber-50 dark:bg-amber-900/20': isUserAbsent(day.date),
+                        'cursor-pointer': day.currentMonth && !hasVacations(day.date) && !(isUserAbsent(day.date) && !isHrUser),
+                        'cursor-not-allowed': hasVacations(day.date) || (isUserAbsent(day.date) && !isHrUser)
                     },
                 ]"
-                @click="handleDayClick(day.date)"
+                @click="handleDayClick(day.date, day.currentMonth)"
             >
                 <div class="flex justify-between items-start mb-1">
                     <span
@@ -59,8 +61,21 @@
                     Als abwesend markiert
                 </div>
 
+                <!-- Urlaubsanzeige mit Sperrsymbol -->
+                <div v-if="hasVacations(day.date) && day.currentMonth" class="vacation-blocked">
+                    <div class="text-xs text-purple-600 dark:text-purple-400 mb-1">
+                        Urlaub
+                    </div>
+                    <div class="flex flex-col items-center justify-center mt-2 p-2 bg-purple-50/80 dark:bg-purple-900/30 rounded">
+                        <i class="pi pi-ban text-purple-500 dark:text-purple-400 text-lg mb-1"></i>
+                        <div class="text-xs text-purple-600 dark:text-purple-400 text-center">
+                            Urlaub - Keine Einträge möglich
+                        </div>
+                    </div>
+                </div>
+
                 <!-- HR-Ansicht oder Abteilungsleiter-Ansicht mit Zusammenfassung für Tage mit vielen Ereignissen -->
-                <div v-if="(isHrUser || isTeamManager) && day.currentMonth">
+                <div v-if="(isHrUser || isTeamManager) && day.currentMonth && !hasVacations(day.date)">
                     <!-- Zusammenfassung anzeigen, wenn zu viele Ereignisse vorhanden sind -->
                     <div v-if="getEventsForDay(day.date).length > eventDisplayLimit" class="event-summary">
                         <button
@@ -108,7 +123,7 @@
                 </div>
 
                 <!-- Standard-Benutzeransicht (nur eigene Ereignisse) -->
-                <div v-else-if="day.currentMonth">
+                <div v-else-if="day.currentMonth && !hasVacations(day.date)">
                     <div
                         v-for="(event, eventIndex) in getEventsForDay(day.date)"
                         :key="eventIndex"
@@ -121,23 +136,6 @@
                             <span class="font-medium">{{ event.employee_name || 'Unbekannt' }}</span>
                         </div>
                         <div class="pl-3 truncate">{{ event.title }}</div>
-                    </div>
-                </div>
-
-                <div v-if="hasVacations(day.date) && day.currentMonth">
-                    <div
-                        v-for="(vacation, vacationIndex) in getVacationsForDay(day.date)"
-                        :key="`vacation-${vacationIndex}`"
-                        class="event-item text-xs p-1 mb-1 rounded truncate cursor-pointer"
-                        style="background-color: rgba(156, 39, 176, 0.25);"
-                        @click.stop="$emit('vacation-click', vacation)"
-                    >
-                        <div class="flex items-center">
-                            <div class="w-2 h-2 rounded-full mr-1" style="background-color: #9C27B0;"></div>
-                            <span class="truncate">
-                                {{ isHrUser ? `${truncateText(vacation.employee_name || 'Urlaub', 15)}` : 'Urlaub' }}
-                            </span>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -435,7 +433,28 @@ const getWeekDays = (date) => {
 };
 
 // Klick auf einen Tag behandeln
-const handleDayClick = (date) => {
+const handleDayClick = (date, isCurrentMonth) => {
+    // Wenn der Tag nicht zum aktuellen Monat gehört, ignoriere den Klick
+    if (!isCurrentMonth) return;
+
+    // Wenn der Benutzer an diesem Tag Urlaub hat, blockiere den Klick
+    if (props.hasVacations(date)) {
+        const toast = document.querySelector('.p-toast') ?
+            document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
+
+        if (toast) {
+            toast({
+                severity: 'info',
+                summary: 'Hinweis',
+                detail: 'Sie haben an diesem Tag Urlaub. Keine Einträge möglich.',
+                life: 3000
+            });
+        } else {
+            alert('Sie haben an diesem Tag Urlaub. Keine Einträge möglich.');
+        }
+        return;
+    }
+
     // Wenn der Benutzer an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter ist,
     // blockiere die Aktion
     if (props.isUserAbsent(date) && !props.isHrUser) {
@@ -533,5 +552,12 @@ const closeDayEventsDialog = () => {
 
 .max-h-\[60vh\]::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+/* Styling für Urlaubstage */
+.vacation-blocked {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 </style>

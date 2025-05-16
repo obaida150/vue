@@ -102,13 +102,15 @@ class VacationController extends Controller
                     ];
                 });
 
-            // Bereits gebuchte Urlaubstage
+            // Bereits gebuchte Urlaubstage - HIER IST DER FEHLER
+            // Wir müssen die Benutzer-ID mit zurückgeben, damit das Frontend filtern kann
             $bookedDates = VacationRequest::where('status', 'approved')
                 ->get()
                 ->map(function ($request) {
                     return [
                         'start' => $request->start_date->format('Y-m-d'),
-                        'end' => $request->end_date->format('Y-m-d')
+                        'end' => $request->end_date->format('Y-m-d'),
+                        'userId' => $request->user_id // Benutzer-ID hinzufügen
                     ];
                 });
 
@@ -233,7 +235,8 @@ class VacationController extends Controller
                 'history' => $history,
                 'yearlyStats' => $yearlyStats,
                 'yearVacationDetails' => $yearVacationDetails,
-                'monthlyStats' => $monthlyStats
+                'monthlyStats' => $monthlyStats,
+                'userId' => $user->id // Aktuelle Benutzer-ID zurückgeben
             ]);
         } catch (\Exception $e) {
             Log::error('Error in getUserData: ' . $e->getMessage(), [

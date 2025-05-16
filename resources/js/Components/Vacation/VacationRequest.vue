@@ -261,7 +261,7 @@ const vacationPeriods = ref([
 // Urlaubskontingent (wird vom Server geladen)
 const totalVacationDays = ref(0)
 const usedVacationDays = ref(0)
-const remainingVacationDays = computed(() => totalVacationDays.value - usedVacationDays.value)
+const remainingVacationDays = ref(0)
 
 // Berechnung des Prozentsatzes der verbrauchten Urlaubstage
 const usagePercentage = computed(() => {
@@ -270,6 +270,9 @@ const usagePercentage = computed(() => {
 
 // Feiertage
 const holidays = ref([])
+
+// Aktueller Benutzer ID (würde normalerweise vom Server geladen)
+const currentUserId = ref(null)
 
 // Feiertage laden
 const fetchHolidays = async () => {
@@ -412,25 +415,30 @@ const removePeriod = (index) => {
 
 // Bereits gebuchte Urlaubstage (würde normalerweise vom Server geladen)
 const bookedVacationDates = ref([
-    { start: new Date(2025, 2, 10), end: new Date(2025, 2, 15) },
-    { start: new Date(2025, 4, 1), end: new Date(2025, 4, 5) },
+    // Beispieldaten - werden später durch API-Daten ersetzt
+    { start: new Date(2025, 2, 10), end: new Date(2025, 2, 15), userId: 1 },
+    { start: new Date(2025, 4, 1), end: new Date(2025, 4, 5), userId: 1 },
+    { start: new Date(2025, 3, 15), end: new Date(2025, 3, 20), userId: 2 }, // Urlaub eines anderen Benutzers
 ])
 
-// Deaktivierte Daten für den Kalender (bereits gebuchte Urlaubstage und Feiertage)
+// Deaktivierte Daten für den Kalender (nur eigene Urlaubstage und Feiertage)
 const disabledDates = ref([])
 
 // Aktualisiere die deaktivierten Daten
 const updateDisabledDates = () => {
     const dates = []
 
-    // Füge bereits gebuchte Urlaubstage hinzu
+    // Füge nur die eigenen bereits gebuchten Urlaubstage hinzu
     bookedVacationDates.value.forEach((vacation) => {
-        let current = dayjs(vacation.start)
-        const end = dayjs(vacation.end)
+        // Prüfe, ob der Urlaub dem aktuellen Benutzer gehört
+        if (vacation.userId === currentUserId.value) {
+            let current = dayjs(vacation.start)
+            const end = dayjs(vacation.end)
 
-        while (current.isSameOrBefore(end, "day")) {
-            dates.push(new Date(current.year(), current.month(), current.date()))
-            current = current.add(1, "day")
+            while (current.isSameOrBefore(end, "day")) {
+                dates.push(new Date(current.year(), current.month(), current.date()))
+                current = current.add(1, "day")
+            }
         }
     })
 
@@ -474,7 +482,17 @@ const fetchVacationData = async () => {
         const response = await VacationService.getUserVacationData()
         totalVacationDays.value = response.data.stats.total
         usedVacationDays.value = response.data.stats.used
-        bookedVacationDates.value = response.data.bookedDates
+        remainingVacationDays.value = response.data.stats.remaining
+
+        // Speichere die Benutzer-ID
+        currentUserId.value = response.data.userId || 1 // Fallback auf 1, falls keine ID vorhanden
+
+        // Speichere die gebuchten Urlaubstage mit Benutzer-ID
+        bookedVacationDates.value = response.data.bookedDates.map(date => ({
+            ...date,
+            userId: date.userId || currentUserId.value // Stelle sicher, dass jeder Eintrag eine userId hat
+        }))
+
         availableSubstitutes.value = response.data.substitutes
 
         updateDisabledDates()
@@ -486,6 +504,10 @@ const fetchVacationData = async () => {
             detail: "Die Urlaubsdaten konnten nicht geladen werden.",
             life: 3000,
         })
+
+        // Setze eine Standard-Benutzer-ID für Testzwecke
+        currentUserId.value = 1
+        updateDisabledDates()
     }
 }
 

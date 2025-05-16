@@ -183,8 +183,8 @@ import { useVacations } from '../composables/useVacations';
 const de = {
     firstDayOfWeek: 1,
     dayNames: ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
-    dayNamesShort: ["So", "Mo", "Di", "Mi", "Do", "Mi", "Fr", "Sa"],
-    dayNamesMin: ["So", "Mo", "Di", "Mi", "Do", "Mi", "Fr", "Sa"],
+    dayNamesShort: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
+    dayNamesMin: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
     monthNames: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
     monthNamesShort: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
     today: "Heute",
@@ -278,7 +278,16 @@ const {
     findEventType
 );
 
-const { vacations: vacationsFromService, fetchVacationData } = useVacations();
+// Verwende das neue useVacations Composable
+const {
+    vacations: vacationsFromService,
+    loading: vacationsLoading,
+    error: vacationsError,
+    currentUserId: vacationsUserId,
+    fetchVacations,
+    isDateInMyVacation,
+    isDateInTeamVacation
+} = useVacations();
 
 const {
     newEvent,
@@ -362,7 +371,7 @@ const processedVacations = computed(() => {
 
     // Entferne Duplikate basierend auf ID
     const uniqueVacations = allVacations.reduce((acc, vacation) => {
-        const id = vacation.id || `${vacation.startDate}-${vacation.endDate}-${vacation.user_id}`;
+        const id = vacation.id || `${vacation.startDate}-${vacation.endDate}-${vacation.user_id || vacation.userId}`;
         if (!acc.some(v => v.id === id)) {
             acc.push({...vacation, id});
         }
@@ -381,9 +390,9 @@ const processedVacations = computed(() => {
 
         // Stelle sicher, dass Start- und Enddatum als Date-Objekte vorliegen
         const startDate = vacation.startDate instanceof Date ?
-            vacation.startDate : new Date(vacation.startDate);
+            vacation.startDate : new Date(vacation.startDate || vacation.start);
         const endDate = vacation.endDate instanceof Date ?
-            vacation.endDate : new Date(vacation.endDate);
+            vacation.endDate : new Date(vacation.endDate || vacation.end);
 
         return {
             ...vacation,
@@ -394,30 +403,45 @@ const processedVacations = computed(() => {
                 name: "Urlaub",
                 value: "vacation",
                 color: "#9C27B0"
-            }
+            },
+            // Stelle sicher, dass die Benutzer-ID korrekt gesetzt ist
+            user_id: vacation.user_id || vacation.userId
         };
     });
 });
 
-// Neue Funktionen erstellen, anstatt die bestehenden zu überschreiben
+// Ändere die enhancedHasVacations Funktion, um nur Urlaube des aktuellen Benutzers zu berücksichtigen
 const enhancedHasVacations = (date) => {
-    if (!date) return false;
+    if (!date || !currentUserId.value) return false;
 
-    // Prüfe, ob es Urlaube in processedVacations gibt
+    // Prüfe, ob es Urlaube in processedVacations gibt, die dem aktuellen Benutzer gehören
     const dateStr = dayjs(date).format("YYYY-MM-DD");
     return processedVacations.value.some(vacation => {
+        // Prüfe, ob der Urlaub dem aktuellen Benutzer gehört
+        const isCurrentUserVacation = vacation.user_id === currentUserId.value ||
+            vacation.userId === currentUserId.value;
+
+        if (!isCurrentUserVacation) return false;
+
         const vacationStartDate = dayjs(vacation.startDate).format("YYYY-MM-DD");
         const vacationEndDate = dayjs(vacation.endDate).format("YYYY-MM-DD");
         return dateStr >= vacationStartDate && dateStr <= vacationEndDate;
     });
 };
 
+// Ändere die enhancedGetVacationsForDay Funktion, um nur Urlaube des aktuellen Benutzers zurückzugeben
 const enhancedGetVacationsForDay = (date) => {
-    if (!date) return [];
+    if (!date || !currentUserId.value) return [];
 
-    // Hole Urlaube aus processedVacations
+    // Hole Urlaube aus processedVacations, die dem aktuellen Benutzer gehören
     const dateStr = dayjs(date).format("YYYY-MM-DD");
     return processedVacations.value.filter(vacation => {
+        // Prüfe, ob der Urlaub dem aktuellen Benutzer gehört
+        const isCurrentUserVacation = vacation.user_id === currentUserId.value ||
+            vacation.userId === currentUserId.value;
+
+        if (!isCurrentUserVacation) return false;
+
         const vacationStartDate = dayjs(vacation.startDate).format("YYYY-MM-DD");
         const vacationEndDate = dayjs(vacation.endDate).format("YYYY-MM-DD");
         return dateStr >= vacationStartDate && dateStr <= vacationEndDate;
@@ -465,6 +489,21 @@ const toggleWeekPlanFilter = () => {
 const handleDayClick = (date) => {
     if (isHoliday(dayjs(date))) {
         showHolidayInfo(date);
+    } else if (enhancedHasVacations(date)) {
+        // Wenn der Benutzer an diesem Tag Urlaub hat, zeige eine Meldung an
+        const toast = document.querySelector('.p-toast') ?
+            document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
+
+        if (toast) {
+            toast({
+                severity: 'info',
+                summary: 'Hinweis',
+                detail: 'Sie haben an diesem Tag Urlaub. Keine Einträge möglich.',
+                life: 3000
+            });
+        } else {
+            alert('Sie haben an diesem Tag Urlaub. Keine Einträge möglich.');
+        }
     } else if (isUserAbsent(date) && !isHrUser.value) {
         // Wenn der Benutzer an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter ist,
         // zeige eine Meldung an oder blockiere die Aktion
@@ -489,7 +528,7 @@ const handleDayClick = (date) => {
 // Daten neu laden, wenn sich relevante Zustände ändern
 watch([calendarView, currentDate, showOnlyOwnEvents], () => {
     fetchEvents();
-    fetchVacationData();
+    fetchVacations(); // Verwende fetchVacations statt fetchVacationData
 }, { deep: true });
 
 // Ereignistypen überwachen und Ereignisse neu laden, wenn sie sich ändern
@@ -535,7 +574,7 @@ onMounted(async () => {
     // Lade Ereignisse und Urlaubsdaten parallel
     await Promise.all([
         fetchEvents(),
-        fetchVacationData(),
+        fetchVacations(), // Verwende fetchVacations statt fetchVacationData
         fetchHolidays(new Date().getFullYear())
     ]);
 });
@@ -547,7 +586,7 @@ watch(
         if (newYear !== oldYear) {
             fetchHolidays(newYear);
             // Auch Urlaubsdaten für das neue Jahr laden
-            fetchVacationData();
+            fetchVacations(); // Verwende fetchVacations statt fetchVacationData
         }
     }
 );

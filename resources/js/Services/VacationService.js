@@ -39,5 +39,10 @@ export default {
     cancelVacationRequest(id) {
         return axios.post(`/api/vacation/cancel/${id}`)
     },
-}
 
+    // Hilfsfunktion zum Filtern von Urlaubstagen nach Benutzer-ID
+    filterVacationsByUserId(vacations, userId) {
+        if (!vacations || !Array.isArray(vacations)) return []
+        return vacations.filter((vacation) => vacation.userId === userId)
+    },
+}
