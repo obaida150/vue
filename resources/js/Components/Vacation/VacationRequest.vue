@@ -237,18 +237,6 @@ const de = {
 // PrimeVue global konfigurieren
 const primevue = usePrimeVue();
 
-// Wir verwenden try-catch, um Fehler abzufangen, falls der Toast-Service nicht verfügbar ist
-//let toast
-//try {
-//    toast = useToast()
-//} catch (error) {
-//    console.warn("Toast service not available, using fallback")
-//    // Fallback für den Toast-Service
-//    toast = {
-//        add: (message) => console.log("Toast message:", message),
-//    }
-//}
-
 const loading = ref(false)
 
 // Urlaubsantrag Daten

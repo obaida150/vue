@@ -15,29 +15,31 @@
                 v-for="(day, index) in days"
                 :key="index"
                 :class="[
-          'relative min-h-[100px] p-1 border border-gray-200 dark:border-gray-700 rounded overflow-hidden',
-          {
-            'bg-gray-50 dark:bg-gray-900': day.currentMonth,
-            'bg-gray-100 dark:bg-gray-800': !day.currentMonth,
-            'border-blue-300 dark:border-blue-700': day.isToday,
-            'bg-red-50 dark:bg-red-900/20': isHoliday(dayjs(day.date)),
-          },
-        ]"
+                    'relative min-h-[100px] p-1 border border-gray-200 dark:border-gray-700 rounded overflow-hidden',
+                    {
+                        'bg-gray-50 dark:bg-gray-900': day.currentMonth,
+                        'bg-gray-100 dark:bg-gray-800': !day.currentMonth,
+                        'border-blue-300 dark:border-blue-700': day.isToday,
+                        'bg-red-50 dark:bg-red-900/20': isHoliday(dayjs(day.date)),
+                        'bg-purple-50 dark:bg-purple-900/20': hasVacations(day.date),
+                        'bg-amber-50 dark:bg-amber-900/20': isUserAbsent(day.date)
+                    },
+                ]"
                 @click="handleDayClick(day.date)"
             >
                 <div class="flex justify-between items-start mb-1">
-          <span
-              :class="[
-              'inline-flex items-center justify-center w-6 h-6 rounded-full text-sm',
-              {
-                'bg-blue-500 text-white': day.isToday,
-                'text-gray-400 dark:text-gray-500': !day.currentMonth && !day.isToday,
-                'font-bold': day.isWeekend || isHoliday(dayjs(day.date)),
-              },
-            ]"
-          >
-            {{ day.dayNumber }}
-          </span>
+                    <span
+                        :class="[
+                            'inline-flex items-center justify-center w-6 h-6 rounded-full text-sm',
+                            {
+                                'bg-blue-500 text-white': day.isToday,
+                                'text-gray-400 dark:text-gray-500': !day.currentMonth && !day.isToday,
+                                'font-bold': day.isWeekend || isHoliday(dayjs(day.date)),
+                            },
+                        ]"
+                    >
+                        {{ day.dayNumber }}
+                    </span>
 
                     <button
                         v-if="day.weekNumber && index % 7 === 0"
@@ -51,6 +53,10 @@
 
                 <div v-if="isHoliday(dayjs(day.date))" class="text-xs text-red-600 dark:text-red-400 mb-1">
                     {{ getHolidayName(dayjs(day.date)) }}
+                </div>
+
+                <div v-if="isUserAbsent(day.date)" class="text-xs text-amber-600 dark:text-amber-400 mb-1">
+                    Als abwesend markiert
                 </div>
 
                 <!-- HR-Ansicht oder Abteilungsleiter-Ansicht mit Zusammenfassung für Tage mit vielen Ereignissen -->
@@ -129,8 +135,8 @@
                         <div class="flex items-center">
                             <div class="w-2 h-2 rounded-full mr-1" style="background-color: #9C27B0;"></div>
                             <span class="truncate">
-                {{ isHrUser ? `${truncateText(vacation.employee_name || 'Urlaub', 15)}` : 'Urlaub' }}
-              </span>
+                                {{ isHrUser ? `${truncateText(vacation.employee_name || 'Urlaub', 15)}` : 'Urlaub' }}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -279,6 +285,10 @@ const props = defineProps({
     currentUserId: {
         type: Number,
         default: null
+    },
+    isUserAbsent: {
+        type: Function,
+        required: true
     }
 });
 
@@ -426,6 +436,25 @@ const getWeekDays = (date) => {
 
 // Klick auf einen Tag behandeln
 const handleDayClick = (date) => {
+    // Wenn der Benutzer an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter ist,
+    // blockiere die Aktion
+    if (props.isUserAbsent(date) && !props.isHrUser) {
+        const toast = document.querySelector('.p-toast') ?
+            document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
+
+        if (toast) {
+            toast({
+                severity: 'info',
+                summary: 'Hinweis',
+                detail: 'Sie sind an diesem Tag als abwesend markiert. Keine Einträge möglich.',
+                life: 3000
+            });
+        } else {
+            alert('Sie sind an diesem Tag als abwesend markiert. Keine Einträge möglich.');
+        }
+        return;
+    }
+
     emit('day-click', date);
 };
 

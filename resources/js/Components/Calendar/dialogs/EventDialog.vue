@@ -28,7 +28,7 @@
             </div>
 
             <!-- Mitarbeiterauswahl für HR bei Krankheit -->
-            <div v-if="isHr && event.type && event.type.name === 'Krankheit'" class="mb-3 sm:mb-4">
+            <div v-if="isHr && event.type" class="mb-3 sm:mb-4">
                 <label for="employee" class="block mb-1 sm:mb-2 font-medium">Mitarbeiter</label>
                 <Dropdown
                     id="employee"
@@ -185,8 +185,11 @@ const isEditMode = computed(() => {
 watch(selectedEmployee, (newValue) => {
     if (newValue) {
         props.event.user_id = newValue.id;
+        console.log('Mitarbeiter ausgewählt:', newValue.name, 'ID:', newValue.id);
+    } else {
+        props.event.user_id = null;
     }
-});
+}, { immediate: true });
 
 // Wenn sich das Event ändert, aktualisiere den ausgewählten Mitarbeiter
 watch(() => props.event, (newEvent) => {

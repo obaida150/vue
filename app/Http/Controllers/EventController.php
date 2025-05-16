@@ -134,7 +134,11 @@ class EventController extends Controller
             if ($userId != $user->id) {
                 // HR-Benutzer dürfen für alle Benutzer Ereignisse erstellen
                 if ($user->role_id === 2) {
-                    // Erlaubt
+                    // Erlaubt - keine weitere Prüfung notwendig
+                    Log::info('HR-Benutzer erstellt Ereignis für anderen Benutzer', [
+                        'hr_user_id' => $user->id,
+                        'target_user_id' => $userId
+                    ]);
                 }
                 // Abteilungsleiter dürfen nur für Mitglieder ihres Teams Ereignisse erstellen
                 else if ($isTeamManager) {
@@ -151,12 +155,12 @@ class EventController extends Controller
                 else {
                     return response()->json(['error' => 'Sie sind nicht berechtigt, Ereignisse für andere Benutzer zu erstellen.'], 403);
                 }
+            }
 
-                // Prüfen, ob es sich um einen Krankheitseintrag handelt
-                $eventType = EventType::find($validated['event_type_id']);
-                if ($eventType && $eventType->name === 'Krankheit' && $user->role_id !== 2) {
-                    return response()->json(['error' => 'Nur HR-Mitarbeiter können Krankheitseinträge erstellen.'], 403);
-                }
+            // Prüfen, ob es sich um einen Krankheitseintrag handelt
+            $eventType = EventType::find($validated['event_type_id']);
+            if ($eventType && $eventType->name === 'Krankheit' && $user->role_id !== 2) {
+                return response()->json(['error' => 'Nur HR-Mitarbeiter können Krankheitseinträge erstellen.'], 403);
             }
 
             // Ereignis erstellen
