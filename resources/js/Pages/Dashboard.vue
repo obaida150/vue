@@ -27,6 +27,11 @@ const selectedMonth = ref(null);
 const loading = ref(true);
 const showTeamOverview = ref(false); // Toggle für die Gesamtübersicht
 
+// Neue Variablen für die Abteilungsfilterung
+const selectedDepartment = ref(null);
+const availableDepartments = ref([]);
+const isHR = computed(() => userRole.value <= 2); // HR-Rolle (1 oder 2)
+
 const years = ref([
     new Date().getFullYear() - 2,
     new Date().getFullYear() - 1,
@@ -73,6 +78,7 @@ const statistics = ref({
 const vacationData = ref([]);
 const teamVacationOverview = ref([]); // Neue Daten für die Teamübersicht
 const allVacationRequests = ref([]); // Alle Urlaubsanträge
+const allEmployees = ref([]); // Alle Mitarbeiter (ungefiltert)
 
 // Chart-Daten
 const homeofficeChartData = computed(() => {
@@ -163,12 +169,239 @@ function getStatusSeverity(status) {
     }
 }
 
+// Verbessere die loadTeamVacationOverview-Funktion, um die Abteilungszuweisung zu korrigieren
+async function loadTeamVacationOverview() {
+    try {
+        // Nur für Abteilungsleiter und HR
+        if (userRole.value > 3) return;
+
+        // Verwende die bereits geladenen Mitarbeiter
+        let employees = [...allEmployees.value];
+
+        // Filtere Mitarbeiter basierend auf der Rolle und ausgewählter Abteilung
+        if (userRole.value === 3) { // Abteilungsleiter sieht nur sein Team
+            employees = employees.filter(emp =>
+                emp.team_id === currentUser.value.current_team_id
+            );
+        } else if (isHR.value && selectedDepartment.value && selectedDepartment.value.id) {
+            // HR mit ausgewählter Abteilung
+            employees = employees.filter(emp =>
+                emp.team_id === selectedDepartment.value.id
+            );
+        }
+
+        // Initialisiere die Teamübersicht
+        const teamData = [];
+
+        // Lade alle genehmigten Urlaubsanträge
+        const allRequestsResponse = await axios.get('/api/vacation/all-requests');
+        const allRequests = allRequestsResponse.data || [];
+
+        // Definiere eine Map für Abteilungsnamen
+        const teamNames = {
+            1: 'IT',
+            2: 'Marketing',
+            3: 'Vertrieb',
+            4: 'Personal',
+            5: 'Finanzen'
+        };
+
+        // Verarbeite die Daten für jeden Mitarbeiter
+        for (const employee of employees) {
+            // Filtere Urlaubsanträge für diesen Mitarbeiter und das ausgewählte Jahr
+            const employeeRequests = allRequests.filter(req => {
+                // Prüfe, ob die Felder existieren
+                if (!req.start_date || !req.user_id) {
+                    console.warn('Ungültiger Urlaubsantrag:', req);
+                    return false;
+                }
+
+                // Prüfe, ob die user_id als String oder Zahl vorliegt
+                const reqUserId = typeof req.user_id === 'string' ? parseInt(req.user_id, 10) : req.user_id;
+                const empId = typeof employee.id === 'string' ? parseInt(employee.id, 10) : employee.id;
+
+                // Prüfe das Jahr
+                let startYear;
+                try {
+                    startYear = new Date(req.start_date).getFullYear();
+                } catch (e) {
+                    console.warn('Ungültiges Startdatum:', req.start_date);
+                    return false;
+                }
+
+                return reqUserId === empId && startYear === selectedYear.value;
+            });
+
+            // Berechne die Summe der genehmigten Urlaubstage
+            const usedDays = employeeRequests
+                .filter(req => req.status === 'approved')
+                .reduce((sum, req) => {
+                    // Prüfe, ob days eine Zahl ist
+                    const days = typeof req.days === 'number' ? req.days : parseInt(req.days, 10);
+                    return sum + (isNaN(days) ? 0 : days);
+                }, 0);
+
+            // Standard-Urlaubsanspruch (kann angepasst werden)
+            const totalEntitlement = 30;
+
+            // Hole den Abteilungsnamen
+            let teamName = 'Keine Abteilung';
+
+            // Versuche, den Abteilungsnamen aus verschiedenen Quellen zu bekommen
+            if (employee.team && employee.team.name) {
+                teamName = employee.team.name;
+            } else if (employee.team_id) {
+                // Suche die Abteilung in den verfügbaren Abteilungen
+                const department = availableDepartments.value.find(dept => dept.id === employee.team_id);
+                if (department) {
+                    teamName = department.name;
+                } else {
+                    // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
+                    teamName = teamNames[employee.team_id] || `Team ${employee.team_id}`;
+                }
+            }
+
+            // Füge den Mitarbeiter zur Teamübersicht hinzu - mit vereinfachten Feldnamen
+            teamData.push({
+                name: employee.name,
+                abteilung: teamName,
+                tage: usedDays,
+                resttage: totalEntitlement - usedDays,
+                tagelast: 0 // Standardwert, falls keine Daten verfügbar
+            });
+        }
+
+        teamVacationOverview.value = teamData;
+    } catch (error) {
+        console.error('Fehler beim Laden der Team-Urlaubsdaten:', error);
+        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Team-Urlaubsdaten', life: 3000 });
+
+        // Setze leere Daten im Fehlerfall
+        teamVacationOverview.value = [];
+    }
+}
+
+async function loadDepartments() {
+    try {
+        // Versuche die Teams aus den Inertia-Props zu lesen
+        const userTeams = page.props.auth?.user?.all_teams || [];
+
+        if (userTeams && userTeams.length > 0) {
+            // Konvertiere die Teams in das richtige Format
+            availableDepartments.value = userTeams.map(team => ({
+                id: team.id,
+                name: team.name
+            }));
+        }
+        // Unabhängig davon, ob Teams aus Inertia-Props geladen wurden,
+        // rufe immer createLocalDepartmentsFromEmployees auf, um sicherzustellen,
+        // dass alle Abteilungen geladen werden
+        createLocalDepartmentsFromEmployees();
+        // Option für "Alle Abteilungen" hinzufügen, falls noch nicht vorhanden
+        if (!availableDepartments.value.some(dept => dept.id === null)) {
+            availableDepartments.value.unshift({ id: null, name: 'Alle Abteilungen' });
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Abteilungen:', error);
+        // Fallback: Verwende Mitarbeiterdaten
+        createLocalDepartmentsFromEmployees();
+
+        // Option für "Alle Abteilungen" hinzufügen
+        if (!availableDepartments.value.some(dept => dept.id === null)) {
+            availableDepartments.value.unshift({ id: null, name: 'Alle Abteilungen' });
+        }
+    }
+}
+
+// Verbessere die createLocalDepartmentsFromEmployees-Funktion, um sicherzustellen, dass alle Abteilungen geladen werden
+function createLocalDepartmentsFromEmployees() {
+    const departments = new Map();
+    const teamNames = {
+        1: 'IT',
+        2: 'Marketing',
+        3: 'Vertrieb',
+        4: 'Personal',
+        5: 'Finanzen'
+    };
+
+    // Füge zuerst alle bekannten Abteilungen aus der teamNames-Map hinzu
+    Object.entries(teamNames).forEach(([id, name]) => {
+        departments.set(parseInt(id), {
+            id: parseInt(id),
+            name: name
+        });
+    });
+
+    // Wenn Mitarbeiterdaten vorhanden sind, ergänze die Liste
+    if (allEmployees.value && allEmployees.value.length > 0) {
+        allEmployees.value.forEach(employee => {
+            let teamId = null;
+            let teamName = null;
+
+            // Versuche, team_id und team-Name aus verschiedenen möglichen Strukturen zu extrahieren
+            if (employee.team) {
+                if (typeof employee.team === 'object') {
+                    teamId = employee.team.id;
+                    teamName = employee.team.name;
+                } else if (typeof employee.team === 'number' || typeof employee.team === 'string') {
+                    teamId = employee.team;
+                    // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
+                    teamName = teamNames[teamId] || `Team ${employee.team}`;
+                }
+            }
+
+            // Alternative: Direkte team_id und department_id/name Felder prüfen
+            if (!teamId && employee.team_id) {
+                teamId = employee.team_id;
+                // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
+                teamName = employee.department_name || teamNames[teamId] || `Team ${teamId}`;
+            }
+
+            // Weitere mögliche Felder prüfen
+            if (!teamId && employee.department_id) {
+                teamId = employee.department_id;
+                // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
+                teamName = employee.department_name || teamNames[teamId] || `Abteilung ${teamId}`;
+            }
+
+            // Wenn eine Abteilung gefunden wurde, zur Map hinzufügen
+            if (teamId && !departments.has(teamId)) {
+                departments.set(teamId, {
+                    id: teamId,
+                    name: teamName || teamNames[teamId] || `Abteilung ${teamId}`
+                });
+            }
+        });
+    } else {
+        console.log('Keine Mitarbeiterdaten für Abteilungsextraktion verfügbar');
+    }
+
+    // Wenn keine Abteilungen gefunden wurden, verwende Standard-Abteilungen
+    if (departments.size === 0) {
+        availableDepartments.value = [
+            { id: 1, name: 'IT' },
+            { id: 2, name: 'Marketing' },
+            { id: 3, name: 'Vertrieb' },
+            { id: 4, name: 'Personal' },
+            { id: 5, name: 'Finanzen' }
+        ];
+    } else {
+        availableDepartments.value = Array.from(departments.values());
+    }
+}
+
+// Aktualisiere die initializeDashboard-Funktion, um die Debug-Funktion aufzurufen
 async function initializeDashboard() {
     try {
         loading.value = true;
 
         // Lade verfügbare Mitarbeiter basierend auf der Rolle
         await loadAvailableEmployees();
+
+        // Lade Abteilungen NACH dem Laden der Mitarbeiter (für HR)
+        if (isHR.value) {
+            await loadDepartments();
+        }
 
         // Setze den aktuellen Benutzer als ausgewählten Mitarbeiter
         selectedEmployee.value = {
@@ -182,7 +415,7 @@ async function initializeDashboard() {
         // Lade Daten für den aktuellen Benutzer
         await loadEmployeeData();
 
-        // Wenn Abteilungsleiter oder HR, lade auch die Teamübersicht
+        // Wenn Abteilungsleiter oder HR und Teamübersicht aktiviert, lade auch die Teamübersicht
         if (userRole.value <= 3 && showTeamOverview.value) {
             await loadTeamVacationOverview();
         }
@@ -201,12 +434,18 @@ async function loadAvailableEmployees() {
 
         if (userRole.value <= 3) { // HR oder Abteilungsleiter
             const response = await axios.get('/api/employees');
-            employees = response.data;
+            allEmployees.value = response.data; // Speichere alle Mitarbeiter
+            employees = [...allEmployees.value]; // Kopie erstellen
 
-            // Filtere Mitarbeiter basierend auf der Rolle
+            // Filtere Mitarbeiter basierend auf der Rolle und ausgewählter Abteilung
             if (userRole.value === 3) { // Abteilungsleiter sieht nur sein Team
                 employees = employees.filter(emp =>
                     emp.team_id === currentUser.value.current_team_id
+                );
+            } else if (isHR.value && selectedDepartment.value && selectedDepartment.value.id) {
+                // HR mit ausgewählter Abteilung
+                employees = employees.filter(emp =>
+                    emp.team_id === selectedDepartment.value.id
                 );
             }
         } else {
@@ -230,7 +469,6 @@ async function loadAllVacationRequests() {
         // Lade alle Urlaubsanträge
         const response = await axios.get('/api/vacation/user');
         const requests = response.data.requests || [];
-
         // Speichere alle Urlaubsanträge
         allVacationRequests.value = requests;
     } catch (error) {
@@ -352,85 +590,6 @@ async function loadVacationData() {
     } catch (error) {
         console.error('Fehler beim Laden der Urlaubsdaten:', error);
         toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Urlaubsdaten', life: 3000 });
-    }
-}
-
-// Korrigierte Funktion zum Laden der Teamübersicht
-async function loadTeamVacationOverview() {
-    try {
-        // Nur für Abteilungsleiter und HR
-        if (userRole.value > 3) return;
-
-        // Lade alle Mitarbeiter
-        const employeesResponse = await axios.get('/api/employees');
-        let employees = employeesResponse.data;
-
-        // Filtere Mitarbeiter basierend auf der Rolle
-        if (userRole.value === 3) { // Abteilungsleiter sieht nur sein Team
-            employees = employees.filter(emp =>
-                emp.team_id === currentUser.value.current_team_id
-            );
-        }
-
-        // Initialisiere die Teamübersicht
-        const teamData = [];
-
-        // Lade alle genehmigten Urlaubsanträge
-        const allRequestsResponse = await axios.get('/api/vacation/all-requests');
-        const allRequests = allRequestsResponse.data || [];
-
-        // Verarbeite die Daten für jeden Mitarbeiter
-        for (const employee of employees) {
-            // Filtere Urlaubsanträge für diesen Mitarbeiter und das ausgewählte Jahr
-            const employeeRequests = allRequests.filter(req => {
-                // Prüfe, ob die Felder existieren
-                if (!req.start_date || !req.user_id) {
-                    console.warn('Ungültiger Urlaubsantrag:', req);
-                    return false;
-                }
-
-                // Prüfe, ob die user_id als String oder Zahl vorliegt
-                const reqUserId = typeof req.user_id === 'string' ? parseInt(req.user_id, 10) : req.user_id;
-                const empId = typeof employee.id === 'string' ? parseInt(employee.id, 10) : employee.id;
-
-                // Prüfe das Jahr
-                let startYear;
-                try {
-                    startYear = new Date(req.start_date).getFullYear();
-                } catch (e) {
-                    console.warn('Ungültiges Startdatum:', req.start_date);
-                    return false;
-                }
-
-                return reqUserId === empId && startYear === selectedYear.value;
-            });
-
-            // Berechne die Summe der genehmigten Urlaubstage
-            const usedDays = employeeRequests.reduce((sum, req) => {
-                // Prüfe, ob days eine Zahl ist
-                const days = typeof req.days === 'number' ? req.days : parseInt(req.days, 10);
-                return sum + (isNaN(days) ? 0 : days);
-            }, 0);
-
-            // Standard-Urlaubsanspruch (kann angepasst werden)
-            const totalEntitlement = 30;
-
-            // Füge den Mitarbeiter zur Teamübersicht hinzu - mit vereinfachten Feldnamen
-            teamData.push({
-                name: employee.name,
-                tage: usedDays,
-                resttage: totalEntitlement - usedDays,
-                tagelast: 0 // Standardwert, falls keine Daten verfügbar
-            });
-        }
-
-        teamVacationOverview.value = teamData;
-    } catch (error) {
-        console.error('Fehler beim Laden der Team-Urlaubsdaten:', error);
-        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Team-Urlaubsdaten', life: 3000 });
-
-        // Setze leere Daten im Fehlerfall
-        teamVacationOverview.value = [];
     }
 }
 
@@ -639,6 +798,19 @@ watch(showTeamOverview, (newValue) => {
     }
 });
 
+// Beobachte Änderungen an der ausgewählten Abteilung
+watch(selectedDepartment, (newValue) => {
+    if (isHR.value) {
+        // Aktualisiere die Mitarbeiterliste basierend auf der ausgewählten Abteilung
+        loadAvailableEmployees();
+
+        // Wenn Teamübersicht aktiviert ist, aktualisiere auch diese
+        if (showTeamOverview.value) {
+            loadTeamVacationOverview();
+        }
+    }
+});
+
 // Initialisierung
 onMounted(() => {
     initializeDashboard();
@@ -656,21 +828,6 @@ onMounted(() => {
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-6">
-                    <!-- User Selector (nur für Abteilungsleiter und HR) -->
-                    <div v-if="userRole <= 3" class="mb-6">
-                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Mitarbeiter auswählen</h2>
-                            <Dropdown
-                                v-model="selectedEmployee"
-                                :options="availableEmployees"
-                                optionLabel="name"
-                                placeholder="Mitarbeiter auswählen"
-                                class="w-full md:w-80"
-                                @change="loadEmployeeData"
-                            />
-                        </div>
-                    </div>
-
                     <!-- Filter Controls -->
                     <div class="mb-6 flex flex-col md:flex-row gap-4">
                         <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4 flex-1">
@@ -699,6 +856,39 @@ onMounted(() => {
                                     />
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Abteilungsfilter (nur für HR) -->
+                    <div v-if="isHR" class="mb-6">
+                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Abteilungsfilter</h2>
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <div class="flex-1">
+                                    <Dropdown
+                                        v-model="selectedDepartment"
+                                        :options="availableDepartments"
+                                        optionLabel="name"
+                                        placeholder="Abteilung auswählen"
+                                        class="w-full"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User Selector (nur für Abteilungsleiter und HR) -->
+                    <div v-if="userRole <= 3" class="mb-6">
+                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
+                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Mitarbeiter auswählen</h2>
+                            <Dropdown
+                                v-model="selectedEmployee"
+                                :options="availableEmployees"
+                                optionLabel="name"
+                                placeholder="Mitarbeiter auswählen"
+                                class="w-full md:w-80"
+                                @change="loadEmployeeData"
+                            />
                         </div>
                     </div>
 
@@ -895,6 +1085,7 @@ onMounted(() => {
                                     class="p-datatable-sm"
                                 >
                                     <Column field="name" header="Name" :sortable="true"></Column>
+                                    <Column field="abteilung" header="Abteilung" :sortable="true" v-if="isHR"></Column>
                                     <Column field="tage" header="Tage" :sortable="true"></Column>
                                     <Column field="resttage" header="Resttage" :sortable="true"></Column>
                                     <Column field="tagelast" header="Tagelast" :sortable="true"></Column>

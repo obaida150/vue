@@ -192,6 +192,7 @@ Route::middleware([
         ->name('api.notifications.birthdays');
 });
 
+
 Route::middleware([
     'auth:sanctum',
     config('jetstream.auth_session'),
