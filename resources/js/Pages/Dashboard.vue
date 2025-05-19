@@ -5,8 +5,13 @@ import axios from 'axios';
 import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
-// PrimeVue Komponenten werden automatisch importiert
-// Avatar, Dropdown, Chart, DataTable, Column, Tag
+// PrimeVue Komponenten explizit importieren
+import InputSwitch from 'primevue/inputswitch';
+import Dropdown from 'primevue/dropdown';
+import Chart from 'primevue/chart';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
+import Tag from 'primevue/tag';
 
 const toast = useToast();
 const page = usePage();
@@ -20,6 +25,7 @@ const availableEmployees = ref([]);
 const selectedYear = ref(new Date().getFullYear());
 const selectedMonth = ref(null);
 const loading = ref(true);
+const showTeamOverview = ref(false); // Toggle für die Gesamtübersicht
 
 const years = ref([
     new Date().getFullYear() - 2,
@@ -53,7 +59,7 @@ const statistics = ref({
         total: 0,
         monthly: []
     },
-    fieldService: { // Neue Statistik für Außendienst
+    fieldService: {
         total: 0,
         monthly: []
     },
@@ -65,6 +71,8 @@ const statistics = ref({
 });
 
 const vacationData = ref([]);
+const teamVacationOverview = ref([]); // Neue Daten für die Teamübersicht
+const allVacationRequests = ref([]); // Alle Urlaubsanträge
 
 // Chart-Daten
 const homeofficeChartData = computed(() => {
@@ -99,14 +107,13 @@ const absenceChartData = computed(() => {
     };
 });
 
-// Neue Chart-Daten für Außendienst
 const fieldServiceChartData = computed(() => {
     return {
         labels: months.value.map(m => m.name),
         datasets: [
             {
                 label: 'Außendiensttage',
-                backgroundColor: 'rgba(139, 92, 246, 0.5)', // Lila Farbe für Außendienst
+                backgroundColor: 'rgba(139, 92, 246, 0.5)',
                 borderColor: 'rgb(139, 92, 246)',
                 data: statistics.value.fieldService.monthly
             }
@@ -169,8 +176,16 @@ async function initializeDashboard() {
             name: currentUser.value.name
         };
 
+        // Lade alle Urlaubsanträge (für die Teamübersicht)
+        await loadAllVacationRequests();
+
         // Lade Daten für den aktuellen Benutzer
         await loadEmployeeData();
+
+        // Wenn Abteilungsleiter oder HR, lade auch die Teamübersicht
+        if (userRole.value <= 3 && showTeamOverview.value) {
+            await loadTeamVacationOverview();
+        }
     } catch (error) {
         console.error('Fehler beim Initialisieren des Dashboards:', error);
         toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Initialisieren des Dashboards', life: 3000 });
@@ -209,6 +224,21 @@ async function loadAvailableEmployees() {
     }
 }
 
+// Lade alle Urlaubsanträge für die Teamübersicht
+async function loadAllVacationRequests() {
+    try {
+        // Lade alle Urlaubsanträge
+        const response = await axios.get('/api/vacation/user');
+        const requests = response.data.requests || [];
+
+        // Speichere alle Urlaubsanträge
+        allVacationRequests.value = requests;
+    } catch (error) {
+        console.error('Fehler beim Laden aller Urlaubsanträge:', error);
+        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden aller Urlaubsanträge', life: 3000 });
+    }
+}
+
 async function loadEmployeeData() {
     if (!selectedEmployee.value) return;
 
@@ -228,25 +258,87 @@ async function loadEmployeeData() {
     }
 }
 
+// Korrigierte Funktion zum Laden der Urlaubsdaten
 async function loadVacationData() {
     try {
-        // Lade Urlaubsdaten für das ausgewählte Jahr
-        const response = await axios.get(`/api/vacation/yearly/${selectedYear.value}`);
-        const vacationStats = response.data.stats;
+        // Prüfen, ob der ausgewählte Mitarbeiter der angemeldete Benutzer ist
+        const isCurrentUser = selectedEmployee.value.id === currentUser.value.id;
 
-        // Aktualisiere die Urlaubsstatistik
-        statistics.value.vacation.total = vacationStats.totalEntitlement;
-        statistics.value.vacation.used = vacationStats.used;
+        if (isCurrentUser) {
+            // Für den angemeldeten Benutzer können wir den normalen Endpunkt verwenden
+            const response = await axios.get(`/api/vacation/yearly/${selectedYear.value}`);
+            const vacationStats = response.data.stats;
 
-        // Lade Urlaubsanträge
+            // Aktualisiere die Urlaubsstatistik
+            statistics.value.vacation.total = vacationStats.totalEntitlement;
+            statistics.value.vacation.used = vacationStats.used;
+        } else {
+            // Standard-Urlaubsanspruch (kann angepasst werden)
+            const totalEntitlement = 30;
+
+            // Lade alle Urlaubsanträge
+            const allRequestsResponse = await axios.get('/api/vacation/all-requests');
+            const allRequests = allRequestsResponse.data || [];
+            // Filtere Urlaubsanträge für den ausgewählten Mitarbeiter und das ausgewählte Jahr
+            const employeeRequests = allRequests.filter(req => {
+                // Prüfe, ob die Felder existieren
+                if (!req.start_date || !req.user_id) {
+                    console.warn('Ungültiger Urlaubsantrag:', req);
+                    return false;
+                }
+
+                // Prüfe, ob die user_id als String oder Zahl vorliegt
+                const reqUserId = typeof req.user_id === 'string' ? parseInt(req.user_id, 10) : req.user_id;
+                const empId = typeof selectedEmployee.value.id === 'string' ?
+                    parseInt(selectedEmployee.value.id, 10) : selectedEmployee.value.id;
+
+                // Prüfe das Jahr
+                let startYear;
+                try {
+                    startYear = new Date(req.start_date).getFullYear();
+                } catch (e) {
+                    console.warn('Ungültiges Startdatum:', req.start_date);
+                    return false;
+                }
+
+                return reqUserId === empId && startYear === selectedYear.value;
+            });
+
+            // Berechne die Summe der genehmigten Urlaubstage
+            const usedDays = employeeRequests
+                .filter(req => req.status === 'approved')
+                .reduce((sum, req) => {
+                    // Prüfe, ob days eine Zahl ist
+                    const days = typeof req.days === 'number' ? req.days : parseInt(req.days, 10);
+                    return sum + (isNaN(days) ? 0 : days);
+                }, 0);
+
+            // Aktualisiere die Urlaubsstatistik
+            statistics.value.vacation.total = totalEntitlement;
+            statistics.value.vacation.used = usedDays;
+
+            // Formatiere die Daten für die Tabelle
+            vacationData.value = employeeRequests.map(req => ({
+                start_date: req.start_date,
+                end_date: req.end_date,
+                days: req.days,
+                status: req.status,
+                notes: req.notes || ''
+            }));
+
+            return; // Wir haben die Daten bereits verarbeitet
+        }
+
+        // Lade Urlaubsanträge für den angemeldeten Benutzer
         const userResponse = await axios.get('/api/vacation/user');
         const requests = userResponse.data.requests;
 
         // Filtere Urlaubsanträge für den ausgewählten Benutzer und das ausgewählte Jahr
         const filteredRequests = requests.filter(req => {
+            if (!req.startDate) return false;
+
             const startYear = new Date(req.startDate).getFullYear();
-            return startYear === selectedYear.value &&
-                (selectedEmployee.value.id === currentUser.value.id || req.user_id === selectedEmployee.value.id);
+            return startYear === selectedYear.value;
         });
 
         // Formatiere die Daten für die Tabelle
@@ -255,11 +347,90 @@ async function loadVacationData() {
             end_date: req.endDate,
             days: req.days,
             status: req.status,
-            notes: req.notes
+            notes: req.notes || ''
         }));
     } catch (error) {
         console.error('Fehler beim Laden der Urlaubsdaten:', error);
         toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Urlaubsdaten', life: 3000 });
+    }
+}
+
+// Korrigierte Funktion zum Laden der Teamübersicht
+async function loadTeamVacationOverview() {
+    try {
+        // Nur für Abteilungsleiter und HR
+        if (userRole.value > 3) return;
+
+        // Lade alle Mitarbeiter
+        const employeesResponse = await axios.get('/api/employees');
+        let employees = employeesResponse.data;
+
+        // Filtere Mitarbeiter basierend auf der Rolle
+        if (userRole.value === 3) { // Abteilungsleiter sieht nur sein Team
+            employees = employees.filter(emp =>
+                emp.team_id === currentUser.value.current_team_id
+            );
+        }
+
+        // Initialisiere die Teamübersicht
+        const teamData = [];
+
+        // Lade alle genehmigten Urlaubsanträge
+        const allRequestsResponse = await axios.get('/api/vacation/all-requests');
+        const allRequests = allRequestsResponse.data || [];
+
+        // Verarbeite die Daten für jeden Mitarbeiter
+        for (const employee of employees) {
+            // Filtere Urlaubsanträge für diesen Mitarbeiter und das ausgewählte Jahr
+            const employeeRequests = allRequests.filter(req => {
+                // Prüfe, ob die Felder existieren
+                if (!req.start_date || !req.user_id) {
+                    console.warn('Ungültiger Urlaubsantrag:', req);
+                    return false;
+                }
+
+                // Prüfe, ob die user_id als String oder Zahl vorliegt
+                const reqUserId = typeof req.user_id === 'string' ? parseInt(req.user_id, 10) : req.user_id;
+                const empId = typeof employee.id === 'string' ? parseInt(employee.id, 10) : employee.id;
+
+                // Prüfe das Jahr
+                let startYear;
+                try {
+                    startYear = new Date(req.start_date).getFullYear();
+                } catch (e) {
+                    console.warn('Ungültiges Startdatum:', req.start_date);
+                    return false;
+                }
+
+                return reqUserId === empId && startYear === selectedYear.value;
+            });
+
+            // Berechne die Summe der genehmigten Urlaubstage
+            const usedDays = employeeRequests.reduce((sum, req) => {
+                // Prüfe, ob days eine Zahl ist
+                const days = typeof req.days === 'number' ? req.days : parseInt(req.days, 10);
+                return sum + (isNaN(days) ? 0 : days);
+            }, 0);
+
+            // Standard-Urlaubsanspruch (kann angepasst werden)
+            const totalEntitlement = 30;
+
+            // Füge den Mitarbeiter zur Teamübersicht hinzu - mit vereinfachten Feldnamen
+            teamData.push({
+                name: employee.name,
+                tage: usedDays,
+                resttage: totalEntitlement - usedDays,
+                tagelast: 0 // Standardwert, falls keine Daten verfügbar
+            });
+        }
+
+        teamVacationOverview.value = teamData;
+    } catch (error) {
+        console.error('Fehler beim Laden der Team-Urlaubsdaten:', error);
+        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Team-Urlaubsdaten', life: 3000 });
+
+        // Setze leere Daten im Fehlerfall
+        teamVacationOverview.value = [];
     }
 }
 
@@ -395,7 +566,6 @@ function processAbsenceData(events, absenceTypeId) {
     statistics.value.absence.total = total;
 }
 
-// Neue Funktion für Außendienst-Daten
 function processFieldServiceData(events, fieldServiceTypeId) {
     // Initialisiere monatliche Daten
     const monthlyData = Array(12).fill(0);
@@ -448,12 +618,24 @@ function calculateWorkingDays(startDate, endDate) {
 
 function updateData() {
     loadEmployeeData();
+
+    // Wenn Abteilungsleiter oder HR und Teamübersicht aktiviert, lade auch die Teamübersicht neu
+    if (userRole.value <= 3 && showTeamOverview.value) {
+        loadTeamVacationOverview();
+    }
 }
 
 // Beobachte Änderungen am ausgewählten Mitarbeiter
 watch(selectedEmployee, (newValue) => {
     if (newValue) {
         loadEmployeeData();
+    }
+});
+
+// Beobachte Änderungen am Toggle für die Teamübersicht
+watch(showTeamOverview, (newValue) => {
+    if (newValue && userRole.value <= 3) {
+        loadTeamVacationOverview();
     }
 });
 
@@ -580,7 +762,7 @@ onMounted(() => {
                                 </div>
                             </div>
 
-                            <!-- Außendienst Card (Neu) -->
+                            <!-- Außendienst Card -->
                             <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
                                 <div class="p-5">
                                     <div class="flex items-center">
@@ -649,47 +831,75 @@ onMounted(() => {
                                 <Chart type="bar" :data="absenceChartData" :options="chartOptions" class="h-80" />
                             </div>
 
-                            <!-- Außendienst Chart (Neu) -->
+                            <!-- Außendienst Chart -->
                             <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
                                 <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Außendienst Übersicht</h2>
                                 <Chart type="bar" :data="fieldServiceChartData" :options="chartOptions" class="h-80" />
                             </div>
                         </div>
 
-                        <!-- Urlaub Table -->
+                        <!-- Urlaub Section -->
                         <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                            <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-600">
+                            <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
                                 <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Urlaubsübersicht</h2>
+
+                                <!-- Toggle für Teamübersicht (nur für Abteilungsleiter und HR) -->
+                                <div v-if="userRole <= 3" class="flex items-center">
+                                    <span class="mr-2 text-sm text-gray-600 dark:text-gray-400">Einzelansicht</span>
+                                    <InputSwitch v-model="showTeamOverview" />
+                                    <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Teamübersicht</span>
+                                </div>
                             </div>
-                            <DataTable
-                                :value="vacationData"
-                                :paginator="true"
-                                :rows="5"
-                                stripedRows
-                                responsiveLayout="scroll"
-                                class="p-datatable-sm"
-                            >
-                                <Column field="start_date" header="Von" :sortable="true">
-                                    <template #body="slotProps">
-                                        {{ formatDate(slotProps.data.start_date) }}
-                                    </template>
-                                </Column>
-                                <Column field="end_date" header="Bis" :sortable="true">
-                                    <template #body="slotProps">
-                                        {{ formatDate(slotProps.data.end_date) }}
-                                    </template>
-                                </Column>
-                                <Column field="days" header="Tage" :sortable="true"></Column>
-                                <Column field="status" header="Status" :sortable="true">
-                                    <template #body="slotProps">
-                                        <Tag
-                                            :value="slotProps.data.status"
-                                            :severity="getStatusSeverity(slotProps.data.status)"
-                                        />
-                                    </template>
-                                </Column>
-                                <Column field="notes" header="Notizen" :sortable="true"></Column>
-                            </DataTable>
+
+                            <!-- Einzelne Urlaubsanträge -->
+                            <div v-if="!showTeamOverview || userRole > 3">
+                                <DataTable
+                                    :value="vacationData"
+                                    :paginator="true"
+                                    :rows="5"
+                                    stripedRows
+                                    responsiveLayout="scroll"
+                                    class="p-datatable-sm"
+                                >
+                                    <Column field="start_date" header="Von" :sortable="true">
+                                        <template #body="slotProps">
+                                            {{ formatDate(slotProps.data.start_date) }}
+                                        </template>
+                                    </Column>
+                                    <Column field="end_date" header="Bis" :sortable="true">
+                                        <template #body="slotProps">
+                                            {{ formatDate(slotProps.data.end_date) }}
+                                        </template>
+                                    </Column>
+                                    <Column field="days" header="Tage" :sortable="true"></Column>
+                                    <Column field="status" header="Status" :sortable="true">
+                                        <template #body="slotProps">
+                                            <Tag
+                                                :value="slotProps.data.status"
+                                                :severity="getStatusSeverity(slotProps.data.status)"
+                                            />
+                                        </template>
+                                    </Column>
+                                    <Column field="notes" header="Notizen" :sortable="true"></Column>
+                                </DataTable>
+                            </div>
+
+                            <!-- Teamübersicht (nur für Abteilungsleiter und HR) -->
+                            <div v-else>
+                                <DataTable
+                                    :value="teamVacationOverview"
+                                    :paginator="true"
+                                    :rows="10"
+                                    stripedRows
+                                    responsiveLayout="scroll"
+                                    class="p-datatable-sm"
+                                >
+                                    <Column field="name" header="Name" :sortable="true"></Column>
+                                    <Column field="tage" header="Tage" :sortable="true"></Column>
+                                    <Column field="resttage" header="Resttage" :sortable="true"></Column>
+                                    <Column field="tagelast" header="Tagelast" :sortable="true"></Column>
+                                </DataTable>
+                            </div>
                         </div>
                     </div>
                 </div>
