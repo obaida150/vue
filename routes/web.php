@@ -10,8 +10,11 @@ use App\Http\Controllers\EventTypeController;
 use App\Http\Controllers\VacationController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\UserController;
 use App\Models\VacationRequest;
 use App\Models\User;
+use App\Models\Team;
+use App\Models\Role;
 use Carbon\Carbon;
 
 /*
@@ -190,6 +193,35 @@ Route::middleware([
 // Benachrichtigungen API
     Route::get('/notifications/birthdays', [NotificationController::class, 'getBirthdayNotifications'])
         ->name('api.notifications.birthdays');
+
+// Benutzer API - NEUE ROUTEN
+    Route::get('/users', [UserController::class, 'index'])->name('api.users.index');
+    Route::get('/users/{id}', [UserController::class, 'show'])->name('api.users.show');
+    Route::post('/users', [UserController::class, 'store'])->name('api.users.store');
+    Route::put('/users/{id}', [UserController::class, 'update'])->name('api.users.update');
+
+// Abteilungen API - NEUE ROUTEN
+    Route::get('/departments', function () {
+        $teams = Team::where('personal_team', false)->get()->map(function ($team) {
+            return [
+                'id' => $team->id,
+                'name' => $team->name
+            ];
+        });
+        return response()->json($teams);
+    })->name('api.departments.index');
+
+// Rollen API - NEUE ROUTEN
+    Route::get('/roles', function () {
+        $roles = Role::all()->map(function ($role) {
+            return [
+                'id' => $role->id,
+                'name' => $role->name,
+                'description' => $role->description
+            ];
+        });
+        return response()->json($roles);
+    })->name('api.roles.index');
 });
 
 
@@ -218,4 +250,9 @@ Route::middleware([
     Route::get('/vacation/management', function () {
         return Inertia::render('Vacation/Management');
     })->name('vacation.management');
+
+// Benutzerverwaltung Route
+    Route::get('/users', function () {
+        return Inertia::render('Users/Index');
+    })->name('users.index');
 });

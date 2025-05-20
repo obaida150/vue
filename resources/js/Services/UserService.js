@@ -1,39 +1,54 @@
 import axios from "axios"
 
-export default {
-    // Alle Benutzer abrufen
+class UserService {
+    /**
+     * Benutzer abrufen
+     */
     getUsers() {
         return axios.get("/api/users")
-    },
+    }
 
-    // Einen bestimmten Benutzer abrufen
+    /**
+     * Einzelnen Benutzer abrufen
+     */
     getUser(id) {
         return axios.get(`/api/users/${id}`)
-    },
+    }
 
-    // Einen neuen Benutzer erstellen
+    /**
+     * Neuen Benutzer erstellen
+     */
     createUser(userData) {
         return axios.post("/api/users", userData)
-    },
+    }
 
-    // Einen bestehenden Benutzer aktualisieren
+    /**
+     * Benutzer aktualisieren
+     */
     updateUser(id, userData) {
         return axios.put(`/api/users/${id}`, userData)
-    },
+    }
 
-    // Einen Benutzer löschen (deaktivieren)
+    /**
+     * Benutzer löschen
+     */
     deleteUser(id) {
         return axios.delete(`/api/users/${id}`)
-    },
+    }
 
-    // Alle Abteilungen abrufen
+    /**
+     * Abteilungen abrufen
+     */
     getDepartments() {
         return axios.get("/api/departments")
-    },
+    }
 
-    // Alle Rollen abrufen
+    /**
+     * Rollen abrufen
+     */
     getRoles() {
         return axios.get("/api/roles")
-    },
+    }
 }
 
+export default new UserService()
