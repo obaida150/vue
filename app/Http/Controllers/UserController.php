@@ -76,6 +76,37 @@ class UserController extends Controller
     }
 
     /**
+     * Konvertiert eine Benutzerrolle in eine Team-Rolle
+     */
+    private function mapRoleToTeamRole($roleId)
+    {
+        // Hole die Rolle aus der Datenbank
+        $role = Role::find($roleId);
+
+        if (!$role) {
+            \Log::warning("Rolle mit ID {$roleId} nicht gefunden, verwende Standardrolle 'editor'");
+            return 'editor'; // Standardrolle, falls keine Rolle gefunden wird
+        }
+
+        \Log::info("Mappe Rolle: {$role->name} (ID: {$role->id})");
+
+        // Mapping von Benutzerrollen zu Team-Rollen
+        switch ($role->name) {
+            case 'Admin':
+                return 'admin';
+            case 'Abteilungsleiter':
+                return 'Abteilungsleiter';
+            case 'HR':
+                return 'HR';
+            case 'Mitarbeiter':
+                return 'Mitarbeiter';
+            default:
+                \Log::warning("Unbekannte Rolle: {$role->name}, verwende Standardrolle 'editor'");
+                return 'editor';
+        }
+    }
+
+    /**
      * Store a newly created user in storage.
      */
     public function store(Request $request)
@@ -126,7 +157,11 @@ class UserController extends Controller
             // Stattdessen nur zum ausgewählten Team hinzufügen
             $team = Team::find($request->current_team_id);
             if ($team) {
-                $user->teams()->attach($team, ['role' => 'editor']);
+                // Konvertiere die Benutzerrolle in eine Team-Rolle
+                $teamRole = $this->mapRoleToTeamRole($request->role_id);
+
+                $user->teams()->attach($team, ['role' => $teamRole]);
+                \Log::info("Benutzer {$user->id} wurde dem Team {$team->id} mit der Rolle {$teamRole} hinzugefügt");
             }
 
             // Erstelle einen Urlaubssaldo für den Benutzer
@@ -173,6 +208,12 @@ class UserController extends Controller
                 return response()->json(['error' => $validator->errors()], 422);
             }
 
+            // Speichere das aktuelle Team-ID und die Rolle, um später zu prüfen, ob sie sich geändert haben
+            $oldTeamId = $user->current_team_id;
+            $oldRoleId = $user->role_id;
+            $newTeamId = $request->current_team_id;
+            $newRoleId = $request->role_id;
+
             // Aktualisiere den Benutzer
             $user->first_name = $request->first_name;
             $user->last_name = $request->last_name;
@@ -181,7 +222,7 @@ class UserController extends Controller
             if ($request->password) {
                 $user->password = Hash::make($request->password);
             }
-            $user->role_id = $request->role_id;
+            $user->role_id = $newRoleId;
             $user->is_active = $request->status ?? true;
             $user->initials = $request->initials ?? strtoupper(substr($request->first_name, 0, 1) . substr($request->last_name, 0, 1));
             $user->employee_number = $request->employee_number;
@@ -190,20 +231,53 @@ class UserController extends Controller
             $user->birth_date = $request->birth_date;
 
             // Direkt das current_team_id-Feld aktualisieren
-            $user->current_team_id = $request->current_team_id;
+            $user->current_team_id = $newTeamId;
 
             $user->save();
 
-            // Aktualisiere das Team des Benutzers, wenn es sich geändert hat
-            $currentTeamId = $user->currentTeam ? $user->currentTeam->id : null;
-            if ($request->current_team_id != $currentTeamId) {
-                $team = Team::find($request->current_team_id);
-                if ($team) {
-                    // Prüfe, ob der Benutzer bereits Mitglied des Teams ist
-                    if (!$user->belongsToTeam($team)) {
-                        $user->teams()->attach($team, ['role' => 'editor']);
+            // Konvertiere die Benutzerrolle in eine Team-Rolle
+            $teamRole = $this->mapRoleToTeamRole($newRoleId);
+
+            // Aktualisiere die team_user-Tabelle, wenn sich das Team oder die Rolle geändert hat
+            if ($oldTeamId != $newTeamId || $oldRoleId != $newRoleId) {
+                $newTeam = Team::find($newTeamId);
+
+                if ($newTeam) {
+                    // Zuerst zum neuen Team hinzufügen oder die Rolle aktualisieren
+                    $user->teams()->syncWithoutDetaching([$newTeamId => ['role' => $teamRole]]);
+
+                    // Protokolliere den Vorgang
+                    \Log::info("Benutzer {$user->id} wurde dem Team {$newTeamId} mit der Rolle {$teamRole} hinzugefügt oder aktualisiert");
+
+                    // Wenn sich nur die Rolle geändert hat, aber das Team gleich geblieben ist
+                    if ($oldTeamId == $newTeamId && $oldRoleId != $newRoleId) {
+                        // Aktualisiere die Rolle im aktuellen Team
+                        $user->teams()->updateExistingPivot($newTeamId, ['role' => $teamRole]);
+                        \Log::info("Rolle des Benutzers {$user->id} im Team {$newTeamId} wurde auf {$teamRole} aktualisiert");
+                    }
+
+                    // Wenn sich das Team geändert hat
+                    if ($oldTeamId != $newTeamId) {
+                        // Optional: Entferne den Benutzer aus dem alten Team, wenn es nicht das persönliche Team ist
+                        if ($oldTeamId) {
+                            $oldTeam = Team::find($oldTeamId);
+                            if ($oldTeam && !$oldTeam->personal_team) {
+                                // Prüfe, ob der Benutzer mehr als ein Team hat, bevor wir ihn aus dem alten entfernen
+                                if ($user->teams()->count() > 1) {
+                                    $user->teams()->detach($oldTeamId);
+                                    \Log::info("Benutzer {$user->id} wurde aus dem Team {$oldTeamId} entfernt");
+                                } else {
+                                    \Log::warning("Benutzer {$user->id} wurde NICHT aus dem Team {$oldTeamId} entfernt, da es sein einziges Team ist");
+                                }
+                            }
+                        }
                     }
                 }
+            } else {
+                // Wenn sich weder Team noch Rolle geändert haben, aktualisiere trotzdem die Rolle im Team
+                // Dies stellt sicher, dass die Rolle in der team_user-Tabelle immer korrekt ist
+                $user->teams()->updateExistingPivot($newTeamId, ['role' => $teamRole]);
+                \Log::info("Rolle des Benutzers {$user->id} im Team {$newTeamId} wurde auf {$teamRole} aktualisiert (keine Änderung)");
             }
 
             return response()->json($user);
