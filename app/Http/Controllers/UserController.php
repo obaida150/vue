@@ -33,7 +33,9 @@ class UserController extends Controller
                     'status' => $user->is_active,
                     'employee_number' => $user->employee_number,
                     'entry_date' => $user->entry_date ? $user->entry_date->format('Y-m-d') : null,
-                    'vacation_days' => $user->vacation_days_per_year
+                    'vacation_days' => $user->vacation_days_per_year,
+                    'initials' => $user->initials,
+                    'birth_date' => $user->birth_date ? $user->birth_date->format('Y-m-d') : null
                 ];
             });
 
@@ -128,7 +130,7 @@ class UserController extends Controller
             // Füge den Benutzer zum ausgewählten Team hinzu
             $team = Team::find($request->current_team_id);
             if ($team) {
-                $user->teams()->attach($team, ['role' => 'member']);
+                $user->teams()->attach($team, ['role' => 'editor']);
                 $user->switchTeam($team);
             }
 
@@ -200,7 +202,7 @@ class UserController extends Controller
                 if ($team) {
                     // Prüfe, ob der Benutzer bereits Mitglied des Teams ist
                     if (!$user->belongsToTeam($team)) {
-                        $user->teams()->attach($team, ['role' => 'member']);
+                        $user->teams()->attach($team, ['role' => 'editor']);
                     }
                     $user->switchTeam($team);
                 }

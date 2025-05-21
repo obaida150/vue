@@ -15,7 +15,7 @@
                     <div class="p-6">
                         <DataTable
                             :value="users"
-                            :paginator="users.length > 10"
+                            :paginator="users.length > 5"
                             :rows="10"
                             :rowsPerPageOptions="[5, 10, 20, 50]"
                             dataKey="id"
@@ -33,9 +33,9 @@
                                 <div class="flex justify-between items-center flex-wrap gap-2">
                                     <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">Benutzer</h3>
                                     <span class="p-input-icon-left">
-                  <i class="pi pi-search" />
-                  <InputText v-model="filters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
-                </span>
+                                      <i class="pi pi-search" />
+                                      <InputText v-model="filters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
+                                    </span>
                                 </div>
                             </template>
 
@@ -68,7 +68,7 @@
                                 </template>
                                 <template #filter="{ filterModel, filterCallback }">
                                     <Dropdown
-                                        v-model="filterModel.value"
+                                        v-model="filterModel.constraints[0].value"
                                         @change="filterCallback()"
                                         :options="departments"
                                         optionLabel="name"
@@ -86,7 +86,7 @@
                                 </template>
                                 <template #filter="{ filterModel, filterCallback }">
                                     <Dropdown
-                                        v-model="filterModel.value"
+                                        v-model="filterModel.constraints[0].value"
                                         @change="filterCallback()"
                                         :options="roles"
                                         optionLabel="name"
@@ -104,7 +104,7 @@
                                 </template>
                                 <template #filter="{ filterModel, filterCallback }">
                                     <Dropdown
-                                        v-model="filterModel.value"
+                                        v-model="filterModel.constraints[0].value"
                                         @change="filterCallback()"
                                         :options="[{name: 'Aktiv', value: true}, {name: 'Inaktiv', value: false}]"
                                         optionLabel="name"
@@ -346,9 +346,20 @@ const roles = ref([]);
 // Filter für DataTable
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    'department.name': { value: null, matchMode: FilterMatchMode.EQUALS },
-    'role.name': { value: null, matchMode: FilterMatchMode.EQUALS },
-    status: { value: null, matchMode: FilterMatchMode.EQUALS }
+    'name': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'email': { value: null, matchMode: FilterMatchMode.CONTAINS },
+    'department.name': {
+        operator: FilterOperator.AND,
+        constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }]
+    },
+    'role.name': {
+        operator: FilterOperator.AND,
+        constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }]
+    },
+    'status': {
+        operator: FilterOperator.AND,
+        constraints: [{ value: null, matchMode: FilterMatchMode.EQUALS }]
+    }
 });
 
 // Dialog-Zustände
@@ -396,34 +407,7 @@ const fetchUsers = async () => {
             detail: 'Die Benutzer konnten nicht geladen werden.',
             life: 3000
         });
-
-        // Fallback-Daten
-        users.value = [
-            {
-                id: 1,
-                name: 'Max Mustermann',
-                email: 'max.mustermann@example.com',
-                department: { id: 1, name: 'Entwicklung' },
-                role: { id: 1, name: 'Admin' },
-                status: true
-            },
-            {
-                id: 2,
-                name: 'Anna Schmidt',
-                email: 'anna.schmidt@example.com',
-                department: { id: 2, name: 'Marketing' },
-                role: { id: 2, name: 'Manager' },
-                status: true
-            },
-            {
-                id: 3,
-                name: 'Thomas Müller',
-                email: 'thomas.mueller@example.com',
-                department: { id: 3, name: 'Vertrieb' },
-                role: { id: 3, name: 'Mitarbeiter' },
-                status: false
-            }
-        ];
+        users.value = [];
     } finally {
         loading.value = false;
     }
@@ -435,15 +419,13 @@ const fetchDepartments = async () => {
         departments.value = response.data;
     } catch (error) {
         console.error('Fehler beim Laden der Abteilungen:', error);
-
-        // Fallback-Daten
-        departments.value = [
-            { id: 1, name: 'Entwicklung' },
-            { id: 2, name: 'Marketing' },
-            { id: 3, name: 'Vertrieb' },
-            { id: 4, name: 'Personal' },
-            { id: 5, name: 'Finanzen' }
-        ];
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Abteilungen konnten nicht geladen werden.',
+            life: 3000
+        });
+        departments.value = [];
     }
 };
 
@@ -453,19 +435,19 @@ const fetchRoles = async () => {
         roles.value = response.data;
     } catch (error) {
         console.error('Fehler beim Laden der Rollen:', error);
-
-        // Fallback-Daten
-        roles.value = [
-            { id: 1, name: 'Admin' },
-            { id: 2, name: 'Manager' },
-            { id: 3, name: 'HR' },
-            { id: 4, name: 'Mitarbeiter' }
-        ];
+        toast.add({
+            severity: 'error',
+            summary: 'Fehler',
+            detail: 'Die Rollen konnten nicht geladen werden.',
+            life: 3000
+        });
+        roles.value = [];
     }
 };
 
 // Hilfsfunktionen
 const getInitials = (name) => {
+    if (!name) return '';
     return name
         .split(' ')
         .map(part => part.charAt(0))
@@ -474,6 +456,7 @@ const getInitials = (name) => {
 };
 
 const getInitialsColor = (name) => {
+    if (!name) return 'hsl(0, 0%, 75%)';
     // Generate a deterministic color based on the name
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -764,4 +747,3 @@ onMounted(() => {
     }
 }
 </style>
-
