@@ -75,8 +75,6 @@ class UserController extends Controller
         }
     }
 
-    // Aktualisiere die store-Methode, um alle erforderlichen Felder zu verarbeiten
-
     /**
      * Store a newly created user in storage.
      */
@@ -118,20 +116,17 @@ class UserController extends Controller
             $user->vacation_days_per_year = $request->vacation_days_per_year ?? 30;
             $user->entry_date = $request->entry_date;
             $user->birth_date = $request->birth_date;
+
+            // Setze das current_team_id direkt
+            $user->current_team_id = $request->current_team_id;
+
             $user->save();
 
-            // Erstelle ein persönliches Team für den Benutzer
-            $personalTeam = Team::forceCreate([
-                'user_id' => $user->id,
-                'name' => $user->name . '\'s Team',
-                'personal_team' => true,
-            ]);
-
-            // Füge den Benutzer zum ausgewählten Team hinzu
+            // Kein persönliches Team mehr erstellen
+            // Stattdessen nur zum ausgewählten Team hinzufügen
             $team = Team::find($request->current_team_id);
             if ($team) {
                 $user->teams()->attach($team, ['role' => 'editor']);
-                $user->switchTeam($team);
             }
 
             // Erstelle einen Urlaubssaldo für den Benutzer
@@ -193,6 +188,10 @@ class UserController extends Controller
             $user->vacation_days_per_year = $request->vacation_days_per_year ?? 30;
             $user->entry_date = $request->entry_date;
             $user->birth_date = $request->birth_date;
+
+            // Direkt das current_team_id-Feld aktualisieren
+            $user->current_team_id = $request->current_team_id;
+
             $user->save();
 
             // Aktualisiere das Team des Benutzers, wenn es sich geändert hat
@@ -204,7 +203,6 @@ class UserController extends Controller
                     if (!$user->belongsToTeam($team)) {
                         $user->teams()->attach($team, ['role' => 'editor']);
                     }
-                    $user->switchTeam($team);
                 }
             }
 
@@ -214,4 +212,3 @@ class UserController extends Controller
         }
     }
 }
-

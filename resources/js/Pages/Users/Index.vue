@@ -15,7 +15,7 @@
                     <div class="p-6">
                         <DataTable
                             :value="users"
-                            :paginator="users.length > 5"
+                            :paginator="true"
                             :rows="10"
                             :rowsPerPageOptions="[5, 10, 20, 50]"
                             dataKey="id"
@@ -33,9 +33,9 @@
                                 <div class="flex justify-between items-center flex-wrap gap-2">
                                     <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">Benutzer</h3>
                                     <span class="p-input-icon-left">
-                                      <i class="pi pi-search" />
-                                      <InputText v-model="filters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
-                                    </span>
+                  <i class="pi pi-search" />
+                  <InputText v-model="filters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
+                </span>
                                 </div>
                             </template>
 
@@ -279,8 +279,10 @@
                 </div>
             </div>
             <template #footer>
-                <Button label="Abbrechen" icon="pi pi-times" class="p-button-text" @click="hideResetPasswordDialog" />
-                <Button label="Zurücksetzen" icon="pi pi-check" @click="confirmResetPassword" :loading="resettingPassword" />
+                <div class="flex justify-end gap-2">
+                    <Button label="Abbrechen" icon="pi pi-times" class="p-button-text" @click="hideResetPasswordDialog" />
+                    <Button label="Zurücksetzen" icon="pi pi-check" @click="confirmResetPassword" :loading="resettingPassword" />
+                </div>
             </template>
         </Dialog>
 
@@ -305,8 +307,10 @@
                 </div>
             </div>
             <template #footer>
-                <Button label="Nein" icon="pi pi-times" class="p-button-text" @click="hideDeleteUserDialog" />
-                <Button label="Ja" icon="pi pi-check" class="p-button-danger" @click="deleteUser" :loading="deleting" />
+                <div class="flex justify-end gap-2">
+                    <Button label="Nein" icon="pi pi-times" class="p-button-text" @click="hideDeleteUserDialog" />
+                    <Button label="Ja" icon="pi pi-check" class="p-button-danger" @click="deleteUser" :loading="deleting" />
+                </div>
             </template>
         </Dialog>
 
@@ -315,7 +319,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from 'primevue/datatable';
@@ -399,6 +403,7 @@ const fetchUsers = async () => {
     try {
         const response = await UserService.getUsers();
         users.value = response.data;
+        console.log('Geladene Benutzer:', users.value); // Debugging-Ausgabe
     } catch (error) {
         console.error('Fehler beim Laden der Benutzer:', error);
         toast.add({
@@ -407,6 +412,8 @@ const fetchUsers = async () => {
             detail: 'Die Benutzer konnten nicht geladen werden.',
             life: 3000
         });
+
+        // Keine Fallback-Daten mehr, stattdessen leeres Array
         users.value = [];
     } finally {
         loading.value = false;
@@ -417,6 +424,7 @@ const fetchDepartments = async () => {
     try {
         const response = await UserService.getDepartments();
         departments.value = response.data;
+        console.log('Geladene Abteilungen:', departments.value); // Debugging-Ausgabe
     } catch (error) {
         console.error('Fehler beim Laden der Abteilungen:', error);
         toast.add({
@@ -425,6 +433,8 @@ const fetchDepartments = async () => {
             detail: 'Die Abteilungen konnten nicht geladen werden.',
             life: 3000
         });
+
+        // Keine Fallback-Daten mehr, stattdessen leeres Array
         departments.value = [];
     }
 };
@@ -433,6 +443,7 @@ const fetchRoles = async () => {
     try {
         const response = await UserService.getRoles();
         roles.value = response.data;
+        console.log('Geladene Rollen:', roles.value); // Debugging-Ausgabe
     } catch (error) {
         console.error('Fehler beim Laden der Rollen:', error);
         toast.add({
@@ -441,6 +452,8 @@ const fetchRoles = async () => {
             detail: 'Die Rollen konnten nicht geladen werden.',
             life: 3000
         });
+
+        // Keine Fallback-Daten mehr, stattdessen leeres Array
         roles.value = [];
     }
 };
@@ -515,9 +528,16 @@ const editUser = (data) => {
     const entryDate = data.entry_date ? new Date(data.entry_date) : null;
     const birthDate = data.birth_date ? new Date(data.birth_date) : null;
 
+    console.log('Benutzer-Daten aus der Tabelle:', data);
+    console.log('Verfügbare Abteilungen:', departments.value);
+    console.log('Verfügbare Rollen:', roles.value);
+
     // Finde die entsprechende Abteilung und Rolle anhand der IDs
-    const department = departments.value.find(d => d.id === (data.department?.id || null));
-    const role = roles.value.find(r => r.id === (data.role?.id || null));
+    const department = data.department ? departments.value.find(d => d.id === data.department.id) : null;
+    const role = data.role ? roles.value.find(r => r.id === data.role.id) : null;
+
+    console.log('Gefundene Abteilung:', department);
+    console.log('Gefundene Rolle:', role);
 
     user.value = {
         ...data,
@@ -531,9 +551,37 @@ const editUser = (data) => {
         initials: data.initials || ''
     };
 
+    console.log('Benutzer zum Bearbeiten:', user.value);
+
     editMode.value = true;
     userDialogVisible.value = true;
 };
+
+// Überwache Änderungen an den Rollen und Abteilungen, um den Benutzer zu aktualisieren, wenn nötig
+watch([roles, departments], ([newRoles, newDepartments], [oldRoles, oldDepartments]) => {
+    if (editMode.value && user.value.id) {
+        // Wenn wir im Bearbeitungsmodus sind und die Rollen oder Abteilungen geladen wurden
+        if ((newRoles.length > 0 && oldRoles.length === 0) || (newDepartments.length > 0 && oldDepartments.length === 0)) {
+            // Finde den Benutzer in der Benutzerliste
+            const userData = users.value.find(u => u.id === user.value.id);
+            if (userData) {
+                // Aktualisiere die Rolle und Abteilung
+                const department = userData.department ? newDepartments.find(d => d.id === userData.department.id) : null;
+                const role = userData.role ? newRoles.find(r => r.id === userData.role.id) : null;
+
+                if (department) {
+                    user.value.department = department;
+                }
+
+                if (role) {
+                    user.value.role = role;
+                }
+
+                console.log('Aktualisierter Benutzer nach Rollen/Abteilungen-Änderung:', user.value);
+            }
+        }
+    }
+}, { immediate: false });
 
 const hideDialog = () => {
     userDialogVisible.value = false;
@@ -556,8 +604,8 @@ const saveUser = async () => {
             last_name: user.value.last_name,
             name: `${user.value.first_name} ${user.value.last_name}`, // Kombiniere für das name-Feld
             email: user.value.email,
-            current_team_id: user.value.department.id,
-            role_id: user.value.role.id,
+            current_team_id: typeof user.value.department === 'object' ? user.value.department.id : user.value.department,
+            role_id: typeof user.value.role === 'object' ? user.value.role.id : user.value.role,
             status: user.value.status,
             initials: user.value.initials || `${user.value.first_name.charAt(0)}${user.value.last_name.charAt(0)}`.toUpperCase(),
             employee_number: user.value.employee_number || null,
@@ -566,13 +614,16 @@ const saveUser = async () => {
             birth_date: user.value.birth_date ? dayjs(user.value.birth_date).format('YYYY-MM-DD') : null
         };
 
+        console.log('Daten zum Speichern:', userData);
+
         // Füge das Passwort nur hinzu, wenn es sich um einen neuen Benutzer handelt oder wenn es geändert wurde
         if (!editMode.value && user.value.password) {
             userData.password = user.value.password;
         }
 
         if (editMode.value) {
-            await UserService.updateUser(user.value.id, userData);
+            const response = await UserService.updateUser(user.value.id, userData);
+            console.log('Server-Antwort:', response);
             toast.add({
                 severity: 'success',
                 summary: 'Erfolg',
@@ -580,7 +631,8 @@ const saveUser = async () => {
                 life: 3000
             });
         } else {
-            await UserService.createUser(userData);
+            const response = await UserService.createUser(userData);
+            console.log('Server-Antwort:', response);
             toast.add({
                 severity: 'success',
                 summary: 'Erfolg',
@@ -597,10 +649,22 @@ const saveUser = async () => {
         // Verbesserte Fehlerbehandlung
         let errorMessage = 'Der Benutzer konnte nicht gespeichert werden.';
 
-        if (error.response && error.response.data && error.response.data.message) {
-            errorMessage = error.response.data.message;
-        } else if (error.response && error.response.data && error.response.data.error) {
-            errorMessage = error.response.data.error;
+        if (error.response) {
+            console.log('Fehlerantwort vom Server:', error.response);
+
+            if (error.response.data && error.response.data.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.response.data && error.response.data.error) {
+                errorMessage = error.response.data.error;
+            } else if (error.response.data && error.response.data.errors) {
+                // Laravel-Validierungsfehler
+                const errors = error.response.data.errors;
+                const errorMessages = [];
+                for (const field in errors) {
+                    errorMessages.push(`${field}: ${errors[field].join(', ')}`);
+                }
+                errorMessage = errorMessages.join('\n');
+            }
         }
 
         toast.add({
