@@ -51,7 +51,7 @@
                         <!-- Urlaub-Indikator für Jahresansicht -->
                         <div
                             v-if="hasVacations(day.date)"
-                            class="absolute inset-0 opacity-70 z-0 rounded-full bg-purple-600"
+                            class="absolute inset-0 opacity-80 z-0 rounded-full bg-purple-600"
                         ></div>
                     </div>
                 </div>
@@ -61,7 +61,7 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
+import { defineProps, defineEmits } from 'vue';
 import dayjs from 'dayjs';
 
 const props = defineProps({
@@ -118,6 +118,8 @@ const props = defineProps({
         required: true
     }
 });
+
+defineEmits(['month-click', 'week-plan']);
 
 // Farbe eines Ereignisses für einen bestimmten Tag finden (nur eigene Ereignisse)
 const getEventColorForDay = (date) => {

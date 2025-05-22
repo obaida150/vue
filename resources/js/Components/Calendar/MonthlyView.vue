@@ -17,14 +17,15 @@
                 :class="[
                     'relative min-h-[100px] p-1 border border-gray-200 dark:border-gray-700 rounded overflow-hidden',
                     {
-                        'bg-gray-50 dark:bg-gray-900': day.currentMonth,
+                        'bg-gray-50 dark:bg-gray-900': day.currentMonth && !isHoliday(dayjs(day.date)) && !hasVacations(day.date) && !isUserAbsent(day.date),
                         'bg-gray-100 dark:bg-gray-800': !day.currentMonth,
                         'border-blue-300 dark:border-blue-700': day.isToday,
                         'bg-red-50 dark:bg-red-900/20': isHoliday(dayjs(day.date)),
-                        'bg-purple-50 dark:bg-purple-900/20': hasVacations(day.date),
-                        'bg-amber-50 dark:bg-amber-900/20': isUserAbsent(day.date),
-                        'cursor-pointer': day.currentMonth && !hasVacations(day.date) && !(isUserAbsent(day.date) && !isHrUser),
-                        'cursor-not-allowed': hasVacations(day.date) || (isUserAbsent(day.date) && !isHrUser)
+                        'vacation-day': hasVacations(day.date),
+                        'bg-amber-50 dark:bg-amber-900/20': isUserAbsent(day.date) && !isTeamManager,
+                        'team-absence-day': isTeamManager && isUserAbsent(day.date) && !hasVacations(day.date) && !showOnlyOwnEvents,
+                        'cursor-pointer': day.currentMonth && !hasVacations(day.date) && !(isUserAbsent(day.date) && !isTeamManager && !isHrUser),
+                        'cursor-not-allowed': hasVacations(day.date) || (isUserAbsent(day.date) && !isTeamManager && !isHrUser)
                     },
                 ]"
                 @click="handleDayClick(day.date, day.currentMonth)"
@@ -57,12 +58,12 @@
                     {{ getHolidayName(dayjs(day.date)) }}
                 </div>
 
-                <div v-if="isUserAbsent(day.date)" class="text-xs text-amber-600 dark:text-amber-400 mb-1">
+                <div v-if="isUserAbsent(day.date) && !isTeamManager" class="text-xs text-amber-600 dark:text-amber-400 mb-1">
                     Als abwesend markiert
                 </div>
 
                 <!-- Urlaubsanzeige mit Sperrsymbol -->
-                <div v-if="hasVacations(day.date) && day.currentMonth" class="vacation-blocked">
+                <div v-if="hasVacations(day.date)" class="vacation-blocked">
                     <div class="text-xs text-purple-600 dark:text-purple-400 mb-1">
                         Urlaub
                     </div>
@@ -70,6 +71,19 @@
                         <i class="pi pi-ban text-purple-500 dark:text-purple-400 text-lg mb-1"></i>
                         <div class="text-xs text-purple-600 dark:text-purple-400 text-center">
                             Urlaub - Keine Einträge möglich
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Abwesenheitsanzeige für Teammitglieder (nur für Abteilungsleiter in Teamansicht) -->
+                <div v-if="isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacations(day.date)" class="team-absence-indicator">
+                    <div class="text-xs text-amber-600 dark:text-amber-400 mb-1">
+                        Teammitglied abwesend
+                    </div>
+                    <div class="flex items-center justify-center mt-1 p-1 bg-amber-50/80 dark:bg-amber-900/30 rounded">
+                        <i class="pi pi-user-minus text-amber-500 dark:text-amber-400 text-sm mr-1"></i>
+                        <div class="text-xs text-amber-600 dark:text-amber-400">
+                            Abwesend
                         </div>
                     </div>
                 </div>
@@ -455,9 +469,9 @@ const handleDayClick = (date, isCurrentMonth) => {
         return;
     }
 
-    // Wenn der Benutzer an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter ist,
+    // Wenn der Benutzer an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter oder Abteilungsleiter ist,
     // blockiere die Aktion
-    if (props.isUserAbsent(date) && !props.isHrUser) {
+    if (props.isUserAbsent(date) && !props.isTeamManager && !props.isHrUser) {
         const toast = document.querySelector('.p-toast') ?
             document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
 
@@ -559,5 +573,37 @@ const closeDayEventsDialog = () => {
     display: flex;
     flex-direction: column;
     height: 100%;
+}
+
+/* Spezifisches Styling für Urlaubstage */
+.vacation-day {
+    background-color: rgba(156, 39, 176, 0.1) !important;
+}
+
+:deep(.dark) .vacation-day {
+    background-color: rgba(156, 39, 176, 0.2) !important;
+}
+
+/* Styling für Team-Abwesenheitstage */
+.team-absence-day {
+    background-color: rgba(251, 191, 36, 0.3) !important; /* Amber-Ton */
+}
+
+:deep(.dark) .team-absence-day {
+    background-color: rgba(251, 191, 36, 0.4) !important; /* Dunklerer Amber-Ton */
+}
+
+/* Styling für Teammitglieder-Abwesenheiten */
+.team-absence-day {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+:deep(.dark) .team-absence-day {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+.team-absence-indicator {
+    display: flex;
+    flex-direction: column;
 }
 </style>

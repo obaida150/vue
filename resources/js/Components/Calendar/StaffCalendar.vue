@@ -1,5 +1,5 @@
 <template>
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p:6 w-full overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 w-full overflow-hidden">
         <Toast />
         <!-- Header mit Navigation -->
         <CalendarHeader
@@ -156,6 +156,7 @@ import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isToday from 'dayjs/plugin/isToday';
 import { usePrimeVue } from 'primevue/config';
 import Toast from 'primevue/toast';
+import axios from 'axios';
 
 // Komponenten importieren
 import CalendarHeader from './CalendarHeader.vue';
@@ -264,8 +265,8 @@ const {
     hasEvents,
     getEventsForDay,
     getEventColorForDay,
-    hasVacations,
-    getVacationsForDay
+    hasVacations: originalHasVacations,
+    getVacationsForDay: originalGetVacationsForDay
 } = useEvents(
     calendarView,
     currentDate,
@@ -330,7 +331,7 @@ const {
     isHrUser,
     isTeamManager,
     currentUserId,
-    hasVacations,
+    originalHasVacations,
     isHoliday,
     getHolidayName,
     fetchEvents
@@ -345,6 +346,9 @@ const {
     getWeeksInMonthForMini,
     getMonthName
 } = useCalendarUtils();
+
+// Direkt vom Server geladene Urlaubsanträge
+const vacationRequests = ref([]);
 
 // Verarbeite Ereignisse, um sicherzustellen, dass Farben korrekt gesetzt sind
 const processedEvents = computed(() => {
@@ -366,7 +370,8 @@ const processedVacations = computed(() => {
     // Kombiniere Urlaubsdaten aus beiden Quellen
     const allVacations = [
         ...(vacationsList.value || []),
-        ...(vacationsFromService.value || [])
+        ...(vacationsFromService.value || []),
+        ...processVacationRequests()
     ];
 
     // Entferne Duplikate basierend auf ID
@@ -390,9 +395,9 @@ const processedVacations = computed(() => {
 
         // Stelle sicher, dass Start- und Enddatum als Date-Objekte vorliegen
         const startDate = vacation.startDate instanceof Date ?
-            vacation.startDate : new Date(vacation.startDate || vacation.start);
+            vacation.startDate : new Date(vacation.startDate || vacation.start_date || vacation.start);
         const endDate = vacation.endDate instanceof Date ?
-            vacation.endDate : new Date(vacation.endDate || vacation.end);
+            vacation.endDate : new Date(vacation.endDate || vacation.end_date || vacation.end);
 
         return {
             ...vacation,
@@ -410,69 +415,161 @@ const processedVacations = computed(() => {
     });
 });
 
-// Ändere die enhancedHasVacations Funktion, um nur Urlaube des aktuellen Benutzers zu berücksichtigen
+// Verarbeite die Urlaubsanträge aus der Datenbank
+const processVacationRequests = () => {
+    if (!vacationRequests.value || !Array.isArray(vacationRequests.value)) {
+        return [];
+    }
+
+    return vacationRequests.value
+        .filter(request => request.status === 'approved') // Nur genehmigte Urlaubsanträge
+        .map(request => {
+            return {
+                id: `vacation-${request.id}`,
+                user_id: request.user_id,
+                startDate: new Date(request.start_date),
+                endDate: new Date(request.end_date),
+                days: request.days,
+                type: {
+                    name: "Urlaub",
+                    value: "vacation",
+                    color: "#9C27B0"
+                },
+                notes: request.notes || 'Genehmigter Urlaub',
+                status: request.status
+            };
+        });
+};
+
+// Lade Urlaubsanträge direkt vom Server
+const fetchVacationRequests = async () => {
+    try {
+        const response = await axios.get('/api/vacation/all-requests');
+        vacationRequests.value = response.data;
+    } catch (error) {
+        console.error('Error loading vacation requests:', error);
+        vacationRequests.value = [];
+    }
+};
+
+// Verbesserte Funktion zur Erkennung von Urlaubstagen
 const enhancedHasVacations = (date) => {
     if (!date || !currentUserId.value) return false;
 
-    // Prüfe, ob es Urlaube in processedVacations gibt, die dem aktuellen Benutzer gehören
+    // Konvertiere das Datum in ein einheitliches Format
     const dateStr = dayjs(date).format("YYYY-MM-DD");
+
+    // Durchsuche alle Urlaubseinträge
     return processedVacations.value.some(vacation => {
         // Prüfe, ob der Urlaub dem aktuellen Benutzer gehört
-        const isCurrentUserVacation = vacation.user_id === currentUserId.value ||
+        const isCurrentUserVacation =
+            vacation.user_id === currentUserId.value ||
             vacation.userId === currentUserId.value;
 
         if (!isCurrentUserVacation) return false;
 
-        const vacationStartDate = dayjs(vacation.startDate).format("YYYY-MM-DD");
-        const vacationEndDate = dayjs(vacation.endDate).format("YYYY-MM-DD");
-        return dateStr >= vacationStartDate && dateStr <= vacationEndDate;
+        // Prüfe, ob das Datum im Urlaubszeitraum liegt
+        const startDate = dayjs(vacation.startDate).format("YYYY-MM-DD");
+        const endDate = dayjs(vacation.endDate).format("YYYY-MM-DD");
+
+        return dateStr >= startDate && dateStr <= endDate;
     });
 };
 
-// Ändere die enhancedGetVacationsForDay Funktion, um nur Urlaube des aktuellen Benutzers zurückzugeben
+// Verbesserte Funktion zum Abrufen von Urlaubseinträgen für einen bestimmten Tag
 const enhancedGetVacationsForDay = (date) => {
     if (!date || !currentUserId.value) return [];
 
-    // Hole Urlaube aus processedVacations, die dem aktuellen Benutzer gehören
+    // Konvertiere das Datum in ein einheitliches Format
     const dateStr = dayjs(date).format("YYYY-MM-DD");
+
+    // Filtere alle Urlaubseinträge für diesen Tag
     return processedVacations.value.filter(vacation => {
         // Prüfe, ob der Urlaub dem aktuellen Benutzer gehört
-        const isCurrentUserVacation = vacation.user_id === currentUserId.value ||
+        const isCurrentUserVacation =
+            vacation.user_id === currentUserId.value ||
             vacation.userId === currentUserId.value;
 
         if (!isCurrentUserVacation) return false;
 
-        const vacationStartDate = dayjs(vacation.startDate).format("YYYY-MM-DD");
-        const vacationEndDate = dayjs(vacation.endDate).format("YYYY-MM-DD");
-        return dateStr >= vacationStartDate && dateStr <= vacationEndDate;
+        // Prüfe, ob das Datum im Urlaubszeitraum liegt
+        const startDate = dayjs(vacation.startDate).format("YYYY-MM-DD");
+        const endDate = dayjs(vacation.endDate).format("YYYY-MM-DD");
+
+        return dateStr >= startDate && dateStr <= endDate;
     });
 };
 
-// Prüfen, ob der aktuelle Benutzer an einem bestimmten Tag als abwesend markiert ist
+// Ändern Sie die isUserAbsent-Funktion, um auch Abwesenheiten von Teammitgliedern für Abteilungsleiter anzuzeigen
+
+// Ersetzen Sie die bestehende isUserAbsent-Funktion mit dieser verbesserten Version:
+
 const isUserAbsent = (date) => {
-    if (!date || !processedEvents.value || !currentUserId.value) return false;
+    if (!date || !processedEvents.value) return false;
 
     const dateStr = dayjs(date).format('YYYY-MM-DD');
 
-    return processedEvents.value.some(event => {
-        // Prüfen, ob es sich um ein Abwesenheitsereignis handelt
+    // Prüfen, ob der aktuelle Benutzer (Abteilungsleiter) selbst an diesem Tag abwesend ist
+    const isCurrentUserAbsent = processedEvents.value.some(event => {
         const isAbsentEvent = event.type &&
             (event.type.name === 'Abwesend' ||
                 (event.type.value && event.type.value.toLowerCase() === 'absent'));
-
-        // Prüfen, ob das Ereignis dem aktuellen Benutzer gehört
         const isCurrentUserEvent = event.user_id === currentUserId.value;
-
-        // Prüfen, ob das Ereignis am angegebenen Datum stattfindet
         const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
         const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
         const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
 
         return isAbsentEvent && isCurrentUserEvent && isOnDate;
     });
+
+    // Wenn wir nur eigene Ereignisse anzeigen oder der Benutzer kein Abteilungsleiter ist,
+    // geben wir nur zurück, ob der aktuelle Benutzer abwesend ist
+    if (showOnlyOwnEvents.value || !isTeamManager.value) {
+        return isCurrentUserAbsent;
+    }
+
+    // Für Abteilungsleiter in der Teamansicht:
+    // Wenn der Abteilungsleiter selbst abwesend ist, zeigen wir das an
+    if (isCurrentUserAbsent) {
+        return true;
+    }
+
+    // Sonst prüfen wir, ob ein Teammitglied abwesend ist
+    const isTeamMemberAbsent = processedEvents.value.some(event => {
+        const isAbsentEvent = event.type &&
+            (event.type.name === 'Abwesend' ||
+                (event.type.value && event.type.value.toLowerCase() === 'absent'));
+        const isTeamMemberEvent = event.team_id === userTeamId.value && event.user_id !== currentUserId.value;
+        const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+        const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+        const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
+
+        return isAbsentEvent && isTeamMemberEvent && isOnDate;
+    });
+
+    return isTeamMemberAbsent;
 };
 
-// Wrapper-Funktionen für Composable-Funktionen
+// Fügen Sie eine neue Funktion hinzu, um zu prüfen, ob ein Teammitglied (nicht der Abteilungsleiter selbst) abwesend ist
+const isTeamMemberAbsent = (date) => {
+    if (!date || !processedEvents.value || !isTeamManager.value || showOnlyOwnEvents.value) return false;
+
+    const dateStr = dayjs(date).format('YYYY-MM-DD');
+
+    return processedEvents.value.some(event => {
+        const isAbsentEvent = event.type &&
+            (event.type.name === 'Abwesend' ||
+                (event.type.value && event.type.value.toLowerCase() === 'absent'));
+        const isTeamMemberEvent = event.team_id === userTeamId.value && event.user_id !== currentUserId.value;
+        const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+        const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+        const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
+
+        return isAbsentEvent && isTeamMemberEvent && isOnDate;
+    });
+};
+
+// Wrapper-Funktionen für Composable-Funktionen - WICHTIG: Diese müssen vor ihrer Verwendung definiert werden
 const editEvent = () => {
     editEventFn(findEventType);
 };
@@ -485,7 +582,7 @@ const toggleWeekPlanFilter = () => {
     toggleWeekPlanFilterFn(getEventsForDay);
 };
 
-// Klick auf einen Tag behandeln
+// Ändern Sie die handleDayClick-Funktion, um die Sperrung für Abteilungsleiter zu verhindern
 const handleDayClick = (date) => {
     if (isHoliday(dayjs(date))) {
         showHolidayInfo(date);
@@ -504,8 +601,8 @@ const handleDayClick = (date) => {
         } else {
             alert('Sie haben an diesem Tag Urlaub. Keine Einträge möglich.');
         }
-    } else if (isUserAbsent(date) && !isHrUser.value) {
-        // Wenn der Benutzer an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter ist,
+    } else if (isUserAbsent(date) && !isTeamMemberAbsent(date) && !isHrUser.value) {
+        // Wenn der Benutzer selbst an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter ist,
         // zeige eine Meldung an oder blockiere die Aktion
         const toast = document.querySelector('.p-toast') ?
             document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
@@ -528,7 +625,8 @@ const handleDayClick = (date) => {
 // Daten neu laden, wenn sich relevante Zustände ändern
 watch([calendarView, currentDate, showOnlyOwnEvents], () => {
     fetchEvents();
-    fetchVacations(); // Verwende fetchVacations statt fetchVacationData
+    fetchVacations();
+    fetchVacationRequests();
 }, { deep: true });
 
 // Ereignistypen überwachen und Ereignisse neu laden, wenn sie sich ändern
@@ -574,9 +672,13 @@ onMounted(async () => {
     // Lade Ereignisse und Urlaubsdaten parallel
     await Promise.all([
         fetchEvents(),
-        fetchVacations(), // Verwende fetchVacations statt fetchVacationData
+        fetchVacations(),
+        fetchVacationRequests(),
         fetchHolidays(new Date().getFullYear())
     ]);
+
+    // Debugging nach dem Laden aller Daten
+    setTimeout(logVacationData, 2000);
 });
 
 // Jahr-Änderungen überwachen, um Feiertage neu zu laden
@@ -586,7 +688,8 @@ watch(
         if (newYear !== oldYear) {
             fetchHolidays(newYear);
             // Auch Urlaubsdaten für das neue Jahr laden
-            fetchVacations(); // Verwende fetchVacations statt fetchVacationData
+            fetchVacations();
+            fetchVacationRequests();
         }
     }
 );
