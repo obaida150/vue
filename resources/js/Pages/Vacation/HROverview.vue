@@ -20,11 +20,11 @@
                         <i class="pi pi-info-circle text-blue-500 text-2xl mr-4 mt-1"></i>
                         <div>
                             <h3 class="text-lg font-semibold mb-2">Urlaubsübersicht für die Lohnabrechnung</h3>
-<!--                            <p class="text-gray-600 dark:text-gray-400">-->
-<!--                                Diese Übersicht zeigt die Urlaubstage aller Mitarbeiter bis zum Ende des letzten Monats.-->
-<!--                                <span v-if="currentMonth < 6">Ab dem 01.06. wird auch der Monat Mai in der Tabelle erscheinen.</span>-->
-<!--                                <span v-else>Die Tabelle enthält Daten bis einschließlich Mai.</span>-->
-<!--                            </p>-->
+                            <p class="text-gray-600 dark:text-gray-400">
+                                Diese Übersicht zeigt die Urlaubstage aller Mitarbeiter bis zum Ende des letzten Monats.
+                                <span v-if="currentMonth < 6">Ab dem 01.06. wird auch der Monat Mai in der Tabelle erscheinen.</span>
+                                <span v-else>Die Tabelle enthält Daten bis einschließlich Mai.</span>
+                            </p>
                             <p class="text-gray-600 dark:text-gray-400 mt-2">
                                 <strong>Aktueller Monat:</strong> {{ getMonthName(currentMonth) }}
                             </p>
@@ -152,7 +152,7 @@
         <Dialog
             v-model:visible="detailsDialogVisible"
             :header="`Urlaubsdetails: ${selectedEmployee ? selectedEmployee.name : ''}`"
-            :style="{ width: '800px' }"
+            :style="{ width: '900px' }"
             :modal="true"
             :closable="true"
             class="modern-dialog"
@@ -195,22 +195,22 @@
                         <div class="overflow-x-auto">
                             <table class="min-w-full bg-white dark:bg-gray-700 rounded-lg">
                                 <thead>
-                                    <tr>
-                                        <th class="py-2 px-4 border-b text-left">Monat</th>
-                                        <th class="py-2 px-4 border-b text-right">Resttage</th>
-                                    </tr>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left">Monat</th>
+                                    <th class="py-2 px-4 border-b text-right">Resttage</th>
+                                </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="month in displayMonths" :key="month">
-                                        <td class="py-2 px-4 border-b">{{ getMonthName(month) }}</td>
-                                        <td class="py-2 px-4 border-b text-right" :class="{
+                                <tr v-for="month in displayMonths" :key="month">
+                                    <td class="py-2 px-4 border-b">{{ getMonthName(month) }}</td>
+                                    <td class="py-2 px-4 border-b text-right" :class="{
                                             'text-green-600 dark:text-green-400': selectedEmployee.monthly_remaining[`month_${month}`] > 10,
                                             'text-yellow-600 dark:text-yellow-400': selectedEmployee.monthly_remaining[`month_${month}`] > 0 && selectedEmployee.monthly_remaining[`month_${month}`] <= 10,
                                             'text-red-600 dark:text-red-400': selectedEmployee.monthly_remaining[`month_${month}`] <= 0
                                         }">
-                                            {{ selectedEmployee.monthly_remaining[`month_${month}`] }} Tage
-                                        </td>
-                                    </tr>
+                                        {{ selectedEmployee.monthly_remaining[`month_${month}`] }} Tage
+                                    </td>
+                                </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -220,9 +220,53 @@
                 <!-- Urlaubsanträge des Mitarbeiters -->
                 <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                     <h4 class="text-lg font-semibold mb-3">Urlaubsanträge</h4>
-                    <p class="text-gray-500 dark:text-gray-400 mb-4">
-                        Hier würden die Urlaubsanträge des Mitarbeiters angezeigt werden. Diese Funktion kann in einer zukünftigen Version implementiert werden.
-                    </p>
+
+                    <div v-if="selectedEmployee.vacation_requests && selectedEmployee.vacation_requests.length > 0">
+                        <DataTable
+                            :value="selectedEmployee.vacation_requests"
+                            :paginator="selectedEmployee.vacation_requests.length > 5"
+                            :rows="5"
+                            class="p-datatable-sm"
+                            stripedRows
+                            responsiveLayout="scroll"
+                        >
+                            <!-- Zeitraum -->
+                            <Column header="Zeitraum" style="min-width: 200px">
+                                <template #body="{ data }">
+                                    <div class="flex flex-col">
+                                        <span class="font-medium">{{ formatDate(data.start_date) }} - {{ formatDate(data.end_date) }}</span>
+                                        <span class="text-sm text-gray-500">{{ data.days }} Tage</span>
+                                    </div>
+                                </template>
+                            </Column>
+
+                            <!-- Status -->
+                            <Column header="Status" style="min-width: 120px">
+                                <template #body="{ data }">
+                                    <Tag :value="data.status_text" :severity="getStatusSeverity(data.status)" />
+                                </template>
+                            </Column>
+
+                            <!-- Genehmiger -->
+                            <Column header="Genehmiger" style="min-width: 150px">
+                                <template #body="{ data }">
+                                    <div>{{ data.approver || '-' }}</div>
+                                </template>
+                            </Column>
+
+                            <!-- Datum -->
+                            <Column header="Erstellt am" style="min-width: 150px">
+                                <template #body="{ data }">
+                                    <div>{{ formatDateTime(data.created_at) }}</div>
+                                </template>
+                            </Column>
+                        </DataTable>
+                    </div>
+
+                    <div v-else class="text-center py-6">
+                        <i class="pi pi-calendar-times text-4xl text-gray-300 dark:text-gray-600 mb-3"></i>
+                        <p class="text-gray-500 dark:text-gray-400">Keine Urlaubsanträge für dieses Jahr vorhanden.</p>
+                    </div>
                 </div>
             </div>
             <template #footer>
@@ -241,9 +285,8 @@
     </AppLayout>
 </template>
 
-<script setup>
-import { ref, onMounted, computed } from 'vue';
-import { FilterMatchMode } from '@primevue/core/api';
+<script>
+import { defineComponent } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
@@ -253,161 +296,187 @@ import InputNumber from 'primevue/inputnumber';
 import Dialog from 'primevue/dialog';
 import Avatar from 'primevue/avatar';
 import Toast from 'primevue/toast';
-import { useToast } from 'primevue/usetoast';
+import Tag from 'primevue/tag';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
 
 dayjs.locale('de');
 
-// Toast-Service
-const toast = useToast();
+export default defineComponent({
+    components: {
+        AppLayout,
+        DataTable,
+        Column,
+        Button,
+        InputText,
+        InputNumber,
+        Dialog,
+        Avatar,
+        Toast,
+        Tag
+    },
 
-// Zustand
-const loading = ref(false);
-const vacationData = ref([]);
-const currentMonth = ref(new Date().getMonth() + 1); // 1-basiert (1 = Januar, 2 = Februar, ...)
-const displayMonths = ref(4); // Standardmäßig bis April anzeigen
+    data() {
+        return {
+            loading: false,
+            vacationData: [],
+            currentMonth: new Date().getMonth() + 1, // 1-basiert (1 = Januar, 2 = Februar, ...)
+            displayMonths: 4, // Standardmäßig bis April anzeigen
+            detailsDialogVisible: false,
+            selectedEmployee: null,
+            filters: {
+                global: { value: null, matchMode: 'contains' },
+                name: { value: null, matchMode: 'contains' },
+                department: { value: null, matchMode: 'contains' },
+                vacation_days_per_year: { value: null, matchMode: 'equals' }
+            }
+        };
+    },
 
-// Dialog für Mitarbeiterdetails
-const detailsDialogVisible = ref(false);
-const selectedEmployee = ref(null);
+    mounted() {
+        this.fetchData();
+    },
 
-// Filter für DataTable
-const filters = ref({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    name: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    department: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    vacation_days_per_year: { value: null, matchMode: FilterMatchMode.EQUALS }
-});
+    methods: {
+        getMonthName(month) {
+            const date = new Date();
+            date.setMonth(month - 1); // 0-basiert für Date-Objekt
+            return date.toLocaleString('de-DE', { month: 'long' });
+        },
 
-// Hilfsfunktionen
-const getMonthName = (month) => {
-    const date = new Date();
-    date.setMonth(month - 1); // 0-basiert für Date-Objekt
-    return date.toLocaleString('de-DE', { month: 'long' });
-};
+        getInitials(name) {
+            return name
+                .split(' ')
+                .map(part => part.charAt(0))
+                .join('')
+                .toUpperCase();
+        },
 
-const getInitials = (name) => {
-    return name
-        .split(' ')
-        .map(part => part.charAt(0))
-        .join('')
-        .toUpperCase();
-};
+        getInitialsColor(name) {
+            // Generate a deterministic color based on the name
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
 
-const getInitialsColor = (name) => {
-    // Generate a deterministic color based on the name
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
+            const hue = hash % 360;
+            return `hsl(${hue}, 70%, 60%)`;
+        },
 
-    const hue = hash % 360;
-    return `hsl(${hue}, 70%, 60%)`;
-};
+        formatDate(dateString) {
+            return dayjs(dateString).format('DD.MM.YYYY');
+        },
 
-// Daten laden
-const fetchData = async () => {
-    loading.value = true;
-    try {
-        const response = await axios.get('/api/vacation/hr-overview');
-        vacationData.value = response.data.data;
-        currentMonth.value = response.data.current_month;
-        displayMonths.value = response.data.display_months;
-    } catch (error) {
-        console.error('Fehler beim Laden der HR-Urlaubsübersicht:', error);
-        toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Die Urlaubsübersicht konnte nicht geladen werden.',
-            life: 3000
-        });
-    } finally {
-        loading.value = false;
-    }
-};
+        formatDateTime(dateTimeString) {
+            return dayjs(dateTimeString).format('DD.MM.YYYY HH:mm');
+        },
 
-// Daten aktualisieren
-const refreshData = () => {
-    fetchData();
-    toast.add({
-        severity: 'info',
-        summary: 'Aktualisiert',
-        detail: 'Die Daten wurden aktualisiert.',
-        life: 3000
-    });
-};
+        getStatusSeverity(status) {
+            const severityMap = {
+                'pending': 'warning',
+                'approved': 'success',
+                'rejected': 'danger',
+                'canceled': 'info'
+            };
 
-// Mitarbeiterdetails anzeigen
-const viewEmployeeDetails = (employee) => {
-    selectedEmployee.value = employee;
-    detailsDialogVisible.value = true;
-};
+            return severityMap[status] || 'info';
+        },
 
-// Daten exportieren
-const exportData = () => {
-    if (vacationData.value.length === 0) {
-        toast.add({
-            severity: 'warn',
-            summary: 'Keine Daten',
-            detail: 'Es sind keine Daten zum Exportieren vorhanden.',
-            life: 3000
-        });
-        return;
-    }
+        async fetchData() {
+            this.loading = true;
+            try {
+                const response = await axios.get('/api/vacation/hr-overview');
+                this.vacationData = response.data.data;
+                this.currentMonth = response.data.current_month;
+                this.displayMonths = response.data.display_months;
+            } catch (error) {
+                console.error('Fehler beim Laden der HR-Urlaubsübersicht:', error);
+                this.$toast.add({
+                    severity: 'error',
+                    summary: 'Fehler',
+                    detail: 'Die Urlaubsübersicht konnte nicht geladen werden.',
+                    life: 3000
+                });
+            } finally {
+                this.loading = false;
+            }
+        },
 
-    // Erstelle CSV-Inhalt
-    let csvContent = "data:text/csv;charset=utf-8,";
+        refreshData() {
+            this.fetchData();
+            this.$toast.add({
+                severity: 'info',
+                summary: 'Aktualisiert',
+                detail: 'Die Daten wurden aktualisiert.',
+                life: 3000
+            });
+        },
 
-    // Header
-    const headers = ["Mitarbeiter", "Abteilung", "Jährliches Kontingent", "Resttage (letztes Jahr)", "Resttage (Gesamt)"];
+        viewEmployeeDetails(employee) {
+            this.selectedEmployee = employee;
+            this.detailsDialogVisible = true;
+        },
 
-    // Füge monatliche Header hinzu
-    for (let month = 1; month <= displayMonths.value; month++) {
-        headers.push(`Resttage ${getMonthName(month)}`);
-    }
+        exportData() {
+            if (this.vacationData.length === 0) {
+                this.$toast.add({
+                    severity: 'warn',
+                    summary: 'Keine Daten',
+                    detail: 'Es sind keine Daten zum Exportieren vorhanden.',
+                    life: 3000
+                });
+                return;
+            }
 
-    csvContent += headers.join(";") + "\r\n";
+            // Erstelle CSV-Inhalt
+            let csvContent = "data:text/csv;charset=utf-8,";
 
-    // Daten
-    vacationData.value.forEach(employee => {
-        const row = [
-            employee.name,
-            employee.department,
-            employee.vacation_days_per_year,
-            employee.carry_over_previous_year,
-            employee.remaining_days_total
-        ];
+            // Header
+            const headers = ["Mitarbeiter", "Abteilung", "Jährliches Kontingent", "Resttage (letztes Jahr)", "Resttage (Gesamt)"];
 
-        // Füge monatliche Daten hinzu
-        for (let month = 1; month <= displayMonths.value; month++) {
-            row.push(employee.monthly_remaining[`month_${month}`]);
+            // Füge monatliche Header hinzu
+            for (let month = 1; month <= this.displayMonths; month++) {
+                headers.push(`Resttage ${this.getMonthName(month)}`);
+            }
+
+            csvContent += headers.join(";") + "\r\n";
+
+            // Daten
+            this.vacationData.forEach(employee => {
+                const row = [
+                    employee.name,
+                    employee.department,
+                    employee.vacation_days_per_year,
+                    employee.carry_over_previous_year,
+                    employee.remaining_days_total
+                ];
+
+                // Füge monatliche Daten hinzu
+                for (let month = 1; month <= this.displayMonths; month++) {
+                    row.push(employee.monthly_remaining[`month_${month}`]);
+                }
+
+                csvContent += row.join(";") + "\r\n";
+            });
+
+            // Erstelle einen Download-Link und klicke darauf
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `urlaubsuebersicht_hr_${dayjs().format('YYYY-MM-DD')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            this.$toast.add({
+                severity: 'success',
+                summary: 'Export erfolgreich',
+                detail: 'Die Daten wurden erfolgreich exportiert.',
+                life: 3000
+            });
         }
-
-        csvContent += row.join(";") + "\r\n";
-    });
-
-    // Erstelle einen Download-Link und klicke darauf
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `urlaubsuebersicht_hr_${dayjs().format('YYYY-MM-DD')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast.add({
-        severity: 'success',
-        summary: 'Export erfolgreich',
-        detail: 'Die Daten wurden erfolgreich exportiert.',
-        life: 3000
-    });
-};
-
-// Komponente initialisieren
-onMounted(() => {
-    fetchData();
+    }
 });
 </script>
 

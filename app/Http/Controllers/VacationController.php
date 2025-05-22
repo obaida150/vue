@@ -606,6 +606,34 @@ class VacationController extends Controller
                     $displayMonths = 5; // Bis Mai anzeigen
                 }
 
+                // Lade alle Urlaubsanträge des Benutzers für das aktuelle Jahr
+                $allVacationRequests = VacationRequest::where('user_id', $user->id)
+                    ->whereYear('start_date', $currentYear)
+                    ->orWhere(function($query) use ($user, $currentYear) {
+                        $query->where('user_id', $user->id)
+                            ->whereYear('end_date', $currentYear);
+                    })
+                    ->with('approver') // Lade den Genehmiger mit
+                    ->orderBy('start_date', 'desc')
+                    ->get()
+                    ->map(function($request) {
+                        // Formatiere die Daten für die Frontend-Anzeige
+                        return [
+                            'id' => $request->id,
+                            'start_date' => $request->start_date->format('Y-m-d'),
+                            'end_date' => $request->end_date->format('Y-m-d'),
+                            'days' => $request->days,
+                            'status' => $request->status,
+                            'status_text' => $this->getStatusText($request->status),
+                            'status_color' => $this->getStatusColor($request->status),
+                            'reason' => $request->reason,
+                            'comment' => $request->comment,
+                            'approver' => $request->approver ? $request->approver->name : null,
+                            'created_at' => $request->created_at->format('Y-m-d H:i'),
+                            'updated_at' => $request->updated_at->format('Y-m-d H:i')
+                        ];
+                    });
+
                 $userData = [
                     'id' => $user->id,
                     'name' => $user->full_name,
@@ -615,7 +643,8 @@ class VacationController extends Controller
                     'total_entitlement' => $totalEntitlement,
                     'used_days_total' => $currentYearBalance->used_days,
                     'remaining_days_total' => $totalEntitlement - $currentYearBalance->used_days,
-                    'monthly_remaining' => []
+                    'monthly_remaining' => [],
+                    'vacation_requests' => $allVacationRequests // Neue Eigenschaft für Urlaubsanträge
                 ];
 
                 // Füge die monatlichen Resttage hinzu
@@ -637,6 +666,36 @@ class VacationController extends Controller
             ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Hilfsmethode, um den Statustext zu erhalten
+     */
+    private function getStatusText($status)
+    {
+        $statusMap = [
+            'pending' => 'Ausstehend',
+            'approved' => 'Genehmigt',
+            'rejected' => 'Abgelehnt',
+            'canceled' => 'Storniert'
+        ];
+
+        return $statusMap[$status] ?? $status;
+    }
+
+    /**
+     * Hilfsmethode, um die Statusfarbe zu erhalten
+     */
+    private function getStatusColor($status)
+    {
+        $colorMap = [
+            'pending' => 'blue',
+            'approved' => 'green',
+            'rejected' => 'red',
+            'canceled' => 'gray'
+        ];
+
+        return $colorMap[$status] ?? 'gray';
     }
 
     /**
