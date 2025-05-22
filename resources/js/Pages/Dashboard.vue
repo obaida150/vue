@@ -200,10 +200,11 @@ async function loadTeamVacationOverview() {
         // Definiere eine Map für Abteilungsnamen
         const teamNames = {
             1: 'IT',
-            2: 'Marketing',
+            2: 'Schaden',
             3: 'Vertrieb',
             4: 'Personal',
-            5: 'Finanzen'
+            5: 'Betrieb',
+            6: 'Geschäftsleitung'
         };
 
         // Verarbeite die Daten für jeden Mitarbeiter
@@ -318,10 +319,11 @@ function createLocalDepartmentsFromEmployees() {
     const departments = new Map();
     const teamNames = {
         1: 'IT',
-        2: 'Marketing',
+        2: 'Schaden',
         3: 'Vertrieb',
         4: 'Personal',
-        5: 'Finanzen'
+        5: 'Betrieb',
+        6: 'Geschäftsleitung'
     };
 
     // Füge zuerst alle bekannten Abteilungen aus der teamNames-Map hinzu
@@ -380,10 +382,11 @@ function createLocalDepartmentsFromEmployees() {
     if (departments.size === 0) {
         availableDepartments.value = [
             { id: 1, name: 'IT' },
-            { id: 2, name: 'Marketing' },
+            { id: 2, name: 'Schaden' },
             { id: 3, name: 'Vertrieb' },
             { id: 4, name: 'Personal' },
-            { id: 5, name: 'Finanzen' }
+            { id: 5, name: 'Betrieb' },
+            { id: 6, name: 'Geschäftsleitung' }
         ];
     } else {
         availableDepartments.value = Array.from(departments.values());

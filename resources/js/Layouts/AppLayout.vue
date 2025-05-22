@@ -37,6 +37,9 @@
                                 <NavLink :href="route('vacation.hr-overview')" :active="route().current('vacation.hr-overview')">
                                     HR Urlaubsübersicht
                                 </NavLink>
+                                <NavLink href="/vacation/info-list" :active="$page.component === 'VacationInfoList'">
+                                    Urlaub-Info-Liste
+                                </NavLink>
                                 <!-- Temporär deaktivieren oder durch einen direkten Link ersetzen -->
                                 <NavLink href="/users" :active="$page.component === 'Users/Index'">
                                     Benutzerverwaltung
@@ -197,6 +200,9 @@
                         </ResponsiveNavLink>
                         <ResponsiveNavLink  :href="route('vacation.hr-overview')" :active="route().current('vacation.hr-overview')">
                             HR Urlaubsübersicht
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink href="/vacation/info-list" :active="$page.component === 'VacationInfoList'">
+                            Urlaub-Info-Liste
                         </ResponsiveNavLink>
                         <!-- Temporär deaktivieren oder durch einen direkten Link ersetzen -->
                         <ResponsiveNavLink href="/users" :active="$page.component === 'Users/Index'">

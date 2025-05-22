@@ -698,6 +698,138 @@ class VacationController extends Controller
         return $colorMap[$status] ?? 'gray';
     }
 
+
+    public function getVacationInfoList()
+    {
+        try {
+            // Prüfen, ob der Benutzer HR oder Admin ist
+            $user = Auth::user();
+            $role = $user->role ? $user->role->name : null;
+
+            if (!in_array($role, ['HR', 'Admin'])) {
+                return response()->json(['error' => 'Nicht autorisiert'], 403);
+            }
+
+            $currentYear = Carbon::now()->year;
+            $previousYear = $currentYear - 1;
+            $currentMonth = Carbon::now()->month;
+            $previousMonth = $currentMonth > 1 ? $currentMonth - 1 : 12;
+            $previousMonthYear = $previousMonth == 12 ? $previousYear : $currentYear;
+
+            // Alle aktiven Benutzer laden
+            $users = User::where('is_active', true)
+                ->with(['vacationBalances' => function($query) use ($currentYear, $previousYear) {
+                    $query->whereIn('year', [$previousYear, $currentYear]);
+                }])
+                ->get();
+
+            $infoListData = [];
+
+            foreach ($users as $user) {
+                // Urlaubskontingent für das aktuelle Jahr
+                $currentYearBalance = $user->vacationBalances->where('year', $currentYear)->first();
+                $previousYearBalance = $user->vacationBalances->where('year', $previousYear)->first();
+
+                // Wenn keine Bilanz für das aktuelle Jahr existiert, erstellen wir einen Standardwert
+                if (!$currentYearBalance) {
+                    $currentYearBalance = new VacationBalance([
+                        'total_days' => $user->vacation_days_per_year,
+                        'used_days' => 0
+                    ]);
+                }
+
+                // Wenn keine Bilanz für das Vorjahr existiert, erstellen wir einen Standardwert
+                if (!$previousYearBalance) {
+                    $previousYearBalance = new VacationBalance([
+                        'total_days' => $user->vacation_days_per_year,
+                        'used_days' => $user->vacation_days_per_year // Alle Tage verbraucht, keine Resttage
+                    ]);
+                }
+
+                // Berechne Resttage aus dem Vorjahr (maximal 10)
+                $carryOverFromPreviousYear = max(0, min(10, $previousYearBalance->total_days - $previousYearBalance->used_days));
+
+                // Gesamtanspruch für das aktuelle Jahr
+                $totalEntitlement = $currentYearBalance->total_days + $carryOverFromPreviousYear;
+
+                // Genehmigte Urlaubsanträge für das aktuelle Jahr
+                $approvedVacationDays = VacationRequest::where('user_id', $user->id)
+                    ->where('status', 'approved')
+                    ->whereYear('start_date', $currentYear)
+                    ->sum('days');
+
+                // Genehmigte Urlaubsanträge für den aktuellen Monat
+                $approvedVacationDaysCurrentMonth = VacationRequest::where('user_id', $user->id)
+                    ->where('status', 'approved')
+                    ->whereYear('start_date', $currentYear)
+                    ->whereMonth('start_date', $currentMonth)
+                    ->sum('days');
+
+                // Berechne Resttage für das aktuelle Jahr
+                $remainingDaysCurrentYear = $totalEntitlement - $approvedVacationDays;
+
+                // Berechne Resttage für den Vormonat
+                $approvedVacationDaysPreviousMonth = VacationRequest::where('user_id', $user->id)
+                    ->where('status', 'approved')
+                    ->whereYear('start_date', '<=', $previousMonthYear)
+                    ->whereMonth('start_date', '<=', $previousMonth)
+                    ->sum('days');
+
+                $remainingDaysPreviousMonth = $totalEntitlement - $approvedVacationDaysPreviousMonth;
+
+                $userData = [
+                    'id' => $user->id,
+                    'name' => $user->full_name,
+                    'personnel_number' => $user->employee_number ?? '-', // Personalnummer aus employee_number
+                    'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
+                    'vacation_days_per_year' => $user->vacation_days_per_year,
+                    'carry_over_previous_year' => $carryOverFromPreviousYear,
+                    'total_entitlement' => $totalEntitlement,
+                    'approved_days_current_year' => $approvedVacationDays,
+                    'remaining_days_current_year' => $remainingDaysCurrentYear,
+                    'current_month_days' => $approvedVacationDaysCurrentMonth, // Anzahl der genehmigten Urlaubstage im aktuellen Monat
+                    'current_month_name' => $this->getMonthName($currentMonth), // Nur für Anzeigezwecke
+                    'remaining_days_previous_month' => $remainingDaysPreviousMonth
+                ];
+
+                $infoListData[] = $userData;
+            }
+
+            return response()->json([
+                'data' => $infoListData,
+                'current_month' => $currentMonth,
+                'previous_month' => $previousMonth
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in getVacationInfoList: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Hilfsmethode, um den Monatsnamen zu erhalten
+     */
+    private function getMonthName($month)
+    {
+        $months = [
+            1 => 'Januar',
+            2 => 'Februar',
+            3 => 'März',
+            4 => 'April',
+            5 => 'Mai',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'August',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Dezember'
+        ];
+
+        return $months[$month] ?? '';
+    }
     /**
      * Submit a vacation request
      */
