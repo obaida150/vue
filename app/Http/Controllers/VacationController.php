@@ -500,6 +500,145 @@ class VacationController extends Controller
         }
     }
 
+    public function getHROverview()
+    {
+        try {
+            // Prüfen, ob der Benutzer HR oder Admin ist
+            $user = Auth::user();
+            $role = $user->role ? $user->role->name : null;
+
+            if (!in_array($role, ['HR', 'Admin'])) {
+                return response()->json(['error' => 'Nicht autorisiert'], 403);
+            }
+
+            $currentYear = Carbon::now()->year;
+            $previousYear = $currentYear - 1;
+            $currentMonth = Carbon::now()->month;
+
+            // Alle aktiven Benutzer laden
+            $users = User::where('is_active', true)
+                ->with(['vacationBalances' => function($query) use ($currentYear, $previousYear) {
+                    $query->whereIn('year', [$previousYear, $currentYear]);
+                }])
+                ->get();
+
+            $overviewData = [];
+
+            foreach ($users as $user) {
+                // Urlaubskontingent für das aktuelle Jahr
+                $currentYearBalance = $user->vacationBalances->where('year', $currentYear)->first();
+                $previousYearBalance = $user->vacationBalances->where('year', $previousYear)->first();
+
+                // Wenn keine Bilanz für das aktuelle Jahr existiert, erstellen wir einen Standardwert
+                if (!$currentYearBalance) {
+                    $currentYearBalance = new VacationBalance([
+                        'total_days' => $user->vacation_days_per_year,
+                        'used_days' => 0
+                    ]);
+                }
+
+                // Wenn keine Bilanz für das Vorjahr existiert, erstellen wir einen Standardwert
+                if (!$previousYearBalance) {
+                    $previousYearBalance = new VacationBalance([
+                        'total_days' => $user->vacation_days_per_year,
+                        'used_days' => $user->vacation_days_per_year // Alle Tage verbraucht, keine Resttage
+                    ]);
+                }
+
+                // Berechne Resttage aus dem Vorjahr (maximal 10)
+                $carryOverFromPreviousYear = max(0, min(10, $previousYearBalance->total_days - $previousYearBalance->used_days));
+
+                // Gesamtanspruch für das aktuelle Jahr
+                $totalEntitlement = $currentYearBalance->total_days + $carryOverFromPreviousYear;
+
+                // Monatliche Urlaubsanträge für das aktuelle Jahr laden
+                $monthlyUsage = [];
+                $remainingDays = $totalEntitlement;
+
+                // Genehmigte Urlaubsanträge für das aktuelle Jahr nach Monaten gruppieren
+                $vacationRequests = VacationRequest::where('user_id', $user->id)
+                    ->where('status', 'approved')
+                    ->whereYear('start_date', $currentYear)
+                    ->orderBy('start_date')
+                    ->get();
+
+                // Initialisiere die monatlichen Nutzungsdaten
+                for ($month = 1; $month <= 12; $month++) {
+                    $monthlyUsage[$month] = 0;
+                }
+
+                // Berechne die monatliche Nutzung
+                foreach ($vacationRequests as $request) {
+                    $startMonth = $request->start_date->month;
+                    $endMonth = $request->end_date->month;
+
+                    if ($startMonth === $endMonth) {
+                        // Wenn der Urlaub im selben Monat ist
+                        $monthlyUsage[$startMonth] += $request->days;
+                    } else {
+                        // Wenn der Urlaub über mehrere Monate geht, verteile die Tage
+                        $currentDate = $request->start_date->copy();
+                        while ($currentDate->lte($request->end_date)) {
+                            // Zähle nur Werktage (Mo-Fr)
+                            $dayOfWeek = $currentDate->dayOfWeek;
+                            if ($dayOfWeek !== 0 && $dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
+                                $monthlyUsage[$currentDate->month]++;
+                            }
+                            $currentDate->addDay();
+                        }
+                    }
+                }
+
+                // Berechne die monatlichen Resttage
+                $monthlyRemainingDays = [];
+                $runningTotal = $totalEntitlement;
+
+                for ($month = 1; $month <= 12; $month++) {
+                    $runningTotal -= $monthlyUsage[$month];
+                    $monthlyRemainingDays[$month] = $runningTotal;
+                }
+
+                // Nur Monate bis zum aktuellen Monat - 1 anzeigen (oder bis April, wenn wir im Mai sind)
+                $displayMonths = min($currentMonth - 1, 4); // Maximal bis April anzeigen
+
+                // Ab 1. Juni auch Mai anzeigen
+                if ($currentMonth >= 6) {
+                    $displayMonths = 5; // Bis Mai anzeigen
+                }
+
+                $userData = [
+                    'id' => $user->id,
+                    'name' => $user->full_name,
+                    'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
+                    'vacation_days_per_year' => $user->vacation_days_per_year,
+                    'carry_over_previous_year' => $carryOverFromPreviousYear,
+                    'total_entitlement' => $totalEntitlement,
+                    'used_days_total' => $currentYearBalance->used_days,
+                    'remaining_days_total' => $totalEntitlement - $currentYearBalance->used_days,
+                    'monthly_remaining' => []
+                ];
+
+                // Füge die monatlichen Resttage hinzu
+                for ($month = 1; $month <= $displayMonths; $month++) {
+                    $userData['monthly_remaining']["month_$month"] = $monthlyRemainingDays[$month];
+                }
+
+                $overviewData[] = $userData;
+            }
+
+            return response()->json([
+                'data' => $overviewData,
+                'current_month' => $currentMonth,
+                'display_months' => min($currentMonth - 1, 4) + (($currentMonth >= 6) ? 1 : 0) // Anzahl der anzuzeigenden Monate
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in getHROverview: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     /**
      * Submit a vacation request
      */

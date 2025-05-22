@@ -403,7 +403,6 @@ const fetchUsers = async () => {
     try {
         const response = await UserService.getUsers();
         users.value = response.data;
-        console.log('Geladene Benutzer:', users.value); // Debugging-Ausgabe
     } catch (error) {
         console.error('Fehler beim Laden der Benutzer:', error);
         toast.add({
@@ -424,7 +423,6 @@ const fetchDepartments = async () => {
     try {
         const response = await UserService.getDepartments();
         departments.value = response.data;
-        console.log('Geladene Abteilungen:', departments.value); // Debugging-Ausgabe
     } catch (error) {
         console.error('Fehler beim Laden der Abteilungen:', error);
         toast.add({
@@ -443,7 +441,6 @@ const fetchRoles = async () => {
     try {
         const response = await UserService.getRoles();
         roles.value = response.data;
-        console.log('Geladene Rollen:', roles.value); // Debugging-Ausgabe
     } catch (error) {
         console.error('Fehler beim Laden der Rollen:', error);
         toast.add({
@@ -528,16 +525,9 @@ const editUser = (data) => {
     const entryDate = data.entry_date ? new Date(data.entry_date) : null;
     const birthDate = data.birth_date ? new Date(data.birth_date) : null;
 
-    console.log('Benutzer-Daten aus der Tabelle:', data);
-    console.log('Verfügbare Abteilungen:', departments.value);
-    console.log('Verfügbare Rollen:', roles.value);
-
     // Finde die entsprechende Abteilung und Rolle anhand der IDs
     const department = data.department ? departments.value.find(d => d.id === data.department.id) : null;
     const role = data.role ? roles.value.find(r => r.id === data.role.id) : null;
-
-    console.log('Gefundene Abteilung:', department);
-    console.log('Gefundene Rolle:', role);
 
     user.value = {
         ...data,
@@ -550,8 +540,6 @@ const editUser = (data) => {
         vacation_days_per_year: data.vacation_days || 30,
         initials: data.initials || ''
     };
-
-    console.log('Benutzer zum Bearbeiten:', user.value);
 
     editMode.value = true;
     userDialogVisible.value = true;
@@ -576,8 +564,6 @@ watch([roles, departments], ([newRoles, newDepartments], [oldRoles, oldDepartmen
                 if (role) {
                     user.value.role = role;
                 }
-
-                console.log('Aktualisierter Benutzer nach Rollen/Abteilungen-Änderung:', user.value);
             }
         }
     }
@@ -614,8 +600,6 @@ const saveUser = async () => {
             birth_date: user.value.birth_date ? dayjs(user.value.birth_date).format('YYYY-MM-DD') : null
         };
 
-        console.log('Daten zum Speichern:', userData);
-
         // Füge das Passwort nur hinzu, wenn es sich um einen neuen Benutzer handelt oder wenn es geändert wurde
         if (!editMode.value && user.value.password) {
             userData.password = user.value.password;
@@ -623,7 +607,6 @@ const saveUser = async () => {
 
         if (editMode.value) {
             const response = await UserService.updateUser(user.value.id, userData);
-            console.log('Server-Antwort:', response);
             toast.add({
                 severity: 'success',
                 summary: 'Erfolg',
@@ -632,7 +615,6 @@ const saveUser = async () => {
             });
         } else {
             const response = await UserService.createUser(userData);
-            console.log('Server-Antwort:', response);
             toast.add({
                 severity: 'success',
                 summary: 'Erfolg',
@@ -650,7 +632,6 @@ const saveUser = async () => {
         let errorMessage = 'Der Benutzer konnte nicht gespeichert werden.';
 
         if (error.response) {
-            console.log('Fehlerantwort vom Server:', error.response);
 
             if (error.response.data && error.response.data.message) {
                 errorMessage = error.response.data.message;

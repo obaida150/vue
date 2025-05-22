@@ -163,7 +163,7 @@ Route::middleware([
     Route::post('/vacation/cancel/{id}', [VacationController::class, 'cancelRequest'])->name('api.vacation.cancel');
     Route::post('/vacation/approve/{id}', [VacationController::class, 'approveRequest'])->name('api.vacation.approve');
     Route::post('/vacation/reject/{id}', [VacationController::class, 'rejectRequest'])->name('api.vacation.reject');
-
+    Route::get('/vacation/hr-overview', [VacationController::class, 'getHROverview'])->name('api.vacation.hr-overview');
 // Kalender API
     Route::get('/calendar/company', [CalendarController::class, 'getCompanyData'])->name('api.calendar.company');
 
@@ -255,4 +255,7 @@ Route::middleware([
     Route::get('/users', function () {
         return Inertia::render('Users/Index');
     })->name('users.index');
+    Route::get('/vacation/hr-overview', function () {
+        return Inertia::render('Vacation/HROverview');
+    })->name('vacation.hr-overview');
 });
