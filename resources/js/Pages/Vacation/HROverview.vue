@@ -20,11 +20,6 @@
                         <i class="pi pi-info-circle text-blue-500 text-2xl mr-4 mt-1"></i>
                         <div>
                             <h3 class="text-lg font-semibold mb-2">Urlaubsübersicht für die Lohnabrechnung</h3>
-                            <p class="text-gray-600 dark:text-gray-400">
-                                Diese Übersicht zeigt die Urlaubstage aller Mitarbeiter bis zum Ende des letzten Monats.
-                                <span v-if="currentMonth < 6">Ab dem 01.06. wird auch der Monat Mai in der Tabelle erscheinen.</span>
-                                <span v-else>Die Tabelle enthält Daten bis einschließlich Mai.</span>
-                            </p>
                             <p class="text-gray-600 dark:text-gray-400 mt-2">
                                 <strong>Aktueller Monat:</strong> {{ getMonthName(currentMonth) }}
                             </p>
@@ -80,6 +75,25 @@
                                 </template>
                                 <template #filter="{ filterModel, filterCallback }">
                                     <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
+                                </template>
+                            </Column>
+
+                            <!-- Abteilungs-Spalte -->
+                            <Column field="department" header="Abteilung" :sortable="true" :filter="true" filterMatchMode="equals">
+                                <template #body="{ data }">
+                                    <div class="text-center">
+                                        <Tag :value="data.department" severity="info" />
+                                    </div>
+                                </template>
+                                <template #filter="{ filterModel, filterCallback }">
+                                    <Dropdown
+                                        v-model="filterModel.value"
+                                        :options="departments"
+                                        @change="filterCallback()"
+                                        placeholder="Alle Abteilungen"
+                                        class="p-column-filter w-full"
+                                        showClear
+                                    />
                                 </template>
                             </Column>
 
@@ -297,6 +311,7 @@ import Dialog from 'primevue/dialog';
 import Avatar from 'primevue/avatar';
 import Toast from 'primevue/toast';
 import Tag from 'primevue/tag';
+import Dropdown from 'primevue/dropdown';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
@@ -314,7 +329,8 @@ export default defineComponent({
         Dialog,
         Avatar,
         Toast,
-        Tag
+        Tag,
+        Dropdown
     },
 
     data() {
@@ -325,10 +341,11 @@ export default defineComponent({
             displayMonths: 4, // Standardmäßig bis April anzeigen
             detailsDialogVisible: false,
             selectedEmployee: null,
+            departments: [], // Liste der verfügbaren Abteilungen
             filters: {
                 global: { value: null, matchMode: 'contains' },
                 name: { value: null, matchMode: 'contains' },
-                department: { value: null, matchMode: 'contains' },
+                department: { value: null, matchMode: 'equals' },
                 vacation_days_per_year: { value: null, matchMode: 'equals' }
             }
         };
@@ -383,6 +400,14 @@ export default defineComponent({
             return severityMap[status] || 'info';
         },
 
+        // Extrahiere eindeutige Abteilungen aus den Daten
+        extractDepartments() {
+            if (!this.vacationData || this.vacationData.length === 0) return [];
+
+            const uniqueDepartments = [...new Set(this.vacationData.map(employee => employee.department))];
+            return uniqueDepartments.sort();
+        },
+
         async fetchData() {
             this.loading = true;
             try {
@@ -390,6 +415,9 @@ export default defineComponent({
                 this.vacationData = response.data.data;
                 this.currentMonth = response.data.current_month;
                 this.displayMonths = response.data.display_months;
+
+                // Extrahiere die Abteilungen für den Filter
+                this.departments = this.extractDepartments();
             } catch (error) {
                 console.error('Fehler beim Laden der HR-Urlaubsübersicht:', error);
                 this.$toast.add({
