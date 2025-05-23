@@ -11,6 +11,7 @@ use App\Http\Controllers\VacationController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VacationWishController;
 use App\Models\VacationRequest;
 use App\Models\User;
 use App\Models\Team;
@@ -152,7 +153,7 @@ Route::middleware([
     'verified',
 ])->prefix('api')->group(function () {
 
-// Urlaubsverwaltung API
+    // Urlaubsverwaltung API
     Route::get('/vacation/user', [VacationController::class, 'getUserData'])->name('api.vacation.user');
     Route::get('/vacation/yearly/{year}', [VacationController::class, 'getYearlyVacationData'])->name('api.vacation.yearly');
     Route::get('/vacation/requests', [VacationController::class, 'getRequests'])->name('api.vacation.requests');
@@ -165,43 +166,57 @@ Route::middleware([
     Route::post('/vacation/reject/{id}', [VacationController::class, 'rejectRequest'])->name('api.vacation.reject');
     Route::get('/vacation/hr-overview', [VacationController::class, 'getHROverview'])->name('api.vacation.hr-overview');
     Route::get('/vacation/info-list', [VacationController::class, 'getVacationInfoList'])->name('api.vacation.info-list');
-// Kalender API
+
+    // Urlaubswünsche API
+    Route::get('/vacation-wishes/my/{year?}', [VacationWishController::class, 'getMyWishes'])->name('api.vacation-wishes.my');
+    Route::get('/vacation-wishes/team/{year?}', [VacationWishController::class, 'getTeamWishes'])->name('api.vacation-wishes.team');
+    Route::post('/vacation-wishes', [VacationWishController::class, 'store'])->name('api.vacation-wishes.store');
+    Route::delete('/vacation-wishes/{id}', [VacationWishController::class, 'destroy'])->name('api.vacation-wishes.destroy');
+
+    // Debug route für alle Urlaubswünsche - nur für Entwicklung
+    Route::get('/vacation-wishes/all', [VacationWishController::class, 'getAllWishes'])->name('api.vacation-wishes.all');
+
+    // Urlaubskontingent API
+    Route::get('/vacation/balance/{year?}', [VacationWishController::class, 'getVacationBalance'])->name('api.vacation.balance');
+
+    // Kalender API
     Route::get('/calendar/company', [CalendarController::class, 'getCompanyData'])->name('api.calendar.company');
 
-// Events API
+    // Events API
     Route::get('/events', [EventController::class, 'index'])->name('api.events.index');
     Route::post('/events', [EventController::class, 'store'])->name('api.events.store');
     Route::get('/events/{id}', [EventController::class, 'show'])->name('api.events.show');
     Route::match(['put', 'post'], '/events/{id}', [EventController::class, 'update'])->name('api.events.update');
     Route::delete('/events/{id}', [EventController::class, 'destroy'])->name('api.events.destroy');
     Route::post('/events/{id}', [EventController::class, 'destroy'])->name('api.events.destroy.post');
-// Neue Route für die Wochenplanung
+    // Neue Route für die Wochenplanung
     Route::post('/events/week-plan', [EventController::class, 'storeWeekPlan'])->name('api.events.week-plan');
-// Neue Routen für die Genehmigung/Ablehnung von Ereignissen
+    // Neue Routen für die Genehmigung/Ablehnung von Ereignissen
     Route::post('/events/approve/{id}', [EventController::class, 'approveEvent'])->name('api.events.approve');
     Route::post('/events/reject/{id}', [EventController::class, 'rejectEvent'])->name('api.events.reject');
     Route::get('/events/pending', [EventController::class, 'getPendingEvents'])->name('api.events.pending');
 
-// Ereignistypen API - KORRIGIERT: Entfernen Sie das doppelte /api/ im Pfad
+    // Ereignistypen API - KORRIGIERT: Entfernen Sie das doppelte /api/ im Pfad
     Route::get('/event-types', [EventTypeController::class, 'index'])->name('api.event-types.index');
 
-// Benutzerrolle API
+    // Benutzerrolle API
     Route::get('/user/role', [CalendarController::class, 'getUserRole'])->name('api.user.role');
+    Route::get('/user/info', [VacationWishController::class, 'getUserInfo'])->name('api.user.info');
 
-// Mitarbeiterliste API
+    // Mitarbeiterliste API
     Route::get('/employees', [CalendarController::class, 'getEmployees'])->name('api.employees');
 
-// Benachrichtigungen API
+    // Benachrichtigungen API
     Route::get('/notifications/birthdays', [NotificationController::class, 'getBirthdayNotifications'])
         ->name('api.notifications.birthdays');
 
-// Benutzer API - NEUE ROUTEN
+    // Benutzer API - NEUE ROUTEN
     Route::get('/users', [UserController::class, 'index'])->name('api.users.index');
     Route::get('/users/{id}', [UserController::class, 'show'])->name('api.users.show');
     Route::post('/users', [UserController::class, 'store'])->name('api.users.store');
     Route::put('/users/{id}', [UserController::class, 'update'])->name('api.users.update');
 
-// Abteilungen API - NEUE ROUTEN
+    // Abteilungen API - NEUE ROUTEN
     Route::get('/departments', function () {
         $teams = Team::where('personal_team', false)->get()->map(function ($team) {
             return [
@@ -212,7 +227,7 @@ Route::middleware([
         return response()->json($teams);
     })->name('api.departments.index');
 
-// Rollen API - NEUE ROUTEN
+    // Rollen API - NEUE ROUTEN
     Route::get('/roles', function () {
         $roles = Role::all()->map(function ($role) {
             return [
@@ -223,6 +238,9 @@ Route::middleware([
         });
         return response()->json($roles);
     })->name('api.roles.index');
+
+    // Feiertage API
+    Route::get('/holidays/{year?}', [VacationWishController::class, 'getHolidays'])->name('api.holidays');
 });
 
 
@@ -243,7 +261,7 @@ Route::middleware([
         return Inertia::render('Calendar/Company');
     })->name('company-calendar');
 
-// Urlaubsverwaltung Routen
+    // Urlaubsverwaltung Routen
     Route::get('/vacation', function () {
         return Inertia::render('Vacation/Overview');
     })->name('vacation');
@@ -252,7 +270,7 @@ Route::middleware([
         return Inertia::render('Vacation/Management');
     })->name('vacation.management');
 
-// Benutzerverwaltung Route
+    // Benutzerverwaltung Route
     Route::get('/users', function () {
         return Inertia::render('Users/Index');
     })->name('users.index');
@@ -262,4 +280,9 @@ Route::middleware([
     Route::get('/vacation/info-list', function () {
         return Inertia::render('Vacation/VacationInfoList');
     })->name('vacation.info-list');
+
+    // Urlaubswünsche Route
+    Route::get('/vacation/wishes', function () {
+        return Inertia::render('Calendar/VacationWishes');
+    })->name('vacation.wishes');
 });

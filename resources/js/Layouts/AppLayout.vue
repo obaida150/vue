@@ -19,22 +19,25 @@
 
                             <!-- Navigation Links -->
                             <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
-                                <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
+                                <NavLink href="/dashboard" :active="$page.component === 'Dashboard'">
                                     Dashboard
                                 </NavLink>
-                                <NavLink :href="route('calendar')" :active="route().current('calendar')">
+                                <NavLink href="/calendar" :active="$page.component === 'Calendar'">
                                     Kalender
                                 </NavLink>
-                                <NavLink :href="route('company-calendar')" :active="route().current('company-calendar')">
+                                <NavLink href="/company-calendar" :active="$page.component === 'CompanyCalendar'">
                                     Firmenkalender
                                 </NavLink>
-                                <NavLink :href="route('vacation')" :active="route().current('vacation')">
+                                <NavLink href="/vacation" :active="$page.component === 'Vacation'">
                                     Mein Urlaub
                                 </NavLink>
-                                <NavLink :href="route('vacation.management')" :active="route().current('vacation.management')">
+                                <NavLink href="/vacation/management" :active="$page.component === 'VacationManagement'">
                                     Urlaubsverwaltung
                                 </NavLink>
-                                <NavLink :href="route('vacation.hr-overview')" :active="route().current('vacation.hr-overview')">
+                                <NavLink href="/vacation/wishes" :active="$page.component === 'VacationWishes'">
+                                    Urlaubswünsche
+                                </NavLink>
+                                <NavLink href="/vacation/hr-overview" :active="$page.component === 'VacationHrOverview'">
                                     HR Urlaubsübersicht
                                 </NavLink>
                                 <NavLink href="/vacation/info-list" :active="$page.component === 'VacationInfoList'">
@@ -71,11 +74,11 @@
                                                     Manage Team
                                                 </div>
 
-                                                <DropdownLink :href="$page.props.auth.user.current_team ? route('teams.show', $page.props.auth.user.current_team) : '#'">
+                                                <DropdownLink :href="$page.props.auth.user.current_team ? '/teams/' + $page.props.auth.user.current_team.id : '#'">
                                                     Team Settings
                                                 </DropdownLink>
 
-                                                <DropdownLink v-if="$page.props.jetstream.canCreateTeams" :href="route('teams.create')">
+                                                <DropdownLink v-if="$page.props.jetstream.canCreateTeams" href="/teams/create">
                                                     Create New Team
                                                 </DropdownLink>
 
@@ -130,11 +133,11 @@
                                             Manage Account
                                         </div>
 
-                                        <DropdownLink :href="route('profile.show')">
+                                        <DropdownLink href="/profile">
                                             Profile
                                         </DropdownLink>
 
-                                        <DropdownLink v-if="$page.props.jetstream.hasApiFeatures" :href="route('api-tokens.index')">
+                                        <DropdownLink v-if="$page.props.jetstream.hasApiFeatures" href="/api-tokens">
                                             API Tokens
                                         </DropdownLink>
 
@@ -183,22 +186,25 @@
                 <!-- Responsive Navigation Menu -->
                 <div :class="{'block': showingNavigationDropdown, 'hidden': ! showingNavigationDropdown}" class="sm:hidden">
                     <div class="pt-2 pb-3 space-y-1">
-                        <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">
+                        <ResponsiveNavLink href="/dashboard" :active="$page.component === 'Dashboard'">
                             Dashboard
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink :href="route('calendar')" :active="route().current('calendar')">
+                        <ResponsiveNavLink href="/calendar" :active="$page.component === 'Calendar'">
                             Kalender
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink :href="route('company-calendar')" :active="route().current('company-calendar')">
+                        <ResponsiveNavLink href="/company-calendar" :active="$page.component === 'CompanyCalendar'">
                             Firmenkalender
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink :href="route('vacation')" :active="route().current('vacation')">
+                        <ResponsiveNavLink href="/vacation" :active="$page.component === 'Vacation'">
                             Mein Urlaub
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink :href="route('vacation.management')" :active="route().current('vacation.management')">
+                        <ResponsiveNavLink href="/vacation/management" :active="$page.component === 'VacationManagement'">
                             Urlaubsverwaltung
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink  :href="route('vacation.hr-overview')" :active="route().current('vacation.hr-overview')">
+                        <ResponsiveNavLink href="/vacation/wishes" :active="$page.component === 'VacationWishes'">
+                            Urlaubswünsche
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink href="/vacation/hr-overview" :active="$page.component === 'VacationHrOverview'">
                             HR Urlaubsübersicht
                         </ResponsiveNavLink>
                         <ResponsiveNavLink href="/vacation/info-list" :active="$page.component === 'VacationInfoList'">
@@ -228,11 +234,11 @@
                         </div>
 
                         <div class="mt-3 space-y-1">
-                            <ResponsiveNavLink :href="route('profile.show')" :active="route().current('profile.show')">
+                            <ResponsiveNavLink href="/profile" :active="$page.component === 'Profile'">
                                 Profile
                             </ResponsiveNavLink>
 
-                            <ResponsiveNavLink v-if="$page.props.jetstream.hasApiFeatures" :href="route('api-tokens.index')" :active="route().current('api-tokens.index')">
+                            <ResponsiveNavLink v-if="$page.props.jetstream.hasApiFeatures" href="/api-tokens" :active="$page.component === 'ApiTokens'">
                                 API Tokens
                             </ResponsiveNavLink>
 
@@ -252,11 +258,11 @@
                                     Manage Team
                                 </div>
 
-                                <ResponsiveNavLink :href="$page.props.auth.user.current_team ? route('teams.show', $page.props.auth.user.current_team) : '#'" :active="route().current('teams.show', { team: $page.props.auth.user.current_team })">
+                                <ResponsiveNavLink :href="$page.props.auth.user.current_team ? '/teams/' + $page.props.auth.user.current_team.id : '#'" :active="$page.component === 'Teams/Show'">
                                     Team Settings
                                 </ResponsiveNavLink>
 
-                                <ResponsiveNavLink v-if="$page.props.jetstream.canCreateTeams" :href="route('teams.create')" :active="route().current('teams.create')">
+                                <ResponsiveNavLink v-if="$page.props.jetstream.canCreateTeams" href="/teams/create" :active="$page.component === 'Teams/Create'">
                                     Create New Team
                                 </ResponsiveNavLink>
 
@@ -337,7 +343,7 @@ export default defineComponent({
 
     methods: {
         switchToTeam(team) {
-            this.$inertia.put(route('current-team.update'), {
+            this.$inertia.put('/current-team/update', {
                 team_id: team.id,
             }, {
                 preserveState: false,
@@ -345,7 +351,7 @@ export default defineComponent({
         },
 
         logout() {
-            this.$inertia.post(route('logout'));
+            this.$inertia.post('/logout');
         },
     },
 })

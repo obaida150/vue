@@ -446,6 +446,7 @@ const fetchVacationRequests = async () => {
     try {
         const response = await axios.get('/api/vacation/all-requests');
         vacationRequests.value = response.data;
+        console.log('Loaded vacation requests:', vacationRequests.value);
     } catch (error) {
         console.error('Error loading vacation requests:', error);
         vacationRequests.value = [];
@@ -635,6 +636,18 @@ watch(eventTypes, () => {
         fetchEvents();
     }
 }, { deep: true });
+
+// Debugging-Funktion, um Urlaubsdaten zu überprüfen
+const logVacationData = () => {
+    console.log('Current User ID:', currentUserId.value);
+    console.log('Vacation Requests:', vacationRequests.value);
+    console.log('Processed Vacations:', processedVacations.value);
+
+    // Prüfe einen bestimmten Tag (z.B. 22. Mai 2025)
+    const testDate = dayjs('2025-05-22').toDate();
+    console.log('Has Vacation on 2025-05-22:', enhancedHasVacations(testDate));
+    console.log('Vacations for 2025-05-22:', enhancedGetVacationsForDay(testDate));
+};
 
 // Komponente initialisieren
 onMounted(async () => {
