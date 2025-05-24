@@ -17,15 +17,15 @@
                 :class="[
                     'relative min-h-[100px] p-1 border border-gray-200 dark:border-gray-700 rounded overflow-hidden',
                     {
-                        'bg-gray-50 dark:bg-gray-900': day.currentMonth && !isHoliday(dayjs(day.date)) && !hasVacations(day.date) && !isUserAbsent(day.date),
+                        'bg-gray-50 dark:bg-gray-900': day.currentMonth && !isHoliday(dayjs(day.date)) && !hasVacationsForDay(day.date) && !isUserAbsent(day.date),
                         'bg-gray-100 dark:bg-gray-800': !day.currentMonth,
                         'border-blue-300 dark:border-blue-700': day.isToday,
                         'bg-red-50 dark:bg-red-900/20': isHoliday(dayjs(day.date)),
-                        'vacation-day': hasVacations(day.date),
+                        'vacation-day': hasVacationsForDay(day.date),
                         'bg-amber-50 dark:bg-amber-900/20': isUserAbsent(day.date) && !isTeamManager,
-                        'team-absence-day': isTeamManager && isUserAbsent(day.date) && !hasVacations(day.date) && !showOnlyOwnEvents,
-                        'cursor-pointer': day.currentMonth && !hasVacations(day.date) && !(isUserAbsent(day.date) && !isTeamManager && !isHrUser),
-                        'cursor-not-allowed': hasVacations(day.date) || (isUserAbsent(day.date) && !isTeamManager && !isHrUser)
+                        'team-absence-day': isTeamManager && isUserAbsent(day.date) && !hasVacationsForDay(day.date) && !showOnlyOwnEvents,
+                        'cursor-pointer': day.currentMonth && !hasVacationsForDay(day.date) && !(isUserAbsent(day.date) && !isTeamManager && !isHrUser),
+                        'cursor-not-allowed': hasVacationsForDay(day.date) || (isUserAbsent(day.date) && !isTeamManager && !isHrUser)
                     },
                 ]"
                 @click="handleDayClick(day.date, day.currentMonth)"
@@ -63,7 +63,7 @@
                 </div>
 
                 <!-- Urlaubsanzeige mit Sperrsymbol -->
-                <div v-if="hasVacations(day.date)" class="vacation-blocked">
+                <div v-if="hasVacationsForDay(day.date)" class="vacation-blocked">
                     <div class="text-xs text-purple-600 dark:text-purple-400 mb-1">
                         Urlaub
                     </div>
@@ -76,7 +76,7 @@
                 </div>
 
                 <!-- Abwesenheitsanzeige für Teammitglieder (nur für Abteilungsleiter in Teamansicht) -->
-                <div v-if="isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacations(day.date)" class="team-absence-indicator">
+                <div v-if="isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacationsForDay(day.date)" class="team-absence-indicator">
                     <div class="text-xs text-amber-600 dark:text-amber-400 mb-1">
                         Teammitglied abwesend
                     </div>
@@ -89,7 +89,7 @@
                 </div>
 
                 <!-- HR-Ansicht oder Abteilungsleiter-Ansicht mit Zusammenfassung für Tage mit vielen Ereignissen -->
-                <div v-if="(isHrUser || isTeamManager) && day.currentMonth && !hasVacations(day.date)">
+                <div v-if="(isHrUser || isTeamManager) && day.currentMonth && !hasVacationsForDay(day.date)">
                     <!-- Zusammenfassung anzeigen, wenn zu viele Ereignisse vorhanden sind -->
                     <div v-if="getEventsForDay(day.date).length > eventDisplayLimit" class="event-summary">
                         <button
@@ -137,7 +137,7 @@
                 </div>
 
                 <!-- Standard-Benutzeransicht (nur eigene Ereignisse) -->
-                <div v-else-if="day.currentMonth && !hasVacations(day.date)">
+                <div v-else-if="day.currentMonth && !hasVacationsForDay(day.date)">
                     <div
                         v-for="(event, eventIndex) in getEventsForDay(day.date)"
                         :key="eventIndex"
@@ -316,6 +316,16 @@ const selectedDayDate = ref(null);
 const eventSearchQuery = ref('');
 const selectedEventTypes = ref([]);
 
+// Lokale Funktion für Urlaubsprüfung
+const hasVacationsForDay = (date) => {
+    if (!date || !props.currentUserId) {
+        return false;
+    }
+
+    // Verwende die übergebene hasVacations Funktion
+    return props.hasVacations(date);
+};
+
 // Berechne den Header für den Dialog
 const selectedDayHeader = computed(() => {
     if (!selectedDayDate.value) return 'Ereignisse';
@@ -452,7 +462,7 @@ const handleDayClick = (date, isCurrentMonth) => {
     if (!isCurrentMonth) return;
 
     // Wenn der Benutzer an diesem Tag Urlaub hat, blockiere den Klick
-    if (props.hasVacations(date)) {
+    if (hasVacationsForDay(date)) {
         const toast = document.querySelector('.p-toast') ?
             document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
 

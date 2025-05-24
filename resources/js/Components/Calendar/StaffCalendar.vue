@@ -151,7 +151,7 @@ import 'dayjs/locale/de';
 import weekday from 'dayjs/plugin/weekday';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isBetween from 'dayjs/plugin/isBetween';
-import isSameOrBefore from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isToday from 'dayjs/plugin/isToday';
 import { usePrimeVue } from 'primevue/config';
@@ -417,12 +417,10 @@ const processedVacations = computed(() => {
 
 // Verarbeite die Urlaubsanträge aus der Datenbank
 const processVacationRequests = () => {
-    if (!vacationRequests.value || !Array.isArray(vacationRequests.value)) {
-        return [];
-    }
-
-    return vacationRequests.value
-        .filter(request => request.status === 'approved') // Nur genehmigte Urlaubsanträge
+    const processed = vacationRequests.value
+        .filter(request => {
+            return request.status === 'approved'; // Nur genehmigte Urlaubsanträge
+        })
         .map(request => {
             return {
                 id: `vacation-${request.id}`,
@@ -439,6 +437,8 @@ const processVacationRequests = () => {
                 status: request.status
             };
         });
+
+    return processed;
 };
 
 // Lade Urlaubsanträge direkt vom Server
@@ -446,7 +446,6 @@ const fetchVacationRequests = async () => {
     try {
         const response = await axios.get('/api/vacation/all-requests');
         vacationRequests.value = response.data;
-        console.log('Loaded vacation requests:', vacationRequests.value);
     } catch (error) {
         console.error('Error loading vacation requests:', error);
         vacationRequests.value = [];
@@ -455,13 +454,15 @@ const fetchVacationRequests = async () => {
 
 // Verbesserte Funktion zur Erkennung von Urlaubstagen
 const enhancedHasVacations = (date) => {
-    if (!date || !currentUserId.value) return false;
+    if (!date || !currentUserId.value) {
+        return false;
+    }
 
-    // Konvertiere das Datum in ein einheitliches Format
-    const dateStr = dayjs(date).format("YYYY-MM-DD");
+    // Konvertiere das Datum in ein einheitliches Format (nur Datum, keine Zeit)
+    const checkDate = dayjs(date).startOf('day');
 
     // Durchsuche alle Urlaubseinträge
-    return processedVacations.value.some(vacation => {
+    const matchingVacations = processedVacations.value.filter(vacation => {
         // Prüfe, ob der Urlaub dem aktuellen Benutzer gehört
         const isCurrentUserVacation =
             vacation.user_id === currentUserId.value ||
@@ -469,20 +470,25 @@ const enhancedHasVacations = (date) => {
 
         if (!isCurrentUserVacation) return false;
 
-        // Prüfe, ob das Datum im Urlaubszeitraum liegt
-        const startDate = dayjs(vacation.startDate).format("YYYY-MM-DD");
-        const endDate = dayjs(vacation.endDate).format("YYYY-MM-DD");
+        // Konvertiere Start- und Enddatum ebenfalls zu einheitlichen Formaten
+        const startDate = dayjs(vacation.startDate).startOf('day');
+        const endDate = dayjs(vacation.endDate).startOf('day');
 
-        return dateStr >= startDate && dateStr <= endDate;
+        // Prüfe, ob das Datum im Urlaubszeitraum liegt (inklusive Start- und Enddatum)
+        const isInRange = checkDate.isSameOrAfter(startDate, 'day') && checkDate.isSameOrBefore(endDate, 'day');
+
+        return isInRange;
     });
+
+    return matchingVacations.length > 0;
 };
 
 // Verbesserte Funktion zum Abrufen von Urlaubseinträgen für einen bestimmten Tag
 const enhancedGetVacationsForDay = (date) => {
     if (!date || !currentUserId.value) return [];
 
-    // Konvertiere das Datum in ein einheitliches Format
-    const dateStr = dayjs(date).format("YYYY-MM-DD");
+    // Konvertiere das Datum in ein einheitliches Format (nur Datum, keine Zeit)
+    const checkDate = dayjs(date).startOf('day');
 
     // Filtere alle Urlaubseinträge für diesen Tag
     return processedVacations.value.filter(vacation => {
@@ -493,17 +499,16 @@ const enhancedGetVacationsForDay = (date) => {
 
         if (!isCurrentUserVacation) return false;
 
-        // Prüfe, ob das Datum im Urlaubszeitraum liegt
-        const startDate = dayjs(vacation.startDate).format("YYYY-MM-DD");
-        const endDate = dayjs(vacation.endDate).format("YYYY-MM-DD");
+        // Konvertiere Start- und Enddatum ebenfalls zu einheitlichen Formaten
+        const startDate = dayjs(vacation.startDate).startOf('day');
+        const endDate = dayjs(vacation.endDate).startOf('day');
 
-        return dateStr >= startDate && dateStr <= endDate;
+        // Prüfe, ob das Datum im Urlaubszeitraum liegt (inklusive Start- und Enddatum)
+        const isInRange = checkDate.isSameOrAfter(startDate, 'day') && checkDate.isSameOrBefore(endDate, 'day');
+
+        return isInRange;
     });
 };
-
-// Ändern Sie die isUserAbsent-Funktion, um auch Abwesenheiten von Teammitgliedern für Abteilungsleiter anzuzeigen
-
-// Ersetzen Sie die bestehende isUserAbsent-Funktion mit dieser verbesserten Version:
 
 const isUserAbsent = (date) => {
     if (!date || !processedEvents.value) return false;
@@ -552,7 +557,7 @@ const isUserAbsent = (date) => {
 };
 
 // Fügen Sie eine neue Funktion hinzu, um zu prüfen, ob ein Teammitglied (nicht der Abteilungsleiter selbst) abwesend ist
-const isTeamMemberAbsent = (date) => {
+const checkTeamMemberAbsence = (date) => {
     if (!date || !processedEvents.value || !isTeamManager.value || showOnlyOwnEvents.value) return false;
 
     const dateStr = dayjs(date).format('YYYY-MM-DD');
@@ -570,7 +575,7 @@ const isTeamMemberAbsent = (date) => {
     });
 };
 
-// Wrapper-Funktionen für Composable-Funktionen - WICHTIG: Diese müssen vor ihrer Verwendung definiert werden
+// Wrapper-Funktionen für Composable-Funktionen
 const editEvent = () => {
     editEventFn(findEventType);
 };
@@ -583,7 +588,6 @@ const toggleWeekPlanFilter = () => {
     toggleWeekPlanFilterFn(getEventsForDay);
 };
 
-// Ändern Sie die handleDayClick-Funktion, um die Sperrung für Abteilungsleiter zu verhindern
 const handleDayClick = (date) => {
     if (isHoliday(dayjs(date))) {
         showHolidayInfo(date);
@@ -602,7 +606,7 @@ const handleDayClick = (date) => {
         } else {
             alert('Sie haben an diesem Tag Urlaub. Keine Einträge möglich.');
         }
-    } else if (isUserAbsent(date) && !isTeamMemberAbsent(date) && !isHrUser.value) {
+    } else if (isUserAbsent(date) && !checkTeamMemberAbsence(date) && !isHrUser.value) {
         // Wenn der Benutzer selbst an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter ist,
         // zeige eine Meldung an oder blockiere die Aktion
         const toast = document.querySelector('.p-toast') ?
@@ -626,7 +630,6 @@ const handleDayClick = (date) => {
 // Daten neu laden, wenn sich relevante Zustände ändern
 watch([calendarView, currentDate, showOnlyOwnEvents], () => {
     fetchEvents();
-    fetchVacations();
     fetchVacationRequests();
 }, { deep: true });
 
@@ -636,18 +639,6 @@ watch(eventTypes, () => {
         fetchEvents();
     }
 }, { deep: true });
-
-// Debugging-Funktion, um Urlaubsdaten zu überprüfen
-const logVacationData = () => {
-    console.log('Current User ID:', currentUserId.value);
-    console.log('Vacation Requests:', vacationRequests.value);
-    console.log('Processed Vacations:', processedVacations.value);
-
-    // Prüfe einen bestimmten Tag (z.B. 22. Mai 2025)
-    const testDate = dayjs('2025-05-22').toDate();
-    console.log('Has Vacation on 2025-05-22:', enhancedHasVacations(testDate));
-    console.log('Vacations for 2025-05-22:', enhancedGetVacationsForDay(testDate));
-};
 
 // Komponente initialisieren
 onMounted(async () => {
@@ -685,13 +676,9 @@ onMounted(async () => {
     // Lade Ereignisse und Urlaubsdaten parallel
     await Promise.all([
         fetchEvents(),
-        fetchVacations(),
         fetchVacationRequests(),
         fetchHolidays(new Date().getFullYear())
     ]);
-
-    // Debugging nach dem Laden aller Daten
-    setTimeout(logVacationData, 2000);
 });
 
 // Jahr-Änderungen überwachen, um Feiertage neu zu laden
@@ -701,7 +688,6 @@ watch(
         if (newYear !== oldYear) {
             fetchHolidays(newYear);
             // Auch Urlaubsdaten für das neue Jahr laden
-            fetchVacations();
             fetchVacationRequests();
         }
     }
