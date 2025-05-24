@@ -3,32 +3,32 @@
         <Toast />
 
         <!-- Header mit Navigation -->
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-            <div class="flex items-center">
-                <h2 class="text-xl font-bold text-gray-800 dark:text-white">
+        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
+            <div class="flex items-center w-full xl:w-auto">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-800 dark:text-white">
                     Urlaubswunsch-Kalender
                 </h2>
             </div>
 
             <!-- Team-Monats-Navigation -->
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 sm:gap-4 w-full xl:w-auto justify-center">
                 <Button
                     icon="pi pi-chevron-left"
-                    class="p-button-rounded p-button-outlined"
+                    class="p-button-rounded p-button-outlined p-button-sm sm:p-button"
                     @click="previousTeamMonth"
                 />
-                <h3 class="text-lg font-semibold min-w-[200px] text-center">
+                <h3 class="text-base sm:text-lg font-semibold min-w-[180px] sm:min-w-[200px] text-center">
                     {{ getMonthName(currentTeamMonth) }} {{ currentYear }}
                 </h3>
                 <Button
                     icon="pi pi-chevron-right"
-                    class="p-button-rounded p-button-outlined"
+                    class="p-button-rounded p-button-outlined p-button-sm sm:p-button"
                     @click="nextTeamMonth"
                 />
             </div>
 
             <!-- Info-Panel -->
-            <div class="flex items-center gap-4 text-sm">
+            <div class="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm w-full xl:w-auto justify-center xl:justify-end">
                 <div class="text-center">
                     <div class="font-semibold text-blue-600">{{ availableVacationDays }}</div>
                     <div class="text-gray-500">Verfügbar</div>
@@ -41,37 +41,38 @@
         </div>
 
         <!-- Team-Kalender -->
-        <div class="calendar-container">
+        <div class="calendar-container overflow-x-auto">
             <!-- Wochentage Header -->
-            <div class="grid grid-cols-7 gap-2 mb-2">
+            <div class="grid grid-cols-7 gap-1 sm:gap-2 mb-2 min-w-[280px]">
                 <div v-for="(day, index) in weekdaysShort" :key="index"
-                     class="text-center text-sm font-semibold text-gray-600 dark:text-gray-400 py-2">
+                     class="text-center text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-400 py-1 sm:py-2">
                     {{ day }}
                 </div>
             </div>
 
             <!-- Kalendertage -->
-            <div class="grid grid-cols-7 gap-2">
+            <div class="grid grid-cols-7 gap-1 sm:gap-2 min-w-[280px]">
                 <div
                     v-for="(day, index) in getTeamMonthDays()"
                     :key="index"
                     :class="[
-                        'relative min-h-[120px] p-2 border rounded-lg transition-all duration-200',
+                        'relative min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] p-1 sm:p-2 border rounded-lg transition-all duration-200 cursor-pointer',
                         {
                             'border-gray-200 dark:border-gray-600': day.currentMonth,
                             'border-gray-100 dark:border-gray-700 opacity-50': !day.currentMonth,
                             'bg-blue-50 border-blue-300': isToday(day.date),
                             'bg-red-100 dark:bg-red-900/20 border-red-300': isHoliday(day.date) && day.currentMonth,
                             'bg-gray-50': isWeekend(day.date) && day.currentMonth && !isHoliday(day.date),
-                            'hover:bg-gray-100 dark:hover:bg-gray-700': day.currentMonth
+                            'hover:bg-gray-100 dark:hover:bg-gray-700': day.currentMonth,
+                            'cursor-not-allowed': hasWish(day.date) && !isWeekend(day.date) && !isHoliday(day.date),
                         }
                     ]"
                     @click="handleDayClick(day)"
                 >
                     <!-- Tagesnummer -->
-                    <div class="flex justify-between items-start mb-2">
+                    <div class="flex justify-between items-start mb-1 sm:mb-2">
                         <span :class="[
-                            'text-sm font-medium',
+                            'text-xs sm:text-sm font-medium',
                             {
                                 'text-blue-600 font-bold': isToday(day.date),
                                 'text-gray-400': !day.currentMonth,
@@ -84,7 +85,7 @@
 
                         <!-- Anzahl Team-Wünsche Badge -->
                         <span v-if="getTeamWishCount(day.date) > 0"
-                              class="inline-flex items-center justify-center w-5 h-5 text-xs bg-amber-500 text-white rounded-full">
+                              class="inline-flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 text-xs bg-amber-500 text-white rounded-full">
                             {{ getTeamWishCount(day.date) }}
                         </span>
                     </div>
@@ -106,7 +107,7 @@
                                 'bg-orange-500': !wish.isOwn && idx >= 2
                             }
                         ]">
-                        <span>{{ wish.isOwn ? 'Ich' : getInitials(wish.employeeName) }}</span>
+                        <span class="text-xs">{{ wish.isOwn ? 'Ich' : getInitials(wish.employeeName) }}</span>
                         <span class="text-[10px]">{{ idx + 1 }}</span>
                     </div>
                 </div>
@@ -117,8 +118,9 @@
         <Dialog
             v-model:visible="showMyWishesDialog"
             header="Meine Urlaubswünsche"
-            :style="{ width: '90vw', maxWidth: '600px' }"
+            :style="{ width: '95vw', maxWidth: '600px' }"
             modal
+            :breakpoints="{'960px': '75vw', '641px': '90vw'}"
         >
             <div v-if="myWishes.length > 0">
                 <div class="mb-4">
@@ -170,8 +172,9 @@
         <Dialog
             v-model:visible="showDayDetailsDialog"
             :header="dayDetailsTitle"
-            :style="{ width: '90vw', maxWidth: '700px' }"
+            :style="{ width: '95vw', maxWidth: '700px' }"
             modal
+            :breakpoints="{'960px': '75vw', '641px': '90vw'}"
         >
             <div v-if="selectedDay">
                 <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -242,122 +245,13 @@
                         @click="openAddWishDialog(selectedDay)"
                     />
                 </div>
+                <div v-else-if="hasWish(selectedDay.date)" class="mt-4">
+                    <p class="text-sm text-gray-600 italic text-center">Sie haben für diesen Tag bereits einen Urlaubswunsch eingetragen.</p>
+                </div>
             </div>
 
             <template #footer>
                 <Button label="Schließen" icon="pi pi-times" @click="showDayDetailsDialog = false" class="p-button-text" />
-            </template>
-        </Dialog>
-
-        <!-- Dialog: Urlaubswunsch hinzufügen -->
-        <Dialog
-            v-model:visible="showAddWishDialog"
-            :header="addWishDialogTitle"
-            :style="{ width: '90vw', maxWidth: '500px' }"
-            modal
-        >
-            <div class="p-fluid">
-                <div class="field mb-4">
-                    <label for="startDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Von</label>
-                    <Calendar
-                        v-model="newWish.startDate"
-                        id="startDate"
-                        :showIcon="true"
-                        :locale="de"
-                        dateFormat="dd.mm.yy"
-                        :disabled="saving"
-                        :disabledDates="disabledDates"
-                        @date-select="updateEndDateMin"
-                    />
-                </div>
-
-                <div class="field mb-4">
-                    <label for="endDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bis</label>
-                    <Calendar
-                        v-model="newWish.endDate"
-                        id="endDate"
-                        :showIcon="true"
-                        :locale="de"
-                        dateFormat="dd.mm.yy"
-                        :disabled="saving"
-                        :disabledDates="disabledDates"
-                        :minDate="endDateMin"
-                        @date-select="calculateDays"
-                    />
-                </div>
-
-                <div class="field mb-4">
-                    <label for="days" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Urlaubstage</label>
-                    <InputNumber
-                        v-model="newWish.days"
-                        id="days"
-                        :disabled="true"
-                        class="w-full"
-                    />
-                </div>
-
-                <div class="field mb-4">
-                    <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notizen</label>
-                    <Textarea
-                        v-model="newWish.notes"
-                        id="notes"
-                        rows="3"
-                        :disabled="saving"
-                        class="w-full"
-                    />
-                </div>
-
-                <div v-if="exceedsVacationDays" class="p-message p-message-warning mb-4">
-                    <i class="pi pi-exclamation-triangle p-message-icon"></i>
-                    <span class="p-message-text">
-                        Achtung: Die gewählten Tage überschreiten Ihr verfügbares Urlaubskontingent.
-                    </span>
-                </div>
-
-                <div v-if="conflictingTeamWishes.length > 0" class="p-message p-message-info mb-4">
-                    <i class="pi pi-info-circle p-message-icon"></i>
-                    <span class="p-message-text">
-                        Hinweis: {{ conflictingTeamWishes.length }} Teammitglied(er) haben bereits Urlaubswünsche für diesen Zeitraum eingetragen.
-                        Sie können trotzdem Ihren Wunsch speichern.
-                    </span>
-                    <div class="mt-2 pl-5">
-                        <div v-for="(wish, index) in conflictingTeamWishes" :key="wish.id" class="mb-2">
-                            <div class="flex items-center">
-                                <span class="inline-block w-2 h-2 rounded-full mr-2"
-                                      :class="[
-                                        index === 0 ? 'bg-green-500' :
-                                        index === 1 ? 'bg-yellow-500' :
-                                        index === 2 ? 'bg-orange-500' :
-                                        'bg-gray-500'
-                                    ]"
-                                ></span>
-                                <span>
-                                    {{ wish.employeeName }} ({{ formatDate(wish.startDate) }} - {{ formatDate(wish.endDate) }})
-                                    <span class="text-xs text-gray-500 ml-1">
-                                        (Eingetragen: {{ formatDateTime(wish.created_at) }})
-                                    </span>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <template #footer>
-                <Button
-                    label="Abbrechen"
-                    icon="pi pi-times"
-                    @click="showAddWishDialog = false"
-                    class="p-button-text"
-                    :disabled="saving"
-                />
-                <Button
-                    label="Speichern"
-                    icon="pi pi-check"
-                    @click="saveWish"
-                    :loading="saving"
-                    :disabled="!canSaveWish"
-                />
             </template>
         </Dialog>
 
@@ -387,6 +281,37 @@
                     class="p-button-danger"
                     :loading="deleting"
                 />
+            </template>
+        </Dialog>
+
+        <!-- Dialog: Urlaubswunsch hinzufügen -->
+        <Dialog
+            v-model:visible="showAddWishDialog"
+            :header="addWishDialogTitle"
+            :style="{ width: '95vw', maxWidth: '500px' }"
+            modal
+            :breakpoints="{'960px': '75vw', '641px': '90vw'}"
+        >
+            <div class="mb-4">
+                <label for="startDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Startdatum</label>
+                <Calendar id="startDate" v-model="newWish.startDate" dateFormat="dd.mm.yy" class="mt-1 w-full" @date-select="calculateDays" />
+            </div>
+            <div class="mb-4">
+                <label for="endDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Enddatum</label>
+                <Calendar id="endDate" v-model="newWish.endDate" dateFormat="dd.mm.yy" class="mt-1 w-full" @date-select="calculateDays" />
+            </div>
+            <div class="mb-4">
+                <label for="days" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Urlaubstage</label>
+                <InputNumber id="days" v-model="newWish.days" :disabled="true" class="mt-1 w-full" />
+            </div>
+            <div class="mb-4">
+                <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notizen</label>
+                <Textarea id="notes" v-model="newWish.notes" rows="3" class="mt-1 w-full"></Textarea>
+            </div>
+
+            <template #footer>
+                <Button label="Abbrechen" icon="pi pi-times" @click="showAddWishDialog = false" class="p-button-text" />
+                <Button label="Speichern" icon="pi pi-check" @click="addWish" class="p-button-success" />
             </template>
         </Dialog>
     </div>
@@ -456,70 +381,20 @@ const userTeamId = ref(null);
 
 // Dialog-Zustände
 const showMyWishesDialog = ref(false);
-const showAddWishDialog = ref(false);
 const showDeleteWishDialog = ref(false);
 const showDayDetailsDialog = ref(false);
-const addWishDialogTitle = ref('Urlaubswunsch hinzufügen');
 const dayDetailsTitle = ref('Tagesdetails');
-const saving = ref(false);
 const deleting = ref(false);
 const selectedDay = ref(null);
-
-// Neuer Urlaubswunsch
-const newWish = reactive({
-    startDate: null,
-    endDate: null,
-    days: 0,
-    notes: ''
-});
+const showAddWishDialog = ref(false);
+const addWishDialogTitle = ref('Urlaubswunsch hinzufügen');
 
 // Hilfsvariablen
-const endDateMin = ref(null);
 const selectedWishToDelete = ref(null);
-const disabledDates = ref([]);
 
 // Berechnete Eigenschaften
 const plannedWishDays = computed(() => {
     return myWishes.value.reduce((total, wish) => total + wish.days, 0);
-});
-
-const exceedsVacationDays = computed(() => {
-    const currentPlannedDays = myWishes.value.reduce((total, wish) => {
-        // Wenn der aktuelle Wunsch bearbeitet wird, nicht mitzählen
-        if (selectedWishToDelete.value && selectedWishToDelete.value.id === wish.id) {
-            return total;
-        }
-        return total + wish.days;
-    }, 0);
-
-    return currentPlannedDays + newWish.days > availableVacationDays.value;
-});
-
-const conflictingTeamWishes = computed(() => {
-    if (!newWish.startDate || !newWish.endDate) {
-        return [];
-    }
-
-    const start = dayjs(newWish.startDate);
-    const end = dayjs(newWish.endDate);
-
-    return teamWishes.value.filter(wish => {
-        const wishStart = dayjs(wish.startDate);
-        const wishEnd = dayjs(wish.endDate);
-
-        // Prüfen, ob sich die Zeiträume überschneiden
-        return (
-            (start.isSame(wishStart) || start.isBefore(wishEnd)) &&
-            (end.isSame(wishEnd) || end.isAfter(wishStart))
-        );
-    });
-});
-
-const canSaveWish = computed(() => {
-    return newWish.startDate &&
-        newWish.endDate &&
-        newWish.days > 0 &&
-        !saving.value;
 });
 
 // Methoden
@@ -617,7 +492,7 @@ const hasWish = (date) => {
 
     // Wenn es ein Wochenende oder Feiertag ist, keine Wünsche anzeigen
     if (isWeekend(date) || isHoliday(date)) {
-        return [];
+        return false;
     }
 
     const dateStr = dayjs(date).format('YYYY-MM-DD');
@@ -706,13 +581,6 @@ const getSortedTeamWishesForDay = (date) => {
     });
 };
 
-const getSortedConflictingWishes = () => {
-    // Sortieren nach Erstellungsdatum (älteste zuerst)
-    return [...conflictingTeamWishes.value].sort((a, b) => {
-        return new Date(a.created_at) - new Date(b.created_at);
-    });
-};
-
 const handleDayClick = (day) => {
     // Nur Tage des aktuellen Monats
     if (!day.currentMonth) {
@@ -723,191 +591,6 @@ const handleDayClick = (day) => {
     selectedDay.value = day;
     dayDetailsTitle.value = `Details für ${formatDate(day.date)}`;
     showDayDetailsDialog.value = true;
-};
-
-const openAddWishDialog = (day) => {
-    // Neuen Wunsch initialisieren
-    newWish.startDate = day.date;
-    newWish.endDate = day.date;
-    calculateDays();
-    newWish.notes = '';
-
-    // Dialog-Titel setzen
-    addWishDialogTitle.value = `Urlaubswunsch für ${formatDate(day.date)}`;
-
-    // Dialog öffnen
-    showDayDetailsDialog.value = false;
-    showAddWishDialog.value = true;
-};
-
-const updateEndDateMin = () => {
-    if (newWish.startDate) {
-        endDateMin.value = newWish.startDate;
-
-        // Wenn das Enddatum vor dem Startdatum liegt, setze es auf das Startdatum
-        if (newWish.endDate && dayjs(newWish.endDate).isBefore(dayjs(newWish.startDate))) {
-            newWish.endDate = newWish.startDate;
-        }
-
-        calculateDays();
-    }
-};
-
-const calculateDays = () => {
-    try {
-        if (newWish.startDate && newWish.endDate) {
-            const start = dayjs(newWish.startDate);
-            const end = dayjs(newWish.endDate);
-
-            // Validierung der Daten
-            if (!start.isValid() || !end.isValid()) {
-                newWish.days = 0;
-                return;
-            }
-
-            // Stelle sicher, dass das Enddatum nicht vor dem Startdatum liegt
-            if (end.isBefore(start)) {
-                newWish.days = 0;
-                return;
-            }
-
-            // Berechne die Anzahl der Werktage (Mo-Fr) zwischen Start und Ende
-            let days = 0;
-            let current = start.clone(); // Clone verwenden für Sicherheit
-
-            // Sicherheitscheck: Maximal 365 Tage iterieren
-            let iterations = 0;
-            const maxIterations = 365;
-
-            while (!current.isAfter(end, 'day') && iterations < maxIterations) {
-                // Prüfe, ob der aktuelle Tag ein Werktag ist (1-5 = Mo-Fr, 0,6 = Sa,So)
-                const dayOfWeek = current.day();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-                    // Prüfe, ob der Tag ein Feiertag ist
-                    if (!isHoliday(current.toDate())) {
-                        days++;
-                    }
-                }
-
-                current = current.add(1, 'day');
-                iterations++;
-            }
-
-            newWish.days = days;
-        } else {
-            newWish.days = 0;
-        }
-    } catch (error) {
-        newWish.days = 0;
-
-        // Toast-Nachricht für den Benutzer
-        toast.add({
-            severity: 'warn',
-            summary: 'Warnung',
-            detail: 'Fehler bei der Berechnung der Urlaubstage. Bitte prüfen Sie Ihre Eingaben.',
-            life: 3000
-        });
-    }
-};
-
-const saveWish = async () => {
-    if (!canSaveWish.value) {
-        return;
-    }
-
-    saving.value = true;
-
-    try {
-        const requestData = {
-            startDate: dayjs(newWish.startDate).format('YYYY-MM-DD'),
-            endDate: dayjs(newWish.endDate).format('YYYY-MM-DD'),
-            days: newWish.days,
-            notes: newWish.notes
-        };
-
-        await axios.post('/api/vacation-wishes', requestData);
-
-        // Erfolgsmeldung anzeigen
-        toast.add({
-            severity: 'success',
-            summary: 'Erfolg',
-            detail: 'Urlaubswunsch wurde gespeichert',
-            life: 3000
-        });
-
-        // Dialog schließen und Daten neu laden
-        showAddWishDialog.value = false;
-        showDayDetailsDialog.value = false; // Schließe auch den Tagesdetails-Dialog, falls geöffnet
-        fetchData();
-    } catch (error) {
-        // Detaillierte Fehlermeldung anzeigen
-        let errorMessage = 'Der Urlaubswunsch konnte nicht gespeichert werden';
-
-        if (error.response) {
-            // Spezifische Fehlermeldung aus der API-Antwort extrahieren
-            if (error.response.data.message) {
-                errorMessage = error.response.data.message;
-            }
-
-            // Validierungsfehler anzeigen, falls vorhanden
-            if (error.response.data.errors) {
-                const validationErrors = Object.values(error.response.data.errors).flat();
-                if (validationErrors.length > 0) {
-                    errorMessage = validationErrors.join(', ');
-                }
-            }
-        }
-
-        toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: errorMessage,
-            life: 5000
-        });
-    } finally {
-        saving.value = false;
-    }
-};
-
-const confirmDeleteWish = (wish) => {
-    selectedWishToDelete.value = wish;
-    showDeleteWishDialog.value = true;
-};
-
-const deleteWish = async () => {
-    if (!selectedWishToDelete.value) {
-        return;
-    }
-
-    deleting.value = true;
-
-    try {
-        await axios.delete(`/api/vacation-wishes/${selectedWishToDelete.value.id}`);
-
-        // Erfolgsmeldung anzeigen
-        toast.add({
-            severity: 'success',
-            summary: 'Erfolg',
-            detail: 'Urlaubswunsch wurde gelöscht',
-            life: 3000
-        });
-
-        // Dialog schließen und Daten neu laden
-        showDeleteWishDialog.value = false;
-        showDayDetailsDialog.value = false;
-        fetchData();
-    } catch (error) {
-        // Fehlermeldung anzeigen
-        toast.add({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: error.response?.data?.message || 'Der Urlaubswunsch konnte nicht gelöscht werden',
-            life: 3000
-        });
-    } finally {
-        deleting.value = false;
-        selectedWishToDelete.value = null;
-    }
 };
 
 const formatDate = (date) => {
@@ -979,9 +662,6 @@ const fetchData = async () => {
             currentUserId.value = responses[4].value.data.id;
             userTeamId.value = responses[4].value.data.team_id;
         }
-
-        // Deaktivierte Daten für den Kalender aktualisieren
-        updateDisabledDates();
     } catch (error) {
         // Fehlermeldung anzeigen
         toast.add({
@@ -993,24 +673,6 @@ const fetchData = async () => {
     } finally {
         loading.value = false;
     }
-};
-
-// Deaktivierte Daten für den Kalender aktualisieren
-const updateDisabledDates = () => {
-    // Nur Feiertage deaktivieren, nicht mehr Wochenenden
-    const disabledDatesArray = [];
-
-    // Feiertage hinzufügen
-    if (holidays.value && Array.isArray(holidays.value)) {
-        holidays.value.forEach(holiday => {
-            if (holiday.date) {
-                // HolidayService gibt dayjs-Objekte zurück
-                disabledDatesArray.push(holiday.date.toDate());
-            }
-        });
-    }
-
-    disabledDates.value = disabledDatesArray;
 };
 
 // Komponente initialisieren
@@ -1109,6 +771,179 @@ const getAllSortedWishesForDay = (date) => {
     const allWishes = [...myWishesForDay, ...teamWishesForDay];
     return allWishes.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 };
+
+// Methode zum Öffnen des Dialogs zum Hinzufügen eines Urlaubswünsches
+const openAddWishDialog = (day) => {
+    selectedDay.value = day;
+    addWishDialogTitle.value = `Urlaubswunsch hinzufügen für ${formatDate(day.date)}`;
+    newWish.startDate = day.date;
+    newWish.endDate = day.date;
+    showAddWishDialog.value = true;
+};
+
+// Methode zum Bestätigen des Löschens eines Urlaubswünsches
+const confirmDeleteWish = (wish) => {
+    selectedWishToDelete.value = wish;
+    showDeleteWishDialog.value = true;
+};
+
+// Methode zum Löschen eines Urlaubswünsches
+const deleteWish = () => {
+    if (!selectedWishToDelete.value) return;
+
+    deleting.value = true;
+    axios.delete(`/api/vacation-wishes/${selectedWishToDelete.value.id}`)
+        .then(() => {
+            // Erfolgreich gelöscht
+            myWishes.value = myWishes.value.filter(wish => wish.id !== selectedWishToDelete.value.id);
+            teamWishes.value = teamWishes.value.filter(wish => wish.id !== selectedWishToDelete.value.id);
+            showDeleteWishDialog.value = false;
+            toast.add({
+                severity: 'success',
+                summary: 'Erfolgreich',
+                detail: 'Urlaubswunsch wurde gelöscht',
+                life: 3000
+            });
+            fetchData();
+        })
+        .catch(error => {
+            // Fehler beim Löschen
+            console.error('Fehler beim Löschen des Urlaubswunsches:', error);
+            toast.add({
+                severity: 'error',
+                summary: 'Fehler',
+                detail: 'Urlaubswunsch konnte nicht gelöscht werden',
+                life: 3000
+            });
+        })
+        .finally(() => {
+            deleting.value = false;
+        });
+};
+
+// Neues Urlaubswunsch-Objekt
+const newWish = reactive({
+    startDate: null,
+    endDate: null,
+    days: 0,
+    notes: ''
+});
+
+// Berechne die Anzahl der Urlaubstage, wenn sich das Datum ändert
+const calculateDays = () => {
+    if (newWish.startDate && newWish.endDate) {
+        const start = dayjs(newWish.startDate);
+        const end = dayjs(newWish.endDate);
+
+        if (end.isBefore(start)) {
+            newWish.days = 0;
+            return;
+        }
+
+        // Berechne die Anzahl der Werktage (Mo-Fr) zwischen Start und Ende
+        let days = 0;
+        let current = start.clone();
+
+        while (!current.isAfter(end, 'day')) {
+            // Prüfe, ob der aktuelle Tag ein Werktag ist (1-5 = Mo-Fr, 0,6 = Sa,So)
+            const dayOfWeek = current.day();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                // Prüfe, ob der Tag ein Feiertag ist
+                if (!isHoliday(current.toDate())) {
+                    days++;
+                }
+            }
+            current = current.add(1, 'day');
+        }
+
+        newWish.days = days;
+    } else {
+        newWish.days = 0;
+    }
+};
+
+// Methode zum Hinzufügen eines Urlaubswunsches
+const addWish = () => {
+    if (!newWish.startDate || !newWish.endDate) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Warnung',
+            detail: 'Bitte Start- und Enddatum auswählen',
+            life: 3000
+        });
+        return;
+    }
+
+    // Berechne die Anzahl der Urlaubstage (ohne Wochenenden und Feiertage)
+    const start = dayjs(newWish.startDate);
+    const end = dayjs(newWish.endDate);
+
+    if (end.isBefore(start)) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Warnung',
+            detail: 'Das Enddatum muss nach dem Startdatum liegen',
+            life: 3000
+        });
+        return;
+    }
+
+    // Berechne die Anzahl der Werktage (Mo-Fr) zwischen Start und Ende
+    let days = 0;
+    let current = start.clone();
+
+    while (!current.isAfter(end, 'day')) {
+        // Prüfe, ob der aktuelle Tag ein Werktag ist (1-5 = Mo-Fr, 0,6 = Sa,So)
+        const dayOfWeek = current.day();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            // Prüfe, ob der Tag ein Feiertag ist
+            if (!isHoliday(current.toDate())) {
+                days++;
+            }
+        }
+        current = current.add(1, 'day');
+    }
+
+    // Sende die Daten mit den korrekten Feldnamen
+    axios.post('/api/vacation-wishes', {
+        startDate: start.format('YYYY-MM-DD'),
+        endDate: end.format('YYYY-MM-DD'),
+        days: days,
+        notes: newWish.notes
+    })
+        .then(response => {
+            // Erfolgreich hinzugefügt
+            showAddWishDialog.value = false;
+            showDayDetailsDialog.value = false; // Schließe auch den Tagesdetails-Dialog
+            newWish.startDate = null;
+            newWish.endDate = null;
+            newWish.notes = '';
+            toast.add({
+                severity: 'success',
+                summary: 'Erfolgreich',
+                detail: 'Urlaubswunsch wurde hinzugefügt',
+                life: 3000
+            });
+            fetchData();
+        })
+        .catch(error => {
+            // Fehler beim Hinzufügen
+            console.error('Fehler beim Hinzufügen des Urlaubswunsches:', error);
+            let errorMessage = 'Urlaubswunsch konnte nicht hinzugefügt werden';
+
+            // Versuche, eine detailliertere Fehlermeldung zu extrahieren
+            if (error.response && error.response.data && error.response.data.message) {
+                errorMessage = error.response.data.message;
+            }
+
+            toast.add({
+                severity: 'error',
+                summary: 'Fehler',
+                detail: errorMessage,
+                life: 5000
+            });
+        });
+};
 </script>
 
 <style scoped>
@@ -1133,30 +968,8 @@ const getAllSortedWishesForDay = (date) => {
 }
 
 /* Anpassungen für die DataTable */
-:deep(.p-datatable .p-datatable-thead > tr > th) {
+:deep(.p-datatable .p-column-header) {
     background-color: #f8f9fa;
-    color: #495057;
-    font-weight: 600;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr) {
-    background-color: #ffffff;
-}
-
-:deep(.p-datatable .p-datatable-tbody > tr:hover) {
-    background-color: #f8f9fa;
-}
-
-/* Anpassungen für die Bestätigungsdialoge */
-.confirmation-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem 0;
-}
-
-.calendar-container {
-    padding: 1rem;
-    border-radius: 0.5rem;
+    color: #333;
 }
 </style>
