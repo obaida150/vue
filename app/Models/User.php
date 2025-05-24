@@ -38,6 +38,8 @@ class User extends Authenticatable
         'entry_date',
         'employee_number',
         'is_active',
+        'mentor_id',        // NEU für Mentor-System
+        'is_apprentice',    // NEU für Mentor-System
     ];
 
     /**
@@ -62,6 +64,8 @@ class User extends Authenticatable
         'birth_date' => 'date',
         'entry_date' => 'date',
         'is_active' => 'boolean',
+        'is_apprentice' => 'boolean',  // NEU für Mentor-System
+        'password' => 'hashed',
     ];
 
     /**
@@ -125,6 +129,76 @@ class User extends Authenticatable
     }
 
     /**
+     * Der Mentor/Betreuer des Azubis
+     * NEU für Mentor-System
+     */
+    public function mentor()
+    {
+        return $this->belongsTo(User::class, 'mentor_id');
+    }
+
+    /**
+     * Azubis, die dieser User betreut
+     * NEU für Mentor-System
+     */
+    public function apprentices()
+    {
+        return $this->hasMany(User::class, 'mentor_id');
+    }
+
+    /**
+     * Wer ist für die Urlaubsgenehmigung zuständig?
+     * - Normale Mitarbeiter: Team-Leader/Abteilungsleiter
+     * - Azubis: Ihr Mentor
+     * NEU für Mentor-System
+     */
+    public function getVacationApproverAttribute()
+    {
+        if ($this->is_apprentice && $this->mentor) {
+            return $this->mentor;
+        }
+
+        // Für normale Mitarbeiter: Abteilungsleiter finden
+        if ($this->currentTeam) {
+            return $this->currentTeam->users()
+                ->whereHas('role', function($query) {
+                    $query->where('name', 'Abteilungsleiter');
+                })
+                ->first();
+        }
+
+        return null;
+    }
+
+    /**
+     * Für welche Urlaubsanträge ist dieser User zuständig?
+     * NEU für Mentor-System
+     */
+    public function getVacationRequestsToApproveAttribute()
+    {
+        $requests = collect();
+
+        // Als Abteilungsleiter: Anträge der Team-Mitglieder (aber nicht Azubis)
+        if ($this->role && $this->role->name === 'Abteilungsleiter' && $this->currentTeam) {
+            $teamRequests = VacationRequest::whereHas('user', function($query) {
+                $query->where('current_team_id', $this->current_team_id)
+                    ->where('is_apprentice', false);
+            })->where('status', 'pending')->get();
+
+            $requests = $requests->merge($teamRequests);
+        }
+
+        // Als Mentor: Anträge der Azubis
+        $apprenticeRequests = VacationRequest::whereHas('user', function($query) {
+            $query->where('mentor_id', $this->id);
+        })->where('status', 'pending')->get();
+
+        $requests = $requests->merge($apprenticeRequests);
+
+        return $requests;
+    }
+
+    /**
      * Determine if the user is an admin.
      */
     public function getIsAdminAttribute()
@@ -148,4 +222,3 @@ class User extends Authenticatable
         return $this->role && $this->role->name === 'Abteilungsleiter';
     }
 }
-

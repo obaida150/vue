@@ -342,73 +342,87 @@ class VacationController extends Controller
 
     /**
      * Get vacation requests for management
+     * ERWEITERT für Mentor-System
      */
     public function getRequests()
     {
         try {
-            // Prüfen, ob der Benutzer Manager oder HR ist
             $user = Auth::user();
             $role = $user->role ? $user->role->name : null;
 
-            // Alle Urlaubsanträge laden
-            $query = VacationRequest::with(['user', 'user.currentTeam', 'substitute']);
+            Log::info('Getting vacation requests for user', [
+                'user_id' => $user->id,
+                'role' => $role,
+                'is_apprentice' => $user->is_apprentice ?? false,
+                'mentor_id' => $user->mentor_id ?? null,
+                'apprentices_count' => $user->apprentices->count()
+            ]);
 
-            // Wenn der Benutzer Abteilungsleiter ist, nur Anträge seiner Abteilung anzeigen
-            if ($role === 'Abteilungsleiter') {
-                $teamId = $user->currentTeam ? $user->currentTeam->id : 0;
-                $query->whereHas('user', function($q) use ($teamId) {
-                    $q->whereHas('teams', function($q2) use ($teamId) {
-                        $q2->where('teams.id', $teamId);
-                    });
-                });
+            // Verwende die neue Methode für zu genehmigende Anträge
+            $requestsToApprove = $user->vacation_requests_to_approve;
+
+            Log::info('Requests to approve from attribute', [
+                'count' => $requestsToApprove->count()
+            ]);
+
+            // Wenn der User keine Anträge zu genehmigen hat und kein HR/Admin ist
+            if ($requestsToApprove->isEmpty() && !in_array($role, ['HR', 'Admin', 'Personal'])) {
+                // Zeige Anträge, bei denen er als Vertreter eingetragen ist
+                $requestsToApprove = VacationRequest::where('substitute_id', $user->id)
+                    ->where('status', 'pending')
+                    ->with(['user', 'user.currentTeam', 'substitute'])
+                    ->get();
+
+                Log::info('Substitute requests found', [
+                    'count' => $requestsToApprove->count()
+                ]);
             }
-            // Wenn der Benutzer ein normaler Mitarbeiter ist, zeige nur Anträge, bei denen er als Vertreter eingetragen ist
-            elseif ($role !== 'HR' && $role !== 'Admin') {
-                $query->where('substitute_id', $user->id);
 
-                // Wenn keine Anträge gefunden werden, bei denen der Benutzer als Vertreter eingetragen ist,
-                // gib leere Arrays zurück
-                if ($query->count() === 0) {
-                    return response()->json([
-                        'pending' => [],
-                        'approved' => [],
-                        'rejected' => []
-                    ]);
-                }
+            // Für HR und Admin: Alle Anträge anzeigen
+            if (in_array($role, ['HR', 'Admin', 'Personal'])) {
+                $allRequests = VacationRequest::with(['user', 'user.currentTeam', 'substitute'])
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+                Log::info('HR/Admin - showing all requests', [
+                    'count' => $allRequests->count()
+                ]);
+            } else {
+                // Für andere: Nur relevante Anträge
+                $allRequests = $requestsToApprove;
             }
 
-            $allRequests = $query->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($request) {
-                    return [
-                        'id' => $request->id,
-                        'employee' => [
-                            'id' => $request->user->id,
-                            'name' => $request->user->full_name
-                        ],
-                        'department' => $request->user->currentTeam ? $request->user->currentTeam->name : 'Keine Abteilung',
-                        'startDate' => $request->start_date->format('Y-m-d'),
-                        'endDate' => $request->end_date->format('Y-m-d'),
-                        'days' => $request->days,
-                        'requestDate' => $request->created_at->format('Y-m-d H:i:s'),
-                        'status' => $request->status,
-                        'substitute' => $request->substitute ? [
-                            'id' => $request->substitute->id,
-                            'name' => $request->substitute->full_name
-                        ] : null,
-                        'notes' => $request->notes,
-                        'approvedBy' => $request->approver ? $request->approver->full_name : null,
-                        'approvedDate' => $request->approved_date ? $request->approved_date->format('Y-m-d H:i:s') : null,
-                        'rejectedBy' => $request->rejector ? $request->rejector->full_name : null,
-                        'rejectedDate' => $request->rejected_date ? $request->rejected_date->format('Y-m-d H:i:s') : null,
-                        'rejectionReason' => $request->rejection_reason
-                    ];
-                });
+            $formattedRequests = $allRequests->map(function ($request) {
+                return [
+                    'id' => $request->id,
+                    'employee' => [
+                        'id' => $request->user->id,
+                        'name' => $request->user->full_name,
+                        'is_apprentice' => $request->user->is_apprentice ?? false
+                    ],
+                    'department' => $request->user->currentTeam ? $request->user->currentTeam->name : 'Keine Abteilung',
+                    'startDate' => $request->start_date->format('Y-m-d'),
+                    'endDate' => $request->end_date->format('Y-m-d'),
+                    'days' => $request->days,
+                    'requestDate' => $request->created_at->format('Y-m-d H:i:s'),
+                    'status' => $request->status,
+                    'substitute' => $request->substitute ? [
+                        'id' => $request->substitute->id,
+                        'name' => $request->substitute->full_name
+                    ] : null,
+                    'notes' => $request->notes,
+                    'approvedBy' => $request->approver ? $request->approver->full_name : null,
+                    'approvedDate' => $request->approved_date ? $request->approved_date->format('Y-m-d H:i:s') : null,
+                    'rejectedBy' => $request->rejector ? $request->rejector->full_name : null,
+                    'rejectedDate' => $request->rejected_date ? $request->rejected_date->format('Y-m-d H:i:s') : null,
+                    'rejectionReason' => $request->rejection_reason
+                ];
+            });
 
             // Nach Status filtern
-            $pending = $allRequests->where('status', 'pending')->values();
-            $approved = $allRequests->where('status', 'approved')->values();
-            $rejected = $allRequests->where('status', 'rejected')->values();
+            $pending = $formattedRequests->where('status', 'pending')->values();
+            $approved = $formattedRequests->where('status', 'approved')->values();
+            $rejected = $formattedRequests->where('status', 'rejected')->values();
 
             return response()->json([
                 'pending' => $pending,
@@ -507,7 +521,7 @@ class VacationController extends Controller
             $user = Auth::user();
             $role = $user->role ? $user->role->name : null;
 
-            if (!in_array($role, ['HR', 'Admin'])) {
+            if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
                 return response()->json(['error' => 'Nicht autorisiert'], 403);
             }
 
@@ -644,7 +658,9 @@ class VacationController extends Controller
                     'used_days_total' => $currentYearBalance->used_days,
                     'remaining_days_total' => $totalEntitlement - $currentYearBalance->used_days,
                     'monthly_remaining' => [],
-                    'vacation_requests' => $allVacationRequests // Neue Eigenschaft für Urlaubsanträge
+                    'vacation_requests' => $allVacationRequests, // Neue Eigenschaft für Urlaubsanträge
+                    'is_apprentice' => $user->is_apprentice ?? false, // NEU für Mentor-System
+                    'mentor_name' => $user->mentor ? $user->mentor->full_name : null // NEU für Mentor-System
                 ];
 
                 // Füge die monatlichen Resttage hinzu
@@ -706,7 +722,7 @@ class VacationController extends Controller
             $user = Auth::user();
             $role = $user->role ? $user->role->name : null;
 
-            if (!in_array($role, ['HR', 'Admin'])) {
+            if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
                 return response()->json(['error' => 'Nicht autorisiert'], 403);
             }
 
@@ -789,7 +805,9 @@ class VacationController extends Controller
                     'remaining_days_current_year' => $remainingDaysCurrentYear,
                     'current_month_days' => $approvedVacationDaysCurrentMonth, // Anzahl der genehmigten Urlaubstage im aktuellen Monat
                     'current_month_name' => $this->getMonthName($currentMonth), // Nur für Anzeigezwecke
-                    'remaining_days_previous_month' => $remainingDaysPreviousMonth
+                    'remaining_days_previous_month' => $remainingDaysPreviousMonth,
+                    'is_apprentice' => $user->is_apprentice ?? false, // NEU für Mentor-System
+                    'mentor_name' => $user->mentor ? $user->mentor->full_name : null // NEU für Mentor-System
                 ];
 
                 $infoListData[] = $userData;
@@ -830,8 +848,10 @@ class VacationController extends Controller
 
         return $months[$month] ?? '';
     }
+
     /**
      * Submit a vacation request
+     * ERWEITERT für Mentor-System
      */
     public function submitRequest(Request $request)
     {
@@ -841,6 +861,8 @@ class VacationController extends Controller
             // Debug-Informationen
             Log::info('Urlaubsantrag empfangen', [
                 'user' => $user->id,
+                'is_apprentice' => $user->is_apprentice ?? false,
+                'mentor_id' => $user->mentor_id ?? null,
                 'request_data' => $request->all()
             ]);
 
@@ -891,44 +913,33 @@ class VacationController extends Controller
             $firstRequest = $createdRequests[0];
             $firstRequest->load(['user', 'substitute']);
 
-            // Finde den Abteilungsleiter
-            $departmentHead = null;
-            if ($user->currentTeam) {
-                // FIXED: Use the role_id column or relationship instead of 'role'
-                // Assuming there's a role_id column or a role relationship
-                $departmentHead = User::whereHas('teams', function($query) use ($user) {
-                    $query->where('teams.id', $user->currentTeam->id);
-                })
-                    ->whereHas('role', function($query) {
-                        $query->where('name', 'Abteilungsleiter');
-                    })
-                    ->first();
+            // Bestimme den Genehmiger basierend auf dem neuen System
+            $approver = $user->vacation_approver;
 
-                // If there's no role relationship but a role_id column, use this instead:
-                // ->where('role_id', function($query) {
-                //     $query->select('id')->from('roles')->where('name', 'Abteilungsleiter');
-                // })
-            }
+            Log::info('Genehmiger bestimmt', [
+                'approver_id' => $approver ? $approver->id : null,
+                'approver_name' => $approver ? $approver->full_name : null,
+                'approver_type' => $user->is_apprentice ? 'Mentor' : 'Abteilungsleiter'
+            ]);
 
-            // Fallback: Wenn kein Abteilungsleiter gefunden wurde, sende an HR oder Admin
-            if (!$departmentHead) {
-                // FIXED: Use the role relationship or role_id column
-                $departmentHead = User::whereHas('role', function($query) {
-                    $query->where('name', 'HR')->orWhere('name', 'Admin');
+            // Fallback: Wenn kein Genehmiger gefunden wurde, sende an HR oder Admin
+            if (!$approver) {
+                $approver = User::whereHas('role', function($query) {
+                    $query->where('name', 'HR')->orWhere('name', 'Personal')->orWhere('name', 'Admin');
                 })->first();
 
-                // If there's no role relationship but a role_id column, use this instead:
-                // $departmentHead = User::whereIn('role_id', function($query) {
-                //     $query->select('id')->from('roles')->whereIn('name', ['HR', 'Admin']);
-                // })->first();
+                Log::info('Fallback-Genehmiger gefunden', [
+                    'fallback_approver_id' => $approver ? $approver->id : null
+                ]);
             }
 
-            // Sende eine E-Mail an den Abteilungsleiter
-            if ($departmentHead) {
+            // Sende eine E-Mail an den Genehmiger
+            if ($approver) {
                 try {
-                    Log::info('Sende E-Mail an Abteilungsleiter', [
-                        'department_head_id' => $departmentHead->id,
-                        'department_head_email' => $departmentHead->email
+                    Log::info('Sende E-Mail an Genehmiger', [
+                        'approver_id' => $approver->id,
+                        'approver_email' => $approver->email,
+                        'approver_type' => $user->is_apprentice ? 'Mentor' : 'Abteilungsleiter'
                     ]);
 
                     // Finde überlappende Urlaubsanträge
@@ -947,7 +958,7 @@ class VacationController extends Controller
                     }
 
                     // Sende eine E-Mail mit allen Zeiträumen
-                    $mail = Mail::to($departmentHead->email);
+                    $mail = Mail::to($approver->email);
 
                     // CC hinzufügen falls vorhanden
                     if (!empty($ccRecipients)) {
@@ -974,7 +985,8 @@ class VacationController extends Controller
             // Erfolgreiche Antwort
             return response()->json([
                 'message' => 'Urlaubsantrag erfolgreich eingereicht',
-                'requests' => $createdRequests
+                'requests' => $createdRequests,
+                'approver_type' => $user->is_apprentice ? 'Mentor' : 'Abteilungsleiter'
             ], 201);
         } catch (\Exception $e) {
             Log::error('Fehler beim Einreichen des Urlaubsantrags', [
@@ -1025,16 +1037,17 @@ class VacationController extends Controller
 
     /**
      * Genehmigt einen Urlaubsantrag
+     * ERWEITERT für Mentor-System
      */
     public function approveRequest(Request $request, $id)
     {
         try {
             $user = Auth::user();
 
-            // Debug-Logging
             Log::info('Urlaubsantrag-Genehmigung empfangen', [
                 'approver_id' => $user->id,
-                'request_id' => $id
+                'request_id' => $id,
+                'is_mentor' => $user->apprentices->count() > 0
             ]);
 
             // Urlaubsantrag finden
@@ -1048,17 +1061,7 @@ class VacationController extends Controller
             }
 
             // Prüfen, ob der Benutzer berechtigt ist, den Antrag zu genehmigen
-            $role = $user->role ? $user->role->name : null;
-            $isAuthorized = false;
-
-            // Abteilungsleiter, HR oder Admin dürfen immer genehmigen
-            if (in_array($role, ['Abteilungsleiter', 'HR', 'Admin'])) {
-                $isAuthorized = true;
-            }
-            // Vertreter darf nur genehmigen, wenn er als Vertreter eingetragen ist
-            elseif ($vacationRequest->substitute_id === $user->id) {
-                $isAuthorized = true;
-            }
+            $isAuthorized = $this->canApproveRequest($user, $vacationRequest);
 
             if (!$isAuthorized) {
                 return response()->json([
@@ -1215,17 +1218,7 @@ class VacationController extends Controller
             }
 
             // Prüfen, ob der Benutzer berechtigt ist, den Antrag abzulehnen
-            $role = $user->role ? $user->role->name : null;
-            $isAuthorized = false;
-
-            // Abteilungsleiter, HR oder Admin dürfen immer ablehnen
-            if (in_array($role, ['Abteilungsleiter', 'HR', 'Admin'])) {
-                $isAuthorized = true;
-            }
-            // Vertreter darf nur ablehnen, wenn er als Vertreter eingetragen ist
-            elseif ($vacationRequest->substitute_id === $user->id) {
-                $isAuthorized = true;
-            }
+            $isAuthorized = $this->canApproveRequest($user, $vacationRequest);
 
             if (!$isAuthorized) {
                 return response()->json([
@@ -1347,6 +1340,39 @@ class VacationController extends Controller
         }
     }
 
+    /**
+     * Prüfe ob User berechtigt ist, den Antrag zu genehmigen
+     * NEU für Mentor-System
+     */
+    private function canApproveRequest($approver, $vacationRequest)
+    {
+        $employee = $vacationRequest->user;
+        $role = $approver->role ? $approver->role->name : null;
+
+        // HR und Admin dürfen immer genehmigen
+        if (in_array($role, ['HR', 'Admin', 'Personal'])) {
+            return true;
+        }
+
+        // Ist der Mitarbeiter ein Azubi und der Approver sein Mentor?
+        if ($employee->is_apprentice && $employee->mentor_id === $approver->id) {
+            return true;
+        }
+
+        // Ist der Approver Abteilungsleiter des Mitarbeiters?
+        if (!$employee->is_apprentice &&
+            $role === 'Abteilungsleiter' &&
+            $approver->current_team_id === $employee->current_team_id) {
+            return true;
+        }
+
+        // Ist der Approver als Vertreter eingetragen?
+        if ($vacationRequest->substitute_id === $approver->id) {
+            return true;
+        }
+
+        return false;
+    }
 
     private function updateVacationBalance(VacationRequest $vacationRequest)
     {

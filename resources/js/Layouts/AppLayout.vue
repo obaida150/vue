@@ -37,23 +37,38 @@
                                 <NavLink href="/vacation/wishes" :active="$page.component === 'VacationWishes'">
                                     Urlaubswünsche
                                 </NavLink>
-                                <NavLink href="/vacation/hr-overview" :active="$page.component === 'VacationHrOverview'">
-                                    HR Urlaubsübersicht
-                                </NavLink>
-                                <NavLink href="/vacation/info-list" :active="$page.component === 'VacationInfoList'">
-                                    Urlaub-Info-Liste
-                                </NavLink>
-                                <!-- Temporär deaktivieren oder durch einen direkten Link ersetzen -->
-                                <NavLink href="/users" :active="$page.component === 'Users/Index'">
-                                    Benutzerverwaltung
-                                </NavLink>
+
+                                <!-- Admin Dropdown -->
+                                <div class="relative m-auto">
+                                    <Dropdown align="left" width="48">
+                                        <template #trigger>
+                                            <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700 active:bg-gray-50 dark:active:bg-gray-700 transition ease-in-out duration-150"
+                                                    :class="{ 'text-gray-900 dark:text-white border-indigo-400 dark:border-indigo-600': isAdminPageActive }">
+                                                Administration
+                                                <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                                </svg>
+                                            </button>
+                                        </template>
+
+                                        <template #content>
+                                            <DropdownLink href="/vacation/hr-overview">
+                                                HR Urlaubsübersicht
+                                            </DropdownLink>
+                                            <DropdownLink href="/vacation/info-list">
+                                                Urlaub-Info-Liste
+                                            </DropdownLink>
+                                            <DropdownLink href="/users">
+                                                Benutzerverwaltung
+                                            </DropdownLink>
+                                        </template>
+                                    </Dropdown>
+                                </div>
                             </div>
                         </div>
 
                         <div class="hidden sm:flex sm:items-center sm:ml-6">
                             <div class="ml-3 relative">
-                                <!-- Teams Dropdown (temporär deaktiviert) -->
-                                <!--
                                 <Dropdown v-if="$page.props.jetstream.hasTeamFeatures" align="right" width="60">
                                     <template #trigger>
                                         <span class="inline-flex rounded-md">
@@ -105,7 +120,6 @@
                                         </div>
                                     </template>
                                 </Dropdown>
-                                -->
                             </div>
 
                             <!-- Settings Dropdown -->
@@ -204,16 +218,22 @@
                         <ResponsiveNavLink href="/vacation/wishes" :active="$page.component === 'VacationWishes'">
                             Urlaubswünsche
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink href="/vacation/hr-overview" :active="$page.component === 'VacationHrOverview'">
-                            HR Urlaubsübersicht
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink href="/vacation/info-list" :active="$page.component === 'VacationInfoList'">
-                            Urlaub-Info-Liste
-                        </ResponsiveNavLink>
-                        <!-- Temporär deaktivieren oder durch einen direkten Link ersetzen -->
-                        <ResponsiveNavLink href="/users" :active="$page.component === 'Users/Index'">
-                            Benutzerverwaltung
-                        </ResponsiveNavLink>
+
+                        <!-- Admin Section -->
+                        <div class="border-t border-gray-200 dark:border-gray-600 mt-2 pt-2">
+                            <div class="block px-4 py-2 text-xs text-gray-400">
+                                Administration
+                            </div>
+                            <ResponsiveNavLink href="/vacation/hr-overview" :active="$page.component === 'VacationHrOverview'">
+                                HR Urlaubsübersicht
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink href="/vacation/info-list" :active="$page.component === 'VacationInfoList'">
+                                Urlaub-Info-Liste
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink href="/users" :active="$page.component === 'Users/Index'">
+                                Benutzerverwaltung
+                            </ResponsiveNavLink>
+                        </div>
                     </div>
 
                     <!-- Responsive Settings Options -->
@@ -354,5 +374,10 @@ export default defineComponent({
             this.$inertia.post('/logout');
         },
     },
+    computed: {
+        isAdminPageActive() {
+            return ['VacationHrOverview', 'VacationInfoList', 'Users/Index'].includes(this.$page.component);
+        }
+    }
 })
 </script>
