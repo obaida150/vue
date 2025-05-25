@@ -241,6 +241,22 @@ Route::middleware([
 
     // Feiertage API
     Route::get('/holidays/{year?}', [VacationWishController::class, 'getHolidays'])->name('api.holidays');
+
+    // Berichtsheft API
+    Route::get('/reports', [App\Http\Controllers\ReportController::class, 'index'])->name('api.reports.index');
+    Route::post('/reports', [App\Http\Controllers\ReportController::class, 'store'])->name('api.reports.store');
+    Route::get('/reports/{id}', [App\Http\Controllers\ReportController::class, 'show'])->name('api.reports.show');
+    Route::put('/reports/{id}', [App\Http\Controllers\ReportController::class, 'update'])->name('api.reports.update');
+    Route::delete('/reports/{id}', [App\Http\Controllers\ReportController::class, 'destroy'])->name('api.reports.destroy');
+    Route::get('/reports/{id}/pdf', [App\Http\Controllers\ReportController::class, 'downloadPdf'])->name('api.reports.pdf');
+    Route::get('/instructors', [App\Http\Controllers\ReportController::class, 'getInstructors'])->name('api.instructors');
+
+    // Fächer API
+    Route::get('/subjects', [App\Http\Controllers\SubjectController::class, 'index'])->name('api.subjects.index');
+    Route::post('/subjects', [App\Http\Controllers\SubjectController::class, 'store'])->name('api.subjects.store');
+    Route::put('/subjects/{id}', [App\Http\Controllers\SubjectController::class, 'update'])->name('api.subjects.update');
+    Route::delete('/subjects/{id}', [App\Http\Controllers\SubjectController::class, 'destroy'])->name('api.subjects.destroy');
+    Route::get('/subjects/year/{year}', [App\Http\Controllers\SubjectController::class, 'getByYear'])->name('api.subjects.by-year');
 });
 
 
@@ -285,4 +301,17 @@ Route::middleware([
     Route::get('/vacation/wishes', function () {
         return Inertia::render('Calendar/VacationWishes');
     })->name('vacation.wishes');
+
+    // Berichtsheft Seiten
+    Route::get('/reports', function () {
+        return Inertia::render('Reports/Index');
+    })->name('reports.index');
+
+    Route::get('/reports/create', function () {
+        return Inertia::render('Reports/Create');
+    })->name('reports.create');
+
+    Route::get('/subjects', function () {
+        return Inertia::render('Subjects/Index');
+    })->name('subjects.index');
 });

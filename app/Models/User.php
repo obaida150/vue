@@ -40,6 +40,7 @@ class User extends Authenticatable
         'is_active',
         'mentor_id',        // NEU für Mentor-System
         'is_apprentice',    // NEU für Mentor-System
+        'is_ausbilder',     // NEU für Ausbilder-System
     ];
 
     /**
@@ -65,6 +66,7 @@ class User extends Authenticatable
         'entry_date' => 'date',
         'is_active' => 'boolean',
         'is_apprentice' => 'boolean',  // NEU für Mentor-System
+        'is_ausbilder' => 'boolean',   // NEU für Ausbilder-System
         'password' => 'hashed',
     ];
 
@@ -220,5 +222,10 @@ class User extends Authenticatable
     public function getIsManagerAttribute()
     {
         return $this->role && $this->role->name === 'Abteilungsleiter';
+    }
+
+    public function getIsInstructorAttribute()
+    {
+        return $this->is_ausbilder;
     }
 }

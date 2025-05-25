@@ -5,12 +5,14 @@ import { createApp, h } from "vue"
 import { createInertiaApp } from "@inertiajs/vue3"
 import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers"
 import { ZiggyVue } from "../../vendor/tightenco/ziggy"
-// Der problematische Import wurde entfernt
-// import route from "ziggy-js"
+import { route } from "../../vendor/tightenco/ziggy"
 
+// PrimeVue imports
 import PrimeVue from "primevue/config"
 import Aura from "@primeuix/themes/aura"
+import ConfirmationService from "primevue/confirmationservice"
 import ToastService from "primevue/toastservice"
+import Tooltip from "primevue/tooltip"
 
 // PrimeVue Komponenten für das Dashboard
 import Avatar from "primevue/avatar"
@@ -20,8 +22,16 @@ import DataTable from "primevue/datatable"
 import Column from "primevue/column"
 import Tag from "primevue/tag"
 
+// Zusätzliche PrimeVue Komponenten für Reports
+import Button from "primevue/button"
+import Dialog from "primevue/dialog"
+import InputText from "primevue/inputtext"
+import Textarea from "primevue/textarea"
+import Calendar from "primevue/calendar"
+import Toast from "primevue/toast"
+import ConfirmDialog from "primevue/confirmdialog"
+
 // PrimeVue CSS Importe
-// import "primevue/resources/primevue.min.css"
 import "primeicons/primeicons.css"
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel"
@@ -49,26 +59,38 @@ createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob("./Pages/**/*.vue")),
     setup({ el, App, props, plugin }) {
-        // Diese Zeile wurde entfernt, da sie den Fehler verursacht
-        // window.route = route
-
         const app = createApp({ render: () => h(App, props) })
             .use(plugin)
-            .use(ZiggyVue) // ZiggyVue stellt bereits das route-Objekt global bereit
+            .use(ZiggyVue)
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
                 },
             })
             .use(ToastService)
+            .use(ConfirmationService)
+            .directive("tooltip", Tooltip)
+
+        // Make route function globally available
+        app.config.globalProperties.route = route
+        window.route = route
 
         // Registriere PrimeVue Komponenten für das Dashboard
-        app.component('Avatar', Avatar)
-        app.component('Dropdown', Dropdown)
-        app.component('Chart', Chart)
-        app.component('DataTable', DataTable)
-        app.component('Column', Column)
-        app.component('Tag', Tag)
+        app.component("Avatar", Avatar)
+        app.component("Dropdown", Dropdown)
+        app.component("Chart", Chart)
+        app.component("DataTable", DataTable)
+        app.component("Column", Column)
+        app.component("Tag", Tag)
+
+        // Registriere zusätzliche PrimeVue Komponenten für Reports
+        app.component("Button", Button)
+        app.component("Dialog", Dialog)
+        app.component("InputText", InputText)
+        app.component("Textarea", Textarea)
+        app.component("Calendar", Calendar)
+        app.component("Toast", Toast)
+        app.component("ConfirmDialog", ConfirmDialog)
 
         return app.mount(el)
     },
