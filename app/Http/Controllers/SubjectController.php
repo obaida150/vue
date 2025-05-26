@@ -20,8 +20,6 @@ class SubjectController extends Controller
                     'id' => $subject->id,
                     'name' => $subject->name,
                     'year' => $subject->year,
-                    'hours' => $subject->hours,
-                    'description' => $subject->description,
                 ];
             });
 
@@ -33,8 +31,6 @@ class SubjectController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'year' => 'required|integer|between:1,3',
-            'hours' => 'nullable|integer|min:0',
-            'description' => 'nullable|string',
         ]);
 
         $subject = Subject::create([
@@ -42,8 +38,6 @@ class SubjectController extends Controller
             'team_id' => Auth::user()->current_team_id,
             'name' => $validated['name'],
             'year' => $validated['year'],
-            'hours' => $validated['hours'] ?? 0,
-            'description' => $validated['description'],
         ]);
 
         return response()->json([
@@ -59,8 +53,6 @@ class SubjectController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'year' => 'required|integer|between:1,3',
-            'hours' => 'nullable|integer|min:0',
-            'description' => 'nullable|string',
         ]);
 
         $subject->update($validated);
@@ -90,8 +82,6 @@ class SubjectController extends Controller
                     'id' => $subject->id,
                     'name' => $subject->name,
                     'year' => $subject->year,
-                    'hours' => $subject->hours,
-                    'description' => $subject->description,
                 ];
             });
 

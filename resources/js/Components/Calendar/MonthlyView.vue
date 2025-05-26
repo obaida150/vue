@@ -58,8 +58,39 @@
                     {{ getHolidayName(dayjs(day.date)) }}
                 </div>
 
-                <div v-if="isUserAbsent(day.date) && !isTeamManager" class="text-xs text-amber-600 dark:text-amber-400 mb-1">
+                <!-- Abwesenheitsanzeige für normale Benutzer -->
+                <div v-if="isUserAbsent(day.date) && !isTeamManager && !isHrUser" class="text-xs text-amber-600 dark:text-amber-400 mb-1">
                     Als abwesend markiert
+                </div>
+
+                <!-- HR-Abwesenheitsanzeige - zeigt alle Abwesenheitseinträge an -->
+                <div v-if="isHrUser && getAllAbsenceEntriesForDay && getAllAbsenceEntriesForDay(day.date).length > 0" class="hr-absence-section mb-2">
+                    <div class="text-xs text-amber-600 dark:text-amber-400 mb-1">
+                        Abwesenheiten ({{ getAllAbsenceEntriesForDay(day.date).length }})
+                    </div>
+                    <div class="space-y-1">
+                        <div
+                            v-for="absence in getAllAbsenceEntriesForDay(day.date).slice(0, 2)"
+                            :key="absence.id"
+                            class="text-xs p-1 bg-amber-50/80 dark:bg-amber-900/30 rounded cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-800/50"
+                            @click.stop="$emit('event-click', absence)"
+                            :title="`${absence.title} - ${absence.employee_name || 'Unbekannt'}`"
+                        >
+                            <div class="flex items-center">
+                                <i class="pi pi-user-minus text-amber-500 dark:text-amber-400 text-xs mr-1"></i>
+                                <span class="font-medium text-amber-700 dark:text-amber-300">
+                                    {{ truncateText(absence.employee_name || 'Unbekannt', 12) }}
+                                </span>
+                            </div>
+                        </div>
+                        <div
+                            v-if="getAllAbsenceEntriesForDay(day.date).length > 2"
+                            class="text-xs text-center p-1 bg-amber-100 dark:bg-amber-800/50 rounded cursor-pointer"
+                            @click.stop="showAllAbsenceEntriesForDay(day.date)"
+                        >
+                            +{{ getAllAbsenceEntriesForDay(day.date).length - 2 }} weitere
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Urlaubsanzeige mit Sperrsymbol -->
@@ -301,10 +332,22 @@ const props = defineProps({
     isUserAbsent: {
         type: Function,
         required: true
+    },
+    hasAbsenceEntriesForDay: {
+        type: Function,
+        default: () => () => false
+    },
+    getAllAbsenceEntriesForDay: {
+        type: Function,
+        default: () => () => []
+    },
+    absenceEntries: {
+        type: Array,
+        default: () => []
     }
 });
 
-const emit = defineEmits(['day-click', 'event-click', 'vacation-click', 'week-plan']);
+const emit = defineEmits(['day-click', 'event-click', 'vacation-click', 'week-plan', 'absence-details']);
 
 // Limit für die Anzahl der angezeigten Ereignisse pro Tag
 const eventDisplayLimit = 2;
@@ -510,6 +553,15 @@ const showAllEventsForDay = (date) => {
     dayEventsDialogVisible.value = true;
 };
 
+// Alle Abwesenheitseinträge eines Tages anzeigen
+const showAllAbsenceEntriesForDay = (date) => {
+    selectedDayDate.value = date;
+    selectedDayEvents.value = props.getAllAbsenceEntriesForDay ? props.getAllAbsenceEntriesForDay(date) : [];
+    selectedEventTypes.value = []; // Filter zurücksetzen
+    eventSearchQuery.value = ''; // Suche zurücksetzen
+    dayEventsDialogVisible.value = true;
+};
+
 // Ereignistyp-Filter umschalten
 const toggleEventTypeFilter = (typeId) => {
     const index = selectedEventTypes.value.indexOf(typeId);
@@ -534,7 +586,9 @@ const openEventDetails = (event) => {
     closeDayEventsDialog();
 };
 
-// Dialog schließen
+// Neue Funktionen für HR-Abwesenheitsverwaltung
+// Entferne diese Funktion komplett, da wir direkt getAllAbsenceEntriesForDay verwenden
+
 const closeDayEventsDialog = () => {
     dayEventsDialogVisible.value = false;
 };
@@ -615,5 +669,19 @@ const closeDayEventsDialog = () => {
 .team-absence-indicator {
     display: flex;
     flex-direction: column;
+}
+
+/* Styling für HR-Abwesenheitsanzeige */
+.hr-absence-indicator {
+    display: flex;
+    flex-direction: column;
+}
+
+.hr-absence-indicator .cursor-pointer:hover {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+:deep(.dark) .hr-absence-indicator .cursor-pointer:hover {
+    background-color: rgba(245, 158, 11, 0.3) !important;
 }
 </style>

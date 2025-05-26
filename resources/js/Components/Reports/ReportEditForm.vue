@@ -126,11 +126,17 @@
                     <p class="text-gray-500 dark:text-gray-400 mb-4">
                         Keine Fächer für das {{ form.year }}. Lehrjahr gefunden
                     </p>
+                    <Button
+                        label="Fächer verwalten"
+                        icon="pi pi-cog"
+                        @click="$inertia.visit('/subjects')"
+                        class="p-button-secondary"
+                    />
                 </div>
                 <div v-else class="space-y-4">
                     <div v-for="subject in subjects" :key="subject.id" class="field">
                         <label :for="`edit_subject_${subject.id}`" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {{ subject.name }}
+                            {{ subject.name }} ({{ subject.hours }} Stunden)
                         </label>
                         <Textarea
                             :id="`edit_subject_${subject.id}`"
@@ -139,6 +145,7 @@
                             :placeholder="`Inhalte für ${subject.name} beschreiben...`"
                             class="w-full"
                         />
+                        <small class="text-gray-500">{{ subject.description }}</small>
                     </div>
                 </div>
             </Panel>
@@ -291,7 +298,15 @@ const loadSubjects = async () => {
     try {
         const response = await axios.get(`/api/subjects/year/${form.value.year}`)
         subjects.value = response.data
+
+        // Initialisiere subjects_data für alle Fächer, falls noch nicht vorhanden
+        subjects.value.forEach(subject => {
+            if (!(subject.id in form.value.subjects_data)) {
+                form.value.subjects_data[subject.id] = ''
+            }
+        })
     } catch (error) {
+        console.error('Error loading subjects:', error)
         toast.add({
             severity: 'error',
             summary: 'Fehler',
@@ -346,7 +361,7 @@ const updateReport = async () => {
     }
 }
 
-const initializeForm = () => {
+const initializeForm = async () => {
 
     form.value = {
         type: props.report.type || '',
@@ -355,15 +370,30 @@ const initializeForm = () => {
         date_from: props.report.date_from ? new Date(props.report.date_from) : null,
         date_to: props.report.date_to ? new Date(props.report.date_to) : null,
         instructor_id: props.report.instructor_id || null,
-        subjects_data: props.report.subjects_data || {},
+        subjects_data: {},
         activities: props.report.activities || '',
         unterweisungen: props.report.unterweisungen || '',
         unterricht: props.report.unterricht || '',
         abteilung: props.report.abteilung || ''
     }
 
+    // Initialisiere subjects_data aus dem Report
+    if (props.report.subjects_data && typeof props.report.subjects_data === 'object') {
+        // Wenn subjects_data ein Array von Objekten ist (aus der Datenbank)
+        if (Array.isArray(props.report.subjects_data)) {
+            props.report.subjects_data.forEach(subjectData => {
+                if (subjectData.id && subjectData.content) {
+                    form.value.subjects_data[subjectData.id] = subjectData.content
+                }
+            })
+        } else {
+            // Wenn subjects_data ein Objekt ist (direkte Zuordnung)
+            form.value.subjects_data = { ...props.report.subjects_data }
+        }
+    }
+
     if (form.value.type === 'Berufsschule' && form.value.year) {
-        loadSubjects()
+        await loadSubjects()
     }
 }
 

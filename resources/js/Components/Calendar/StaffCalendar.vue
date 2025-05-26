@@ -35,6 +35,8 @@
             :show-only-own-events="showOnlyOwnEvents"
             :current-user-id="currentUserId"
             :is-user-absent="isUserAbsent"
+            :has-absence-entries-for-day="hasAbsenceEntriesForDay"
+            :get-all-absence-entries-for-day="getAllAbsenceEntriesForDay"
             @week-plan="openWeekPlanDialog"
             @day-click="handleDayClick"
             @event-click="openEventDetailsDialog"
@@ -573,6 +575,67 @@ const checkTeamMemberAbsence = (date) => {
 
         return isAbsentEvent && isTeamMemberEvent && isOnDate;
     });
+};
+
+// Neue Funktion für HR-Benutzer, um alle Abwesenheitseinträge zu sehen
+const getAllAbsenceEntriesForDay = (date) => {
+    if (!date || !processedEvents.value) return [];
+
+    const dateStr = dayjs(date).format('YYYY-MM-DD');
+
+    // Für HR-Benutzer: Zeige alle Abwesenheitseinträge, unabhängig vom Benutzer
+    if (isHrUser.value) {
+        const absenceEvents = processedEvents.value.filter(event => {
+            // Prüfe verschiedene Varianten für Abwesenheit
+            const isAbsentEvent = event.type && (
+                event.type.name === 'Abwesend' ||
+                event.type.name === 'Absent' ||
+                event.type.value === 'absent' ||
+                event.type.value === 'abwesend' ||
+                (event.type.value && event.type.value.toLowerCase() === 'absent') ||
+                (event.type.value && event.type.value.toLowerCase() === 'abwesend') ||
+                // Auch nach event_type_id 4 suchen (aus der Datenbank)
+                event.event_type_id === 4
+            );
+
+            const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+            const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+            const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
+
+            return isAbsentEvent && isOnDate;
+        });
+
+        return absenceEvents;
+    }
+
+    // Für andere Benutzer: Nur eigene oder Team-Abwesenheitseinträge
+    return processedEvents.value.filter(event => {
+        const isAbsentEvent = event.type && (
+            event.type.name === 'Abwesend' ||
+            event.type.name === 'Absent' ||
+            event.type.value === 'absent' ||
+            event.type.value === 'abwesend' ||
+            (event.type.value && event.type.value.toLowerCase() === 'absent') ||
+            (event.type.value && event.type.value.toLowerCase() === 'abwesend') ||
+            event.event_type_id === 4
+        );
+
+        const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+        const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+        const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
+
+        // Prüfe ob es der eigene Eintrag oder ein Team-Eintrag ist
+        const isOwnOrTeamEvent = event.user_id === currentUserId.value ||
+            (isTeamManager.value && event.team_id === userTeamId.value);
+
+        return isAbsentEvent && isOnDate && isOwnOrTeamEvent;
+    });
+};
+
+// Funktion um zu prüfen, ob es Abwesenheitseinträge für einen Tag gibt (für HR)
+const hasAbsenceEntriesForDay = (date) => {
+    if (!isHrUser.value) return false;
+    return getAllAbsenceEntriesForDay(date).length > 0;
 };
 
 // Wrapper-Funktionen für Composable-Funktionen
