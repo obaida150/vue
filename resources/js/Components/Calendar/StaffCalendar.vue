@@ -1,5 +1,5 @@
 <template>
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 w-full overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p:6 w-full overflow-hidden">
         <Toast />
         <!-- Header mit Navigation -->
         <CalendarHeader
@@ -7,6 +7,7 @@
             :current-date="currentDate"
             :year-layout="yearLayout"
             :is-team-manager="isTeamManager"
+            :is-hr-user="isHrUser"
             :show-only-own-events="showOnlyOwnEvents"
             @previous="previousPeriod"
             @next="nextPeriod"
@@ -153,7 +154,7 @@ import 'dayjs/locale/de';
 import weekday from 'dayjs/plugin/weekday';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import isBetween from 'dayjs/plugin/isBetween';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import isSameOrBefore from 'dayjs/plugin/isSameOrAfter';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isToday from 'dayjs/plugin/isToday';
 import { usePrimeVue } from 'primevue/config';
@@ -319,7 +320,7 @@ const {
     navigateToVacationManagement,
     confirmDeleteEvent,
     cancelDeleteEvent,
-    deleteEvent,
+    deleteEvent: deleteEventFn,
     openWeekPlanDialog: openWeekPlanDialogFn,
     closeWeekPlanDialog,
     toggleWeekPlanFilter: toggleWeekPlanFilterFn,
@@ -517,7 +518,7 @@ const isUserAbsent = (date) => {
 
     const dateStr = dayjs(date).format('YYYY-MM-DD');
 
-    // Prüfen, ob der aktuelle Benutzer (Abteilungsleiter) selbst an diesem Tag abwesend ist
+    // Prüfen, ob der aktuelle Benutzer selbst an diesem Tag abwesend ist
     const isCurrentUserAbsent = processedEvents.value.some(event => {
         const isAbsentEvent = event.type &&
             (event.type.name === 'Abwesend' ||
@@ -530,40 +531,72 @@ const isUserAbsent = (date) => {
         return isAbsentEvent && isCurrentUserEvent && isOnDate;
     });
 
-    // Wenn wir nur eigene Ereignisse anzeigen oder der Benutzer kein Abteilungsleiter ist,
-    // geben wir nur zurück, ob der aktuelle Benutzer abwesend ist
-    if (showOnlyOwnEvents.value || !isTeamManager.value) {
+    // Wenn wir nur eigene Ereignisse anzeigen, nur eigene Abwesenheit zurückgeben
+    if (showOnlyOwnEvents.value) {
         return isCurrentUserAbsent;
     }
 
-    // Für Abteilungsleiter in der Teamansicht:
-    // Wenn der Abteilungsleiter selbst abwesend ist, zeigen wir das an
+    // Wenn der aktuelle Benutzer selbst abwesend ist, zeigen wir das an
     if (isCurrentUserAbsent) {
         return true;
     }
 
-    // Sonst prüfen wir, ob ein Teammitglied abwesend ist
-    const isTeamMemberAbsent = processedEvents.value.some(event => {
-        const isAbsentEvent = event.type &&
-            (event.type.name === 'Abwesend' ||
-                (event.type.value && event.type.value.toLowerCase() === 'absent'));
-        const isTeamMemberEvent = event.team_id === userTeamId.value && event.user_id !== currentUserId.value;
-        const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
-        const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
-        const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
+    // Für HR-Benutzer in der "Alle Benutzer" Ansicht: alle Abwesenheiten prüfen
+    if (isHrUser.value && !showOnlyOwnEvents.value) {
+        const isAnyUserAbsent = processedEvents.value.some(event => {
+            const isAbsentEvent = event.type &&
+                (event.type.name === 'Abwesend' ||
+                    (event.type.value && event.type.value.toLowerCase() === 'absent'));
+            const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+            const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+            const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
 
-        return isAbsentEvent && isTeamMemberEvent && isOnDate;
-    });
+            return isAbsentEvent && isOnDate;
+        });
+        return isAnyUserAbsent;
+    }
 
-    return isTeamMemberAbsent;
+    // Für Abteilungsleiter in der Teamansicht: Team-Abwesenheiten prüfen
+    if (isTeamManager.value && !showOnlyOwnEvents.value) {
+        const isTeamMemberAbsent = processedEvents.value.some(event => {
+            const isAbsentEvent = event.type &&
+                (event.type.name === 'Abwesend' ||
+                    (event.type.value && event.type.value.toLowerCase() === 'absent'));
+            const isTeamMemberEvent = event.team_id === userTeamId.value && event.user_id !== currentUserId.value;
+            const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+            const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+            const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
+
+            return isAbsentEvent && isTeamMemberEvent && isOnDate;
+        });
+        return isTeamMemberAbsent;
+    }
+
+    return false;
 };
 
 // Fügen Sie eine neue Funktion hinzu, um zu prüfen, ob ein Teammitglied (nicht der Abteilungsleiter selbst) abwesend ist
 const checkTeamMemberAbsence = (date) => {
-    if (!date || !processedEvents.value || !isTeamManager.value || showOnlyOwnEvents.value) return false;
+    if (!date || !processedEvents.value || (!isTeamManager.value && !isHrUser.value) || showOnlyOwnEvents.value) return false;
 
     const dateStr = dayjs(date).format('YYYY-MM-DD');
 
+    if (isHrUser.value) {
+        // HR sieht alle Abwesenheiten außer der eigenen
+        return processedEvents.value.some(event => {
+            const isAbsentEvent = event.type &&
+                (event.type.name === 'Abwesend' ||
+                    (event.type.value && event.type.value.toLowerCase() === 'absent'));
+            const isOtherUserEvent = event.user_id !== currentUserId.value;
+            const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+            const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+            const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
+
+            return isAbsentEvent && isOtherUserEvent && isOnDate;
+        });
+    }
+
+    // Für Abteilungsleiter: Nur Team-Mitglieder
     return processedEvents.value.some(event => {
         const isAbsentEvent = event.type &&
             (event.type.name === 'Abwesend' ||
@@ -583,10 +616,9 @@ const getAllAbsenceEntriesForDay = (date) => {
 
     const dateStr = dayjs(date).format('YYYY-MM-DD');
 
-    // Für HR-Benutzer: Zeige alle Abwesenheitseinträge, unabhängig vom Benutzer
+    // Für HR-Benutzer: Zeige Abwesenheitseinträge basierend auf Filter
     if (isHrUser.value) {
         const absenceEvents = processedEvents.value.filter(event => {
-            // Prüfe verschiedene Varianten für Abwesenheit
             const isAbsentEvent = event.type && (
                 event.type.name === 'Abwesend' ||
                 event.type.name === 'Absent' ||
@@ -594,7 +626,6 @@ const getAllAbsenceEntriesForDay = (date) => {
                 event.type.value === 'abwesend' ||
                 (event.type.value && event.type.value.toLowerCase() === 'absent') ||
                 (event.type.value && event.type.value.toLowerCase() === 'abwesend') ||
-                // Auch nach event_type_id 4 suchen (aus der Datenbank)
                 event.event_type_id === 4
             );
 
@@ -602,13 +633,19 @@ const getAllAbsenceEntriesForDay = (date) => {
             const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
             const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
 
+            // Wenn "Nur eigene Events" aktiviert ist, nur eigene Abwesenheiten zeigen
+            if (showOnlyOwnEvents.value) {
+                return isAbsentEvent && isOnDate && event.user_id === currentUserId.value;
+            }
+
+            // Sonst alle Abwesenheitseinträge zeigen
             return isAbsentEvent && isOnDate;
         });
 
         return absenceEvents;
     }
 
-    // Für andere Benutzer: Nur eigene oder Team-Abwesenheitseinträge
+    // Für andere Benutzer: bestehende Logik beibehalten
     return processedEvents.value.filter(event => {
         const isAbsentEvent = event.type && (
             event.type.name === 'Abwesend' ||
@@ -624,7 +661,6 @@ const getAllAbsenceEntriesForDay = (date) => {
         const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
         const isOnDate = dateStr >= eventStartDate && dateStr <= eventEndDate;
 
-        // Prüfe ob es der eigene Eintrag oder ein Team-Eintrag ist
         const isOwnOrTeamEvent = event.user_id === currentUserId.value ||
             (isTeamManager.value && event.team_id === userTeamId.value);
 
@@ -641,6 +677,20 @@ const hasAbsenceEntriesForDay = (date) => {
 // Wrapper-Funktionen für Composable-Funktionen
 const editEvent = () => {
     editEventFn(findEventType);
+};
+
+// Neue deleteEvent Funktion die nach dem Löschen beide Dialoge schließt
+const deleteEvent = async () => {
+    try {
+        // Führe die ursprüngliche deleteEvent Funktion aus
+        await deleteEventFn();
+
+        // Schließe den Event-Details-Dialog nach erfolgreichem Löschen
+        eventDetailsDialogVisible.value = false;
+
+    } catch (error) {
+        console.error('Fehler beim Löschen des Events:', error);
+    }
 };
 
 const openWeekPlanDialog = (weekNumber, days) => {
@@ -714,14 +764,13 @@ onMounted(async () => {
         await fetchEmployees();
     }
 
-    // Für HR-Benutzer standardmäßig alle Ereignisse anzeigen
-    if (isHrUser.value) {
-        // Nur die gespeicherte Einstellung laden, wenn sie existiert
+    // Für HR-Benutzer und Abteilungsleiter: Intelligente Standardeinstellung
+    if (isHrUser.value || isTeamManager.value) {
         const savedFilter = localStorage.getItem('showOnlyOwnEvents');
         if (savedFilter !== null) {
             showOnlyOwnEvents.value = savedFilter === 'true';
         } else {
-            // Für HR-Benutzer standardmäßig alle Ereignisse anzeigen
+            // Standardmäßig alle Events anzeigen für HR und Abteilungsleiter
             showOnlyOwnEvents.value = false;
             localStorage.setItem('showOnlyOwnEvents', 'false');
         }

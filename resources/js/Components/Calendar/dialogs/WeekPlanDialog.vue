@@ -39,7 +39,7 @@
                     <div class="p-3">
                         <!-- Normale Bearbeitungsansicht für Tage, die nicht blockiert sind -->
                         <div v-if="!isHoliday(dayjs(day.date)) && !hasVacations(day.date) && !isBlockedForUser(day.date)">
-                            <Dropdown
+                            <Select
                                 v-model="day.selectedType"
                                 :options="filteredEventTypes"
                                 optionLabel="name"
@@ -67,11 +67,11 @@
                                         <div>{{ slotProps.option.name }}</div>
                                     </div>
                                 </template>
-                            </Dropdown>
+                            </Select>
 
                             <!-- Mitarbeiterauswahl für HR bei Krankheit oder Abwesenheit -->
                             <div v-if="isHr && day.selectedType && (day.selectedType.name === 'Krankheit' || day.selectedType.name === 'Abwesend')" class="mb-3">
-                                <Dropdown
+                                <Select
                                     v-model="day.selectedEmployee"
                                     :options="employees"
                                     optionLabel="name"
@@ -137,6 +137,7 @@ import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import Dropdown from 'primevue/dropdown';
+import Select from 'primevue/select';
 import Badge from 'primevue/badge';
 
 const props = defineProps({
@@ -365,7 +366,7 @@ const onRemoveEvent = (index) => {
 }
 
 /* Verbesserte Dropdown-Darstellung */
-.week-plan-dialog :deep(.p-dropdown) {
+.week-plan-dialog :deep(.p-selectbutton) {
     border-radius: 0.375rem;
 }
 

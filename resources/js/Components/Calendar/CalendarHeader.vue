@@ -11,14 +11,14 @@
             <Button icon="pi pi pi-chevron-right" @click="$emit('next')" class="p-button-rounded p-button-text" />
         </div>
         <div class="flex items-center gap-4 w-full md:w-auto">
-            <!-- Toggle-Button für Abteilungsleiter -->
-            <div v-if="isTeamManager" class="mr-2">
+            <!-- Toggle-Button für Abteilungsleiter und HR -->
+            <div v-if="isTeamManager || isHrUser" class="mr-2">
                 <ToggleButton
                     v-model="localShowOnlyOwnEvents"
-                    onLabel="Nur eigene"
-                    offLabel="Team"
+                    :onLabel="'Nur eigene'"
+                    :offLabel="isHrUser ? 'Alle User' : 'Team'"
                     onIcon="pi pi-user"
-                    offIcon="pi pi-users"
+                    :offIcon="isHrUser ? 'pi pi-users' : 'pi pi-users'"
                     class="p-button-sm"
                     @change="$emit('toggle-event-filter')"
                 />
@@ -77,6 +77,10 @@ const props = defineProps({
         default: '6x2'
     },
     isTeamManager: {
+        type: Boolean,
+        default: false
+    },
+    isHrUser: {
         type: Boolean,
         default: false
     },

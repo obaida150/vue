@@ -16,7 +16,7 @@
 
             <div>
                 <label for="event-type" class="block mb-1 sm:mb-2 font-medium">Ereignistyp</label>
-                <Dropdown
+                <Select
                     id="event-type"
                     v-model="event.type"
                     :options="eventTypes"
@@ -30,7 +30,7 @@
             <!-- Mitarbeiterauswahl für HR bei Krankheit -->
             <div v-if="isHr && event.type" class="mb-3 sm:mb-4">
                 <label for="employee" class="block mb-1 sm:mb-2 font-medium">Mitarbeiter</label>
-                <Dropdown
+                <Select
                     id="employee"
                     v-model="selectedEmployee"
                     :options="employees"
@@ -44,7 +44,7 @@
             <div>
                 <label class="block mb-1 sm:mb-2 font-medium">Zeitraum</label>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <Calendar
+                    <DatePicker
                         v-model="event.startDate"
                         dateFormat="dd.mm.yy"
                         placeholder="Startdatum"
@@ -53,7 +53,7 @@
                         :locale="locale"
                         required
                     />
-                    <Calendar
+                    <DatePicker
                         v-model="event.endDate"
                         dateFormat="dd.mm.yy"
                         placeholder="Enddatum"
@@ -111,9 +111,9 @@ import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
-import Dropdown from 'primevue/dropdown';
+import Select from 'primevue/select';
 import Checkbox from 'primevue/checkbox';
-import Calendar from 'primevue/calendar';
+import DatePicker from 'primevue/datepicker';
 
 const props = defineProps({
     visible: {
