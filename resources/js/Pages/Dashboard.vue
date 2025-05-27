@@ -6,8 +6,8 @@ import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 // PrimeVue Komponenten explizit importieren
-import InputSwitch from 'primevue/inputswitch';
-import Dropdown from 'primevue/dropdown';
+import ToggleSwitch from 'primevue/toggleswitch';
+import Select from 'primevue/select';
 import Chart from 'primevue/chart';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
@@ -204,7 +204,8 @@ async function loadTeamVacationOverview() {
             3: 'Vertrieb',
             4: 'Personal',
             5: 'Betrieb',
-            6: 'Geschäftsleitung'
+            6: 'Geschäftsleitung',
+            7: 'Azubis'
         };
 
         // Verarbeite die Daten für jeden Mitarbeiter
@@ -323,7 +324,8 @@ function createLocalDepartmentsFromEmployees() {
         3: 'Vertrieb',
         4: 'Personal',
         5: 'Betrieb',
-        6: 'Geschäftsleitung'
+        6: 'Geschäftsleitung',
+        7: 'Azubis'
     };
 
     // Füge zuerst alle bekannten Abteilungen aus der teamNames-Map hinzu
@@ -386,7 +388,9 @@ function createLocalDepartmentsFromEmployees() {
             { id: 3, name: 'Vertrieb' },
             { id: 4, name: 'Personal' },
             { id: 5, name: 'Betrieb' },
-            { id: 6, name: 'Geschäftsleitung' }
+            { id: 6, name: 'Geschäftsleitung' },
+            { id: 7, name: 'Azubis' },
+            { id: null, name: 'Alle Abteilungen' } // Fallback für alle Abteilungen
         ];
     } else {
         availableDepartments.value = Array.from(departments.values());
@@ -838,7 +842,7 @@ onMounted(() => {
                             <div class="flex flex-col sm:flex-row gap-4">
                                 <div class="flex-1">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jahr</label>
-                                    <Dropdown
+                                    <Select
                                         v-model="selectedYear"
                                         :options="years"
                                         placeholder="Jahr auswählen"
@@ -848,7 +852,7 @@ onMounted(() => {
                                 </div>
                                 <div class="flex-1">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monat</label>
-                                    <Dropdown
+                                    <Select
                                         v-model="selectedMonth"
                                         :options="months"
                                         optionLabel="name"
@@ -868,7 +872,7 @@ onMounted(() => {
                             <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Abteilungsfilter</h2>
                             <div class="flex flex-col sm:flex-row gap-4">
                                 <div class="flex-1">
-                                    <Dropdown
+                                    <Select
                                         v-model="selectedDepartment"
                                         :options="availableDepartments"
                                         optionLabel="name"
@@ -884,7 +888,7 @@ onMounted(() => {
                     <div v-if="userRole <= 3" class="mb-6">
                         <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
                             <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Mitarbeiter auswählen</h2>
-                            <Dropdown
+                            <Select
                                 v-model="selectedEmployee"
                                 :options="availableEmployees"
                                 optionLabel="name"
@@ -1039,7 +1043,7 @@ onMounted(() => {
                                 <!-- Toggle für Teamübersicht (nur für Abteilungsleiter und HR) -->
                                 <div v-if="userRole <= 3" class="flex items-center">
                                     <span class="mr-2 text-sm text-gray-600 dark:text-gray-400">Einzelansicht</span>
-                                    <InputSwitch v-model="showTeamOverview" />
+                                    <ToggleSwitch v-model="showTeamOverview" />
                                     <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Teamübersicht</span>
                                 </div>
                             </div>
