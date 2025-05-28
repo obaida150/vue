@@ -1,4 +1,5 @@
 <?php
+
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -12,6 +13,7 @@ use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VacationWishController;
+use App\Http\Controllers\ParkingController;
 use App\Models\VacationRequest;
 use App\Models\User;
 use App\Models\Team;
@@ -38,113 +40,137 @@ Route::get('/', function () {
     ]);
 });
 
+// CSRF-Token-Routen für bessere Token-Verwaltung
+Route::middleware('web')->group(function () {
+    // CSRF-Cookie setzen
+    Route::get('/sanctum/csrf-cookie', function () {
+        return response()->json([
+            'message' => 'CSRF cookie set',
+            'timestamp' => now()->toISOString()
+        ]);
+    });
+
+    // Frisches CSRF-Token holen
+    Route::get('/refresh-csrf', function () {
+        // Regeneriere Session-Token
+        request()->session()->regenerateToken();
+
+        return response()->json([
+            'token' => csrf_token(),
+            'timestamp' => now()->toISOString()
+        ]);
+    });
+
+    // Debug-Route für Token-Status
+    Route::get('/csrf-status', function () {
+        return response()->json([
+            'has_session' => request()->hasSession(),
+            'session_id' => request()->session()->getId(),
+            'csrf_token' => csrf_token(),
+            'timestamp' => now()->toISOString()
+        ]);
+    });
+});
+
 Route::prefix('test')->group(function () {
-    // Test für Urlaubsantrag-E-Mail
-    Route::get('/vacation-request-mail', function () {
+    // Test für Parkplatz-E-Mail
+    Route::get('/parking-reservation-mail', function () {
         try {
             $testEmail = env('MAIL_TEST_RECIPIENT', 'test@example.com');
 
             // Testdaten erzeugen
             $user = new User();
             $user->id = 1;
-            $user->full_name = 'Max Mustermann';
+            $user->name = 'Max Mustermann';
+            $user->email = $testEmail;
 
-            $vacationRequest = new VacationRequest();
-            $vacationRequest->id = 999;
-            $vacationRequest->user_id = 1;
-            $vacationRequest->start_date = Carbon\Carbon::now()->addDays(5);
-            $vacationRequest->end_date = Carbon\Carbon::now()->addDays(10);
-            $vacationRequest->days = 5;
-            $vacationRequest->notes = 'Testnotiz für den Urlaubsantrag';
+            $parkingSpot = new \App\Models\ParkingSpot();
+            $parkingSpot->id = 1;
+            $parkingSpot->name = 'Hebebühne 1 - Oben';
+            $parkingSpot->identifier = 'HB1-O';
+
+            $parkingLocation = new \App\Models\ParkingLocation();
+            $parkingLocation->id = 1;
+            $parkingLocation->name = 'Firmenhof - Hebebühnen';
+
+            $parkingSpot->setRelation('parkingLocation', $parkingLocation);
+
+            $reservation = new \App\Models\ParkingReservation();
+            $reservation->id = 999;
+            $reservation->user_id = 1;
+            $reservation->parking_spot_id = 1;
+            $reservation->reservation_date = Carbon\Carbon::now()->addDays(1);
+            $reservation->start_time = '08:00';
+            $reservation->end_time = '17:00';
+            $reservation->vehicle_info = 'BMW X3, ABC-123';
+            $reservation->notes = 'Testnotiz für die Parkplatz-Reservierung';
+            $reservation->status = 'confirmed';
+
+            $reservation->setRelation('parkingSpot', $parkingSpot);
+            $reservation->setRelation('user', $user);
 
             // E-Mail senden
-            Mail::to($testEmail)->send(new App\Mail\VacationRequestMail(
-                $vacationRequest,
+            Mail::to($testEmail)->send(new App\Mail\ParkingReservationMail(
+                $reservation,
                 $user,
-                collect([]),
-                null
+                'created'
             ));
 
-            return 'Urlaubsantrag-E-Mail gesendet an ' . $testEmail;
+            return 'Parkplatz-Reservierung-E-Mail gesendet an ' . $testEmail;
         } catch (\Exception $e) {
             return 'Fehler: ' . $e->getMessage();
         }
     });
 
-    // Test für Genehmigungs-E-Mail
-    Route::get('/vacation-approved-mail', function () {
+    // Test für Stornierung-E-Mail
+    Route::get('/parking-cancellation-mail', function () {
         try {
             $testEmail = env('MAIL_TEST_RECIPIENT', 'test@example.com');
 
             // Testdaten erzeugen
-            $employee = new User();
-            $employee->id = 1;
-            $employee->full_name = 'Max Mustermann';
+            $user = new User();
+            $user->id = 1;
+            $user->name = 'Max Mustermann';
+            $user->email = $testEmail;
 
-            $approver = new User();
-            $approver->id = 2;
-            $approver->full_name = 'Chef Mustermann';
+            $parkingSpot = new \App\Models\ParkingSpot();
+            $parkingSpot->id = 1;
+            $parkingSpot->name = 'Hebebühne 1 - Oben';
+            $parkingSpot->identifier = 'HB1-O';
 
-            $vacationRequest = new VacationRequest();
-            $vacationRequest->id = 999;
-            $vacationRequest->user_id = 1;
-            $vacationRequest->start_date = Carbon\Carbon::now()->addDays(5);
-            $vacationRequest->end_date = Carbon\Carbon::now()->addDays(10);
-            $vacationRequest->days = 5;
-            $vacationRequest->notes = 'Testnotiz für den Urlaubsantrag';
+            $parkingLocation = new \App\Models\ParkingLocation();
+            $parkingLocation->id = 1;
+            $parkingLocation->name = 'Firmenhof - Hebebühnen';
 
-            // E-Mail senden
-            Mail::to($testEmail)->send(new App\Mail\VacationApprovedMail(
-                $vacationRequest,
-                $employee,
-                $approver
-            ));
+            $parkingSpot->setRelation('parkingLocation', $parkingLocation);
 
-            return 'Genehmigungs-E-Mail gesendet an ' . $testEmail;
-        } catch (\Exception $e) {
-            return 'Fehler: ' . $e->getMessage();
-        }
-    });
+            $reservation = new \App\Models\ParkingReservation();
+            $reservation->id = 999;
+            $reservation->user_id = 1;
+            $reservation->parking_spot_id = 1;
+            $reservation->reservation_date = Carbon\Carbon::now()->addDays(1);
+            $reservation->start_time = '08:00';
+            $reservation->end_time = '17:00';
+            $reservation->vehicle_info = 'BMW X3, ABC-123';
+            $reservation->notes = 'Testnotiz für die Parkplatz-Reservierung';
+            $reservation->status = 'cancelled';
 
-    // Test für Ablehnungs-E-Mail
-    Route::get('/vacation-rejected-mail', function () {
-        try {
-            $testEmail = env('MAIL_TEST_RECIPIENT', 'test@example.com');
-
-            // Testdaten erzeugen
-            $employee = new User();
-            $employee->id = 1;
-            $employee->full_name = 'Max Mustermann';
-
-            $approver = new User();
-            $approver->id = 2;
-            $approver->full_name = 'Chef Mustermann';
-
-            $vacationRequest = new VacationRequest();
-            $vacationRequest->id = 999;
-            $vacationRequest->user_id = 1;
-            $vacationRequest->start_date = Carbon\Carbon::now()->addDays(5);
-            $vacationRequest->end_date = Carbon\Carbon::now()->addDays(10);
-            $vacationRequest->days = 5;
-            $vacationRequest->notes = 'Testnotiz für den Urlaubsantrag';
-
-            $rejectionReason = 'Zu viele Mitarbeiter sind bereits im Urlaub in diesem Zeitraum.';
+            $reservation->setRelation('parkingSpot', $parkingSpot);
+            $reservation->setRelation('user', $user);
 
             // E-Mail senden
-            Mail::to($testEmail)->send(new App\Mail\VacationRejectedMail(
-                $vacationRequest,
-                $employee,
-                $rejectionReason,
-                $approver
+            Mail::to($testEmail)->send(new App\Mail\ParkingReservationMail(
+                $reservation,
+                $user,
+                'cancelled'
             ));
 
-            return 'Ablehnungs-E-Mail gesendet an ' . $testEmail;
+            return 'Parkplatz-Stornierung-E-Mail gesendet an ' . $testEmail;
         } catch (\Exception $e) {
             return 'Fehler: ' . $e->getMessage();
         }
     });
 });
-
 
 // API Routes für die Daten
 Route::middleware([
@@ -160,7 +186,6 @@ Route::middleware([
     Route::get('/vacation/all-requests', [VacationController::class, 'getAllRequests'])->name('api.vacation.all-requests');
     Route::get('/vacation/user-requests', [VacationController::class, 'getUserRequests'])->name('api.vacation.user-requests');
     Route::post('/vacation/submit', [VacationController::class, 'submitRequest'])->name('api.vacation.submit');
-    // Füge die Route für das Zurückziehen VOR den anderen Routen mit Parametern ein
     Route::post('/vacation/cancel/{id}', [VacationController::class, 'cancelRequest'])->name('api.vacation.cancel');
     Route::post('/vacation/approve/{id}', [VacationController::class, 'approveRequest'])->name('api.vacation.approve');
     Route::post('/vacation/reject/{id}', [VacationController::class, 'rejectRequest'])->name('api.vacation.reject');
@@ -189,14 +214,12 @@ Route::middleware([
     Route::match(['put', 'post'], '/events/{id}', [EventController::class, 'update'])->name('api.events.update');
     Route::delete('/events/{id}', [EventController::class, 'destroy'])->name('api.events.destroy');
     Route::post('/events/{id}', [EventController::class, 'destroy'])->name('api.events.destroy.post');
-    // Neue Route für die Wochenplanung
     Route::post('/events/week-plan', [EventController::class, 'storeWeekPlan'])->name('api.events.week-plan');
-    // Neue Routen für die Genehmigung/Ablehnung von Ereignissen
     Route::post('/events/approve/{id}', [EventController::class, 'approveEvent'])->name('api.events.approve');
     Route::post('/events/reject/{id}', [EventController::class, 'rejectEvent'])->name('api.events.reject');
     Route::get('/events/pending', [EventController::class, 'getPendingEvents'])->name('api.events.pending');
 
-    // Ereignistypen API - KORRIGIERT: Entfernen Sie das doppelte /api/ im Pfad
+    // Ereignistypen API
     Route::get('/event-types', [EventTypeController::class, 'index'])->name('api.event-types.index');
 
     // Benutzerrolle API
@@ -210,13 +233,13 @@ Route::middleware([
     Route::get('/notifications/birthdays', [NotificationController::class, 'getBirthdayNotifications'])
         ->name('api.notifications.birthdays');
 
-    // Benutzer API - NEUE ROUTEN
+    // Benutzer API
     Route::get('/users', [UserController::class, 'index'])->name('api.users.index');
     Route::get('/users/{id}', [UserController::class, 'show'])->name('api.users.show');
     Route::post('/users', [UserController::class, 'store'])->name('api.users.store');
     Route::put('/users/{id}', [UserController::class, 'update'])->name('api.users.update');
 
-    // Abteilungen API - NEUE ROUTEN
+    // Abteilungen API
     Route::get('/departments', function () {
         $teams = Team::where('personal_team', false)->get()->map(function ($team) {
             return [
@@ -227,7 +250,7 @@ Route::middleware([
         return response()->json($teams);
     })->name('api.departments.index');
 
-    // Rollen API - NEUE ROUTEN
+    // Rollen API
     Route::get('/roles', function () {
         $roles = Role::all()->map(function ($role) {
             return [
@@ -257,8 +280,30 @@ Route::middleware([
     Route::put('/subjects/{id}', [App\Http\Controllers\SubjectController::class, 'update'])->name('api.subjects.update');
     Route::delete('/subjects/{id}', [App\Http\Controllers\SubjectController::class, 'destroy'])->name('api.subjects.destroy');
     Route::get('/subjects/year/{year}', [App\Http\Controllers\SubjectController::class, 'getByYear'])->name('api.subjects.by-year');
-});
 
+    // Parkplatz API - VEREINFACHT (ohne Admin-Genehmigungen)
+    Route::prefix('parking')->group(function () {
+        // Benutzer-API
+        Route::get('/locations', [ParkingController::class, 'getLocations'])->name('api.parking.locations');
+        Route::get('/availability', [ParkingController::class, 'getAvailability'])->name('api.parking.availability');
+        Route::get('/my-reservations', [ParkingController::class, 'getMyReservations'])->name('api.parking.my-reservations');
+        Route::post('/reserve', [ParkingController::class, 'createReservation'])->name('api.parking.reserve');
+        Route::delete('/reservations/{reservation}', [ParkingController::class, 'cancelReservation'])->name('api.parking.cancel-reservation');
+        Route::get('/spots', [ParkingController::class, 'getAllSpots'])->name('api.parking.spots');
+        Route::get('/reservations/current', [ParkingController::class, 'getCurrentReservations'])->name('api.parking.current-reservations');
+        Route::post('/spots/{spot}/toggle', [ParkingController::class, 'toggleSpotStatus'])->name('api.parking.toggle-spot');
+
+        // Admin-API für CRUD-Operationen
+        Route::get('/spaces', [ParkingController::class, 'getSpaces'])->name('api.parking.spaces');
+        Route::post('/locations', [ParkingController::class, 'storeLocation'])->name('api.parking.locations.store');
+        Route::put('/locations/{location}', [ParkingController::class, 'updateLocation'])->name('api.parking.locations.update');
+        Route::delete('/locations/{location}', [ParkingController::class, 'destroyLocation'])->name('api.parking.locations.destroy');
+        Route::get('/locations/{location}/spaces', [ParkingController::class, 'getSpacesByLocation'])->name('api.parking.locations.spaces');
+        Route::post('/spaces', [ParkingController::class, 'storeSpace'])->name('api.parking.spaces.store');
+        Route::put('/spaces/{space}', [ParkingController::class, 'updateSpace'])->name('api.parking.spaces.update');
+        Route::delete('/spaces/{space}', [ParkingController::class, 'destroySpace'])->name('api.parking.spaces.destroy');
+    });
+});
 
 Route::middleware([
     'auth:sanctum',
@@ -314,4 +359,8 @@ Route::middleware([
     Route::get('/subjects', function () {
         return Inertia::render('Subjects/Index');
     })->name('subjects.index');
+
+    // Parkplatzverwaltung Routen
+    Route::get('/parking', [ParkingController::class, 'index'])->name('parking.index');
+    Route::get('/admin/parking', [ParkingController::class, 'admin'])->name('admin.parking');
 });

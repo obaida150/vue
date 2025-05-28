@@ -21,7 +21,8 @@ class VerifyCsrfToken extends Middleware
         'api/events/*/approve',
         'api/*',
         'api/events/*/reject',
-        'api/vacation/cancel/*'
+        'api/vacation/cancel/*',
+        'api/parking/*'
     ];
 
     /**
