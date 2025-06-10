@@ -301,6 +301,41 @@ export default {
             return new Date().toISOString().split('T')[0]
         }
 
+        // Hilfsfunktion für verfügbare Zeitslots
+        const calculateAvailableTimeSlots = (reservations) => {
+            if (reservations.length === 0) {
+                return ['06:00 - 18:00']
+            }
+
+            const slots = []
+            const dayStart = '06:00'
+            const dayEnd = '18:00'
+
+            const sortedReservations = [...reservations].sort((a, b) =>
+                a.start_time.localeCompare(b.start_time)
+            )
+
+            if (sortedReservations[0].start_time > dayStart) {
+                slots.push(`${dayStart} - ${sortedReservations[0].start_time}`)
+            }
+
+            for (let i = 0; i < sortedReservations.length - 1; i++) {
+                const currentEnd = sortedReservations[i].end_time
+                const nextStart = sortedReservations[i + 1].start_time
+
+                if (currentEnd < nextStart) {
+                    slots.push(`${currentEnd} - ${nextStart}`)
+                }
+            }
+
+            const lastReservation = sortedReservations[sortedReservations.length - 1]
+            if (lastReservation.end_time < dayEnd) {
+                slots.push(`${lastReservation.end_time} - ${dayEnd}`)
+            }
+
+            return slots
+        }
+
         // Einfache API-Anfrage-Funktion mit Axios
         const makeApiRequest = async (url, options = {}) => {
             try {
@@ -373,24 +408,36 @@ export default {
             }
         }
 
+        // Hilfsfunktion für Zeitüberschneidungen
+        const timeRangesOverlap = (start1, end1, start2, end2) => {
+            return (start1 < end2) && (start2 < end1)
+        }
+
         const createReservation = async () => {
             if (submitting.value) return
 
             try {
                 submitting.value = true
 
-                // Überprüfe vor der Reservierung, ob der Platz noch verfügbar ist
+                // Überprüfe vor der Reservierung auf Zeitüberschneidungen
                 const dateStr = formatDateForApi(reservationForm.value.reservation_date)
-                const existingReservation = allReservations.value.find(res =>
+                const conflictingReservations = allReservations.value.filter(res =>
                     res.parking_spot_id === reservationForm.value.parking_spot_id &&
                     res.reservation_date.split('T')[0] === dateStr &&
-                    res.status === 'confirmed'
+                    ['pending', 'confirmed'].includes(res.status)
                 )
 
-                if (existingReservation) {
-                    showNotification('Dieser Parkplatz ist bereits für diesen Tag reserviert.', 'error')
-                    await loadData() // Daten aktualisieren
-                    return
+                // Prüfe auf Zeitüberschneidungen
+                for (const existing of conflictingReservations) {
+                    if (timeRangesOverlap(
+                        reservationForm.value.start_time,
+                        reservationForm.value.end_time,
+                        existing.start_time,
+                        existing.end_time
+                    )) {
+                        showNotification(`Zeitüberschneidung mit bestehender Reservierung (${existing.start_time} - ${existing.end_time})`, 'error')
+                        return
+                    }
                 }
 
                 // Stelle sicher, dass das Datum korrekt formatiert ist
@@ -413,19 +460,14 @@ export default {
                 console.error('Fehler bei der Reservierung:', error)
 
                 // Bessere Fehlerbehandlung
-                if (error.message && error.message.includes('already reserved')) {
-                    showNotification('Dieser Parkplatz ist bereits reserviert. Die Ansicht wird aktualisiert.', 'error')
-                    await loadData()
-                    closeDialog()
-                } else if (error.response && error.response.status === 422) {
-                    const errorMessage = error.message || 'Validierungsfehler'
-                    showNotification('Validierungsfehler: ' + errorMessage, 'error')
-                } else if (error.response && error.response.status === 400) {
-                    const errorMessage = error.response.data?.error || error.response.data?.message || 'Reservierung fehlgeschlagen'
-                    showNotification(errorMessage, 'error')
-                    await loadData()
+                if (error.message.includes('Zeitüberschneidung')) {
+                    showNotification('Zeitüberschneidung: ' + error.message, 'error')
+                } else if (error.message.includes('already reserved')) {
+                    showNotification('Dieser Parkplatz ist bereits für das gewählte Datum reserviert.', 'error')
+                } else if (error.message.includes('Validation')) {
+                    showNotification('Bitte überprüfen Sie Ihre Eingaben.', 'error')
                 } else {
-                    showNotification('Fehler bei der Reservierung: ' + (error.message || 'Unbekannter Fehler'), 'error')
+                    showNotification('Fehler bei der Reservierung: ' + error.message, 'error')
                 }
             } finally {
                 submitting.value = false
@@ -464,8 +506,26 @@ export default {
 
         const getAvailableCount = (locationId) => {
             const spots = getLocationSpots(locationId)
-            const reservedSpotIds = allReservations.value.map(r => r.parking_spot_id)
-            return spots.filter(spot => spot.is_active && !reservedSpotIds.includes(spot.id)).length
+            let availableCount = 0
+
+            spots.forEach(spot => {
+                if (!spot.is_active) return
+
+                // Prüfe ob der Spot verfügbare Zeitslots hat
+                const reservations = allReservations.value.filter(r =>
+                    r.parking_spot_id === spot.id &&
+                    r.reservation_date.split('T')[0] === selectedDate.value &&
+                    ['pending', 'confirmed'].includes(r.status)
+                )
+
+                const availableSlots = calculateAvailableTimeSlots(reservations)
+
+                if (availableSlots.length > 0) {
+                    availableCount++
+                }
+            })
+
+            return availableCount
         }
 
         const showReservationDialog = (spot) => {
@@ -506,16 +566,24 @@ export default {
             // Aktualisiere die Daten vor der Reservierung
             await loadData()
 
-            // Überprüfe erneut, ob der Parkplatz noch verfügbar ist
-            const existingReservation = allReservations.value.find(res =>
+            // Überprüfe auf Zeitüberschneidungen statt kompletter Verfügbarkeit
+            const conflictingReservations = allReservations.value.filter(res =>
                 res.parking_spot_id === reserveData.spot.id &&
                 res.reservation_date.split('T')[0] === dateStr &&
-                res.status === 'confirmed'
+                ['pending', 'confirmed'].includes(res.status)
             )
 
-            if (existingReservation) {
-                showNotification('Dieser Parkplatz ist bereits für diesen Tag reserviert.', 'error')
-                return
+            // Prüfe auf Zeitüberschneidungen
+            for (const existing of conflictingReservations) {
+                if (timeRangesOverlap(
+                    reserveData.timeSlot.start,
+                    reserveData.timeSlot.end,
+                    existing.start_time,
+                    existing.end_time
+                )) {
+                    showNotification(`Zeitüberschneidung mit bestehender Reservierung (${existing.start_time} - ${existing.end_time})`, 'error')
+                    return
+                }
             }
 
             // Überprüfe, ob der Parkplatz aktiv ist
@@ -525,7 +593,10 @@ export default {
                 return
             }
 
-            if (confirm(`Möchten Sie ${reserveData.spot.name || reserveData.spot.identifier} schnell reservieren?\n\nZeit: ${reserveData.timeSlot.start} - ${reserveData.timeSlot.end}\nDatum: ${reserveData.date.toLocaleDateString('de-DE')}`)) {
+            if (confirm(`Möchten Sie ${reserveData.spot.name || reserveData.spot.identifier} schnell reservieren?
+
+Zeit: ${reserveData.timeSlot.start} - ${reserveData.timeSlot.end}
+Datum: ${reserveData.date.toLocaleDateString('de-DE')}`)) {
                 try {
                     const reservationData = {
                         parking_spot_id: reserveData.spot.id,
@@ -537,7 +608,6 @@ export default {
                     }
 
                     console.log('Sending reservation data:', reservationData)
-                    console.log('Date validation - Today:', today.toISOString().split('T')[0], 'Reservation:', dateStr)
 
                     const response = await makeApiRequest('/api/parking/reserve', {
                         method: 'POST',
@@ -545,24 +615,16 @@ export default {
                     })
 
                     showNotification('Parkplatz erfolgreich reserviert! 🎉', 'success')
-                    await loadData() // Daten nach erfolgreicher Reservierung aktualisieren
+                    await loadData()
                 } catch (error) {
                     console.error('Fehler bei der Schnell-Reservierung:', error)
 
-                    // Bessere Fehlerbehandlung
-                    if (error.message && error.message.includes('already reserved')) {
+                    if (error.message && error.message.includes('Zeitüberschneidung')) {
+                        showNotification('Zeitüberschneidung mit bestehender Reservierung.', 'error')
+                        await loadData()
+                    } else if (error.message && error.message.includes('already reserved')) {
                         showNotification('Dieser Parkplatz ist bereits reserviert. Die Ansicht wird aktualisiert.', 'error')
-                        await loadData() // Daten aktualisieren um den aktuellen Status zu zeigen
-                    } else if (error.message && error.message.includes('validation.after_or_equal')) {
-                        showNotification('Das Datum muss heute oder in der Zukunft liegen.', 'error')
-                    } else if (error.message && error.message.includes('Validation')) {
-                        showNotification('Validierungsfehler: ' + error.message, 'error')
-                    } else if (error.response && error.response.status === 422) {
-                        showNotification('Validierungsfehler: ' + (error.message || 'Ungültige Daten'), 'error')
-                    } else if (error.response && error.response.status === 400) {
-                        const errorMessage = error.response.data?.error || error.response.data?.message || 'Reservierung fehlgeschlagen'
-                        showNotification(errorMessage, 'error')
-                        await loadData() // Daten aktualisieren
+                        await loadData()
                     } else {
                         showNotification('Fehler bei der Reservierung: ' + (error.message || 'Unbekannter Fehler'), 'error')
                     }
@@ -659,7 +721,9 @@ export default {
             handleQuickReserve,
             showNotification,
             setQuickTime,
-            formatDateForApi
+            formatDateForApi,
+            timeRangesOverlap,
+            calculateAvailableTimeSlots
         }
     }
 }

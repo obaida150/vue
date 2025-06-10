@@ -47,20 +47,33 @@
                             :class="getSpotClasses(spot)"
                         >
               <span class="text-sm font-bold text-white">
-                {{ getReservationForDate(spot) ? (getReservationForDate(spot).user?.initials || getReservationForDate(spot).user?.name?.substring(0, 2).toUpperCase()) : spot.identifier }}
+                {{ getSpotDisplayText(spot) }}
               </span>
                         </div>
 
-                        <!-- Spot Label with User Info -->
+                        <!-- Spot Label with Reservation Info -->
                         <div
-                            v-if="showLabels || getReservationForDate(spot)"
-                            class="absolute top-14 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap shadow-lg z-10"
+                            v-if="showLabels || getReservationsForDate(spot).length > 0"
+                            class="absolute top-14 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap shadow-lg z-10 max-w-xs"
                         >
                             <div class="font-semibold">{{ spot.name || spot.identifier }}</div>
                             <div class="text-xs opacity-75">{{ getTypeLabel(spot.type) }}</div>
-                            <div v-if="getReservationForDate(spot)" class="text-xs text-yellow-300 mt-1">
-                                👤 {{ getReservationForDate(spot).user?.name }}
-                                <br>🕐 {{ getReservationForDate(spot).start_time }} - {{ getReservationForDate(spot).end_time }}
+
+                            <!-- Show all reservations for this date -->
+                            <div v-if="getReservationsForDate(spot).length > 0" class="text-xs text-yellow-300 mt-1 space-y-1">
+                                <div class="font-semibold">Reserviert:</div>
+                                <div v-for="reservation in getReservationsForDate(spot)" :key="reservation.id">
+                                    👤 {{ reservation.user?.name }}
+                                    <br>🕐 {{ reservation.start_time }} - {{ reservation.end_time }}
+                                </div>
+                            </div>
+
+                            <!-- Show available time slots -->
+                            <div v-if="getAvailableTimeSlots(spot).length > 0" class="text-xs text-green-300 mt-1">
+                                <div class="font-semibold">Verfügbar:</div>
+                                <div v-for="slot in getAvailableTimeSlots(spot)" :key="slot">
+                                    🕐 {{ slot }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -78,20 +91,33 @@
                             :class="getSpotClasses(spot)"
                         >
               <span class="text-sm font-bold text-white">
-                {{ getReservationForDate(spot) ? (getReservationForDate(spot).user?.initials || getReservationForDate(spot).user?.name?.substring(0, 2).toUpperCase()) : spot.identifier }}
+                {{ getSpotDisplayText(spot) }}
               </span>
                         </div>
 
-                        <!-- Spot Label with User Info -->
+                        <!-- Spot Label with Reservation Info -->
                         <div
-                            v-if="showLabels || getReservationForDate(spot)"
-                            class="absolute top-14 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap shadow-lg z-10"
+                            v-if="showLabels || getReservationsForDate(spot).length > 0"
+                            class="absolute top-14 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-90 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap shadow-lg z-10 max-w-xs"
                         >
                             <div class="font-semibold">{{ spot.name || spot.identifier }}</div>
                             <div class="text-xs opacity-75">{{ getTypeLabel(spot.type) }}</div>
-                            <div v-if="getReservationForDate(spot)" class="text-xs text-yellow-300 mt-1">
-                                👤 {{ getReservationForDate(spot).user?.name }}
-                                <br>🕐 {{ getReservationForDate(spot).start_time }} - {{ getReservationForDate(spot).end_time }}
+
+                            <!-- Show all reservations for this date -->
+                            <div v-if="getReservationsForDate(spot).length > 0" class="text-xs text-yellow-300 mt-1 space-y-1">
+                                <div class="font-semibold">Reserviert:</div>
+                                <div v-for="reservation in getReservationsForDate(spot)" :key="reservation.id">
+                                    👤 {{ reservation.user?.name }}
+                                    <br>🕐 {{ reservation.start_time }} - {{ reservation.end_time }}
+                                </div>
+                            </div>
+
+                            <!-- Show available time slots -->
+                            <div v-if="getAvailableTimeSlots(spot).length > 0" class="text-xs text-green-300 mt-1">
+                                <div class="font-semibold">Verfügbar:</div>
+                                <div v-for="slot in getAvailableTimeSlots(spot)" :key="slot">
+                                    🕐 {{ slot }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -166,7 +192,7 @@ const props = defineProps({
     },
     parkingImage: {
         type: String,
-        default: '/placeholder.svg?height=400&width=800&query=parking+garage+courtyard'
+        default: '/placeholder.svg?height=400&width=800'
     },
     locationName: {
         type: String,
@@ -208,21 +234,20 @@ const bottomRowSpots = computed(() => {
 const availableSpots = computed(() => {
     return props.parkingSpots.filter(spot => {
         if (!spot.is_active) return false
-        const reservation = getReservationForDate(spot)
-        return !reservation
+        // Ein Spot ist verfügbar, wenn er mindestens ein freies Zeitfenster hat
+        return getAvailableTimeSlots(spot).length > 0
     })
 })
 
 const selectSpot = (spot) => {
-    const reservation = getReservationForDate(spot)
-
     if (!spot.is_active) {
         console.log('Spot is not active')
         return
     }
 
-    if (reservation) {
-        console.log('Spot is already reserved')
+    // Prüfe, ob der Spot mindestens ein freies Zeitfenster hat
+    if (getAvailableTimeSlots(spot).length === 0) {
+        console.log('Spot has no available time slots')
         return
     }
 
@@ -234,30 +259,72 @@ const onDateChange = () => {
     emit('date-changed', selectedDate.value)
 }
 
-const getReservationForDate = (spot) => {
-    console.log(`=== Checking spot ${spot.identifier} (ID: ${spot.id}) ===`)
-    console.log('Selected date:', selectedDate.value)
-    console.log('All reservations passed to component:', props.reservations)
-
-    const reservation = props.reservations.find(reservation => {
+const getReservationsForDate = (spot) => {
+    return props.reservations.filter(reservation => {
         const spotMatch = reservation.parking_spot_id === spot.id
-        // Extrahiere nur das Datum aus dem ISO-String (vor dem 'T')
         const reservationDate = reservation.reservation_date.split('T')[0]
         const dateMatch = reservationDate === selectedDate.value
         const statusMatch = ['pending', 'confirmed'].includes(reservation.status)
 
-        console.log(`Reservation ${reservation.id}: spotMatch=${spotMatch} (${reservation.parking_spot_id} === ${spot.id}), dateMatch=${dateMatch} (${reservationDate} === ${selectedDate.value}), statusMatch=${statusMatch}`)
-
         return spotMatch && dateMatch && statusMatch
-    })
+    }).sort((a, b) => a.start_time.localeCompare(b.start_time))
+}
 
-    if (reservation) {
-        console.log('✅ Found reservation:', reservation)
-    } else {
-        console.log('❌ No reservation found')
+// Funktion zur Berechnung der verfügbaren Zeitfenster
+const getAvailableTimeSlots = (spot) => {
+    const reservations = getReservationsForDate(spot)
+
+    if (reservations.length === 0) {
+        return ['06:00 - 18:00']
     }
 
-    return reservation
+    const slots = []
+    const dayStart = '06:00'
+    const dayEnd = '18:00'
+
+    // Sortiere Reservierungen nach Startzeit
+    const sortedReservations = [...reservations].sort((a, b) =>
+        a.start_time.localeCompare(b.start_time)
+    )
+
+    // Prüfe Slot vor der ersten Reservierung
+    if (sortedReservations[0].start_time > dayStart) {
+        slots.push(`${dayStart} - ${sortedReservations[0].start_time}`)
+    }
+
+    // Prüfe Slots zwischen Reservierungen
+    for (let i = 0; i < sortedReservations.length - 1; i++) {
+        const currentEnd = sortedReservations[i].end_time
+        const nextStart = sortedReservations[i + 1].start_time
+
+        if (currentEnd < nextStart) {
+            slots.push(`${currentEnd} - ${nextStart}`)
+        }
+    }
+
+    // Prüfe Slot nach der letzten Reservierung
+    const lastReservation = sortedReservations[sortedReservations.length - 1]
+    if (lastReservation.end_time < dayEnd) {
+        slots.push(`${lastReservation.end_time} - ${dayEnd}`)
+    }
+
+    return slots
+}
+
+const getSpotDisplayText = (spot) => {
+    const reservations = getReservationsForDate(spot)
+
+    if (reservations.length === 0) {
+        return spot.identifier
+    }
+
+    // Zeige Initialen des ersten Benutzers oder Anzahl der Reservierungen
+    if (reservations.length === 1) {
+        const user = reservations[0].user
+        return user?.initials || user?.name?.substring(0, 2).toUpperCase() || spot.identifier
+    } else {
+        return reservations.length.toString() // Zeige Anzahl der Reservierungen
+    }
 }
 
 const getSpotClasses = (spot) => {
@@ -265,13 +332,19 @@ const getSpotClasses = (spot) => {
         return 'bg-gray-400 border-gray-500 cursor-not-allowed'
     }
 
-    // Check if spot has reservation for selected date
-    const reservation = getReservationForDate(spot)
-    if (reservation) {
-        return 'bg-yellow-500 border-yellow-600 cursor-not-allowed'
-    }
+    const reservations = getReservationsForDate(spot)
+    const availableSlots = getAvailableTimeSlots(spot)
 
-    return 'bg-green-500 border-green-600 hover:bg-green-600 cursor-pointer'
+    if (reservations.length === 0) {
+        // Komplett frei
+        return 'bg-green-500 border-green-600 hover:bg-green-600 cursor-pointer'
+    } else if (availableSlots.length > 0) {
+        // Teilweise belegt (hat freie Zeitfenster)
+        return 'bg-yellow-500 border-yellow-600 hover:bg-yellow-600 cursor-pointer'
+    } else {
+        // Komplett belegt
+        return 'bg-red-500 border-red-600 cursor-not-allowed'
+    }
 }
 
 const getTypeLabel = (type) => {

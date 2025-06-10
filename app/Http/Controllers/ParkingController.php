@@ -247,7 +247,7 @@ class ParkingController extends Controller
         try {
             $reservations = ParkingReservation::with(['parkingSpot.parkingLocation'])
                 ->where('user_id', auth()->id())
-                ->where('status', 'confirmed')
+                ->whereIn('status', ['pending', 'confirmed'])
                 ->orderBy('reservation_date', 'desc')
                 ->get();
 
@@ -256,6 +256,14 @@ class ParkingController extends Controller
             Log::error('Error fetching my reservations: ' . $e->getMessage());
             return response()->json(['error' => 'Unable to fetch reservations', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Check if two time ranges overlap
+     */
+    private function timeRangesOverlap($start1, $end1, $start2, $end2)
+    {
+        return ($start1 < $end2) && ($start2 < $end1);
     }
 
     /**
@@ -268,7 +276,7 @@ class ParkingController extends Controller
                 'parking_spot_id' => 'required|exists:parking_spots,id',
                 'reservation_date' => 'required|date|after_or_equal:today',
                 'start_time' => 'nullable|date_format:H:i',
-                'end_time' => 'nullable|date_format:H:i',
+                'end_time' => 'nullable|date_format:H:i|after:start_time',
                 'vehicle_info' => 'nullable|string|max:255',
                 'notes' => 'nullable|string|max:500',
             ]);
@@ -276,30 +284,37 @@ class ParkingController extends Controller
             $validated['user_id'] = auth()->id();
             $validated['start_time'] = $validated['start_time'] ?? '06:00';
             $validated['end_time'] = $validated['end_time'] ?? '18:00';
-            $validated['status'] = 'confirmed'; // Immer sofort bestätigt
 
-            // Check if spot is already reserved for this date
-            $existingReservation = ParkingReservation::where('parking_spot_id', $validated['parking_spot_id'])
+            // Check if spot requires approval
+            $spot = ParkingSpot::find($validated['parking_spot_id']);
+            if (!$spot) {
+                return response()->json(['error' => 'Parking spot not found'], 404);
+            }
+
+            $validated['status'] = $spot->requires_approval ? 'pending' : 'confirmed';
+
+            // Check for time overlaps with existing reservations
+            $existingReservations = ParkingReservation::where('parking_spot_id', $validated['parking_spot_id'])
                 ->where('reservation_date', $validated['reservation_date'])
-                ->where('status', 'confirmed')
-                ->exists();
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->get();
 
-            if ($existingReservation) {
-                return response()->json(['error' => 'Parking spot is already reserved for this date'], 400);
+            foreach ($existingReservations as $existing) {
+                if ($this->timeRangesOverlap(
+                    $validated['start_time'],
+                    $validated['end_time'],
+                    $existing->start_time,
+                    $existing->end_time
+                )) {
+                    return response()->json([
+                        'error' => 'Zeitüberschneidung mit bestehender Reservierung',
+                        'details' => "Der Parkplatz ist bereits von {$existing->start_time} bis {$existing->end_time} reserviert."
+                    ], 400);
+                }
             }
 
             $reservation = ParkingReservation::create($validated);
-            $reservation->load(['parkingSpot.parkingLocation', 'user']);
-
-            // E-Mail-Benachrichtigung senden
-            try {
-                \Mail::to($reservation->user->email)->send(
-                    new \App\Mail\ParkingReservationMail($reservation, $reservation->user, 'created')
-                );
-            } catch (\Exception $e) {
-                \Log::error('Failed to send parking reservation email: ' . $e->getMessage());
-                // Fehler beim E-Mail-Versand soll die Reservierung nicht blockieren
-            }
+            $reservation->load(['parkingSpot.parkingLocation']);
 
             return response()->json($reservation, 201);
         } catch (ValidationException $e) {
@@ -313,7 +328,7 @@ class ParkingController extends Controller
     }
 
     /**
-     * Cancel a reservation (only future reservations)
+     * Cancel a reservation
      */
     public function cancelReservation(ParkingReservation $reservation): JsonResponse
     {
@@ -327,22 +342,7 @@ class ParkingController extends Controller
                 return response()->json(['error' => 'Reservation is already cancelled'], 400);
             }
 
-            // Check if reservation is in the past
-            $reservationDate = Carbon::parse($reservation->reservation_date);
-            if ($reservationDate->isPast()) {
-                return response()->json(['error' => 'Cannot cancel past reservations'], 400);
-            }
-
             $reservation->update(['status' => 'cancelled']);
-
-            // E-Mail-Benachrichtigung senden
-            try {
-                \Mail::to($reservation->user->email)->send(
-                    new \App\Mail\ParkingReservationMail($reservation, $reservation->user, 'cancelled')
-                );
-            } catch (\Exception $e) {
-                \Log::error('Failed to send parking cancellation email: ' . $e->getMessage());
-            }
 
             return response()->json(['message' => 'Reservation cancelled successfully']);
         } catch (\Exception $e) {
@@ -358,7 +358,7 @@ class ParkingController extends Controller
     {
         try {
             $reservations = ParkingReservation::with(['user:id,name,initials', 'parkingSpot.parkingLocation'])
-                ->where('status', 'confirmed')
+                ->whereIn('status', ['pending', 'confirmed'])
                 ->orderBy('reservation_date', 'desc')
                 ->get();
 
