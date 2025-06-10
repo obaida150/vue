@@ -15,9 +15,9 @@
               <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                 Meine Fächer
               </h3>
-              <Button 
-                label="Neues Fach" 
-                icon="pi pi-plus" 
+              <Button
+                label="Neues Fach"
+                icon="pi pi-plus"
                 @click="showCreateDialog = true"
               />
             </div>
@@ -28,12 +28,12 @@
                 <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-3">
                   {{ year }}. Lehrjahr
                 </h4>
-                
+
                 <div v-if="getSubjectsByYear(year).length === 0" class="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
                   <i class="pi pi-book text-3xl text-gray-400 mb-2"></i>
                   <p class="text-gray-500 dark:text-gray-400">Keine Fächer für das {{ year }}. Lehrjahr</p>
                 </div>
-                
+
                 <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Card v-for="subject in getSubjectsByYear(year)" :key="subject.id" class="subject-card">
                     <template #content>
@@ -47,14 +47,14 @@
                           </p>
                         </div>
                         <div class="flex gap-1">
-                          <Button 
-                            icon="pi pi-pencil" 
+                          <Button
+                            icon="pi pi-pencil"
                             class="p-button-rounded p-button-text p-button-sm"
                             v-tooltip.top="'Bearbeiten'"
                             @click="editSubject(subject)"
                           />
-                          <Button 
-                            icon="pi pi-trash" 
+                          <Button
+                            icon="pi pi-trash"
                             class="p-button-rounded p-button-text p-button-danger p-button-sm"
                             v-tooltip.top="'Löschen'"
                             @click="confirmDelete(subject)"
@@ -72,11 +72,11 @@
     </div>
 
     <!-- Create/Edit Dialog -->
-    <Dialog 
-      v-model:visible="showCreateDialog" 
+    <Dialog
+      v-model:visible="showCreateDialog"
       :header="editingSubject ? 'Fach bearbeiten' : 'Neues Fach'"
-      :modal="true" 
-      class="p-fluid" 
+      :modal="true"
+      class="p-fluid"
       :style="{ width: '450px' }"
     >
       <form @submit.prevent="saveSubject" class="space-y-4">
@@ -84,9 +84,9 @@
           <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Fachname *
           </label>
-          <InputText 
+          <InputText
             id="name"
-            v-model="subjectForm.name" 
+            v-model="subjectForm.name"
             placeholder="z.B. Mathematik"
             class="w-full"
             :class="{ 'p-invalid': errors.name }"
@@ -99,11 +99,11 @@
           <label for="year" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Lehrjahr *
           </label>
-          <Dropdown 
+          <Select
             id="year"
-            v-model="subjectForm.year" 
-            :options="yearOptions" 
-            optionLabel="label" 
+            v-model="subjectForm.year"
+            :options="yearOptions"
+            optionLabel="label"
             optionValue="value"
             placeholder="Lehrjahr wählen"
             class="w-full"
@@ -113,15 +113,15 @@
         </div>
 
         <div class="flex justify-end gap-2 pt-4">
-          <Button 
-            label="Abbrechen" 
-            icon="pi pi-times" 
+          <Button
+            label="Abbrechen"
+            icon="pi pi-times"
             class="p-button-secondary"
             @click="cancelEdit"
           />
-          <Button 
-            label="Speichern" 
-            icon="pi pi-check" 
+          <Button
+            label="Speichern"
+            icon="pi pi-check"
             type="submit"
             :loading="saving"
           />
@@ -142,7 +142,7 @@ import Column from 'primevue/column'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
-import Dropdown from 'primevue/dropdown'
+import Select from 'primevue/select'
 import Card from 'primevue/card'
 import ConfirmDialog from 'primevue/confirmdialog'
 import { useConfirm } from 'primevue/useconfirm'
@@ -197,7 +197,7 @@ const loadSubjects = async () => {
 const saveSubject = async () => {
   saving.value = true
   errors.value = {}
-  
+
   try {
     if (editingSubject.value) {
       await axios.put(`/api/subjects/${editingSubject.value.id}`, subjectForm.value)
@@ -216,7 +216,7 @@ const saveSubject = async () => {
         life: 3000
       })
     }
-    
+
     showCreateDialog.value = false
     resetForm()
     loadSubjects()

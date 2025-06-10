@@ -8,6 +8,7 @@
                 <div class="flex items-center gap-2">
                     <Button icon="pi pi-calendar" label="Kalenderansicht" class="p-button-outlined" @click="showCalendarView" />
                     <Button icon="pi pi-download" label="Exportieren" class="p-button-outlined" @click="exportData" />
+                    <Button icon="pi pi-refresh" label="Aktualisieren" class="p-button-outlined" @click="refreshData" />
                 </div>
             </div>
         </template>
@@ -58,9 +59,61 @@
                         <Tabs>
                             <TabPanel header="Offene Anträge">
                                 <div class="card">
+                                    <!-- Filter-Leiste -->
+                                    <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                            <div class="filter-field">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Globale Suche</label>
+                                                <span class="p-input-icon-left w-full">
+                                                <InputText
+                                                    v-model="filters['global'].value"
+                                                    placeholder="Alle Felder durchsuchen..."
+                                                    class="w-full p-inputtext-sm"
+                                                    @input="onGlobalFilterChange"
+                                                />
+                                            </span>
+                                            </div>
+                                            <div class="filter-field">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Abteilung</label>
+                                                <Select
+                                                    v-model="filters['department'].value"
+                                                    :options="departmentOptions"
+                                                    optionLabel="label"
+                                                    optionValue="value"
+                                                    placeholder="Alle Abteilungen"
+                                                    class="w-full p-inputtext-sm"
+                                                    :showClear="true"
+                                                    @change="onDepartmentFilterChange"
+                                                />
+                                            </div>
+                                            <div class="filter-field">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zeitraum</label>
+                                                <DatePicker
+                                                    v-model="dateRangeFilter"
+                                                    dateFormat="dd.mm.yy"
+                                                    placeholder="Datumsbereich wählen"
+                                                    class="w-full p-inputtext-sm"
+                                                    selectionMode="range"
+                                                    :showIcon="true"
+                                                    @date-select="onDateRangeFilterChange"
+                                                    @clear-click="clearDateRangeFilter"
+                                                    :locale="de"
+                                                />
+                                            </div>
+                                            <div class="filter-field flex items-end">
+                                                <Button
+                                                    label="Filter zurücksetzen"
+                                                    icon="pi pi-filter-slash"
+                                                    class="p-button-outlined p-button-sm w-full"
+                                                    @click="clearAllFilters"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <DataTable
-                                        :value="pendingRequests"
-                                        :paginator="pendingRequests.length > 10"
+                                        :value="filteredPendingRequests"
+                                        :paginator="filteredPendingRequests.length > 10"
                                         :rows="10"
                                         :rowsPerPageOptions="[5, 10, 20, 50]"
                                         dataKey="id"
@@ -68,29 +121,29 @@
                                         responsiveLayout="scroll"
                                         class="p-datatable-sm modern-datatable"
                                         :loading="loading"
-                                        v-model:filters="filters"
-                                        filterDisplay="menu"
-                                        :globalFilterFields="['employee.name', 'department', 'startDate', 'endDate', 'status']"
                                         stripedRows
+                                        :sortField="sortField"
+                                        :sortOrder="sortOrder"
+                                        @sort="onSort"
                                     >
                                         <template #header>
                                             <div class="flex justify-between items-center w-full">
-                                                <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">Offene Urlaubsanträge</h3>
-                                                <span class="p-input-icon-left ml-auto">
-                        <i class="pi pi-search" />
-                        <InputText v-model="filters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
-                      </span>
+                                                <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">
+                                                    Offene Urlaubsanträge ({{ filteredPendingRequests.length }})
+                                                </h3>
                                             </div>
                                         </template>
 
                                         <template #empty>
                                             <div class="text-center p-6">
                                                 <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                                                <p class="text-gray-500 dark:text-gray-400">Keine offenen Urlaubsanträge vorhanden</p>
+                                                <p class="text-gray-500 dark:text-gray-400">
+                                                    {{ filters['global'].value || hasActiveFilters ? 'Keine Anträge entsprechen den Filterkriterien' : 'Keine offenen Urlaubsanträge vorhanden' }}
+                                                </p>
                                             </div>
                                         </template>
 
-                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true" :filter="true" filterMatchMode="contains">
+                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-3">
                                                     <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
@@ -100,25 +153,17 @@
                                                     </div>
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
+                                        </Column>
+
+                                        <Column field="department" header="Abteilung" :sortable="true">
+                                            <template #body="{ data }">
+                                            <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm">
+                                                {{ data.department }}
+                                            </span>
                                             </template>
                                         </Column>
 
-                                        <Column field="department" header="Abteilung" :sortable="true" :filter="true" filterMatchMode="equals">
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <Dropdown
-                                                    v-model="filterModel.value"
-                                                    @change="filterCallback()"
-                                                    :options="departmentOptions"
-                                                    placeholder="Alle Abteilungen"
-                                                    class="p-column-filter w-full"
-                                                    :showClear="true"
-                                                />
-                                            </template>
-                                        </Column>
-
-                                        <Column field="startDate" header="Zeitraum" :sortable="true" :filter="true" filterMatchMode="dateRange">
+                                        <Column field="startDate" header="Zeitraum" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">
@@ -126,23 +171,13 @@
                                                     </div>
                                                     <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
-                                                        <span>{{ data.days }} Tage</span>
+                                                        <span>{{ data.days }} {{ data.days === 1 ? 'Tag' : 'Tage' }}</span>
                                                     </div>
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <Calendar
-                                                    v-model="filterModel.value"
-                                                    dateFormat="dd.mm.yy"
-                                                    placeholder="Zeitraum"
-                                                    @date-select="filterCallback()"
-                                                    class="p-column-filter w-full"
-                                                    selectionMode="range"
-                                                />
-                                            </template>
                                         </Column>
 
-                                        <Column field="substitute.name" header="Vertretung" :sortable="true" :filter="true" filterMatchMode="contains">
+                                        <Column field="substitute.name" header="Vertretung" :sortable="true">
                                             <template #body="{ data }">
                                                 <div v-if="data.substitute" class="flex items-center gap-2">
                                                     <Avatar :label="getInitials(data.substitute.name)" shape="circle" size="small" :style="{ backgroundColor: getInitialsColor(data.substitute.name) }" />
@@ -152,31 +187,18 @@
                                                     Keine Vertretung
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Vertretung suchen" class="p-column-filter w-full" />
-                                            </template>
                                         </Column>
 
-                                        <Column field="requestDate" header="Beantragt am" :sortable="true" :filter="true" filterMatchMode="dateRange">
+                                        <Column field="requestDate" header="Beantragt am" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-2">
                                                     <i class="pi pi-clock text-gray-500 dark:text-gray-400"></i>
                                                     <span>{{ formatDateTime(data.requestDate) }}</span>
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <Calendar
-                                                    v-model="filterModel.value"
-                                                    dateFormat="dd.mm.yy"
-                                                    placeholder="Datum"
-                                                    @date-select="filterCallback()"
-                                                    class="p-column-filter w-full"
-                                                    selectionMode="range"
-                                                />
-                                            </template>
                                         </Column>
 
-                                        <Column field="notes" header="Anmerkungen" :filter="true" filterMatchMode="contains">
+                                        <Column field="notes" header="Anmerkungen">
                                             <template #body="{ data }">
                                                 <div v-if="data.notes" class="max-w-xs truncate" :title="data.notes">
                                                     <i class="pi pi-comment text-gray-500 dark:text-gray-400 mr-2"></i>
@@ -186,9 +208,6 @@
                                                     Keine Anmerkungen
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Anmerkungen suchen" class="p-column-filter w-full" />
-                                            </template>
                                         </Column>
 
                                         <Column header="Aktionen" :exportable="false" style="min-width: 10rem">
@@ -196,24 +215,21 @@
                                                 <div class="flex gap-2">
                                                     <Button
                                                         icon="pi pi-check"
-                                                        class="p-button-success p-button-rounded"
+                                                        class="p-button-success p-button-rounded p-button-sm"
                                                         @click="approveRequest(data)"
-                                                        tooltip="Genehmigen"
-                                                        tooltipOptions="{ position: 'top' }"
+                                                        v-tooltip.top="'Genehmigen'"
                                                     />
                                                     <Button
                                                         icon="pi pi-times"
-                                                        class="p-button-danger p-button-rounded"
+                                                        class="p-button-danger p-button-rounded p-button-sm"
                                                         @click="rejectRequest(data)"
-                                                        tooltip="Ablehnen"
-                                                        tooltipOptions="{ position: 'top' }"
+                                                        v-tooltip.top="'Ablehnen'"
                                                     />
                                                     <Button
                                                         icon="pi pi-eye"
-                                                        class="p-button-secondary p-button-rounded"
+                                                        class="p-button-secondary p-button-rounded p-button-sm"
                                                         @click="viewRequestDetails(data)"
-                                                        tooltip="Details anzeigen"
-                                                        tooltipOptions="{ position: 'top' }"
+                                                        v-tooltip.top="'Details anzeigen'"
                                                     />
                                                 </div>
                                             </template>
@@ -224,9 +240,62 @@
 
                             <TabPanel header="Genehmigte Anträge">
                                 <div class="card">
+                                    <!-- Filter-Leiste für genehmigte Anträge -->
+                                    <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Globale Suche</label>
+                                                <span class="p-input-icon-left w-full">
+
+                                                <InputText
+                                                    v-model="approvedFilters['global'].value"
+                                                    placeholder="Alle Felder durchsuchen..."
+                                                    class="w-full p-inputtext-sm"
+                                                    @input="onApprovedGlobalFilterChange"
+                                                />
+                                            </span>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Abteilung</label>
+                                                <Select
+                                                    v-model="approvedFilters['department'].value"
+                                                    :options="departmentOptions"
+                                                    optionLabel="label"
+                                                    optionValue="value"
+                                                    placeholder="Alle Abteilungen"
+                                                    class="w-full p-inputtext-sm"
+                                                    :showClear="true"
+                                                    @change="onApprovedDepartmentFilterChange"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zeitraum</label>
+                                                <DatePicker
+                                                    v-model="approvedDateRangeFilter"
+                                                    dateFormat="dd.mm.yy"
+                                                    placeholder="Datumsbereich wählen"
+                                                    class="w-full p-inputtext-sm"
+                                                    selectionMode="range"
+                                                    :showIcon="true"
+                                                    @date-select="onApprovedDateRangeFilterChange"
+                                                    @clear-click="clearApprovedDateRangeFilter"
+                                                    :locale="de"
+                                                />
+                                            </div>
+                                            <div class="flex items-end">
+                                                <Button
+                                                    label="Filter zurücksetzen"
+                                                    icon="pi pi-filter-slash"
+                                                    class="p-button-outlined p-button-sm w-full"
+                                                    @click="clearApprovedFilters"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <DataTable
-                                        :value="approvedRequests"
-                                        :paginator="approvedRequests.length > 10"
+                                        :value="filteredApprovedRequests"
+                                        :paginator="filteredApprovedRequests.length > 10"
                                         :rows="10"
                                         :rowsPerPageOptions="[5, 10, 20, 50]"
                                         dataKey="id"
@@ -234,29 +303,27 @@
                                         responsiveLayout="scroll"
                                         class="p-datatable-sm modern-datatable"
                                         :loading="loading"
-                                        v-model:filters="approvedFilters"
-                                        filterDisplay="menu"
-                                        :globalFilterFields="['employee.name', 'department', 'startDate', 'endDate', 'approvedBy']"
                                         stripedRows
                                     >
                                         <template #header>
                                             <div class="flex justify-between items-center w-full">
-                                                <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">Genehmigte Urlaubsanträge</h3>
-                                                <span class="p-input-icon-left ml-auto">
-                        <i class="pi pi-search" />
-                        <InputText v-model="approvedFilters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
-                      </span>
+                                                <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">
+                                                    Genehmigte Urlaubsanträge ({{ filteredApprovedRequests.length }})
+                                                </h3>
                                             </div>
                                         </template>
 
                                         <template #empty>
                                             <div class="text-center p-6">
                                                 <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                                                <p class="text-gray-500 dark:text-gray-400">Keine genehmigten Urlaubsanträge vorhanden</p>
+                                                <p class="text-gray-500 dark:text-gray-400">
+                                                    {{ approvedFilters['global'].value || hasActiveApprovedFilters ? 'Keine Anträge entsprechen den Filterkriterien' : 'Keine genehmigten Urlaubsanträge vorhanden' }}
+                                                </p>
                                             </div>
                                         </template>
 
-                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true" :filter="true" filterMatchMode="contains">
+                                        <!-- Gleiche Spalten wie bei offenen Anträgen, aber mit zusätzlicher "Genehmigt von" Spalte -->
+                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-3">
                                                     <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
@@ -266,25 +333,17 @@
                                                     </div>
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
+                                        </Column>
+
+                                        <Column field="department" header="Abteilung" :sortable="true">
+                                            <template #body="{ data }">
+                                            <span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-sm">
+                                                {{ data.department }}
+                                            </span>
                                             </template>
                                         </Column>
 
-                                        <Column field="department" header="Abteilung" :sortable="true" :filter="true" filterMatchMode="equals">
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <Dropdown
-                                                    v-model="filterModel.value"
-                                                    @change="filterCallback()"
-                                                    :options="departmentOptions"
-                                                    placeholder="Alle Abteilungen"
-                                                    class="p-column-filter w-full"
-                                                    :showClear="true"
-                                                />
-                                            </template>
-                                        </Column>
-
-                                        <Column field="startDate" header="Zeitraum" :sortable="true" :filter="true" filterMatchMode="dateRange">
+                                        <Column field="startDate" header="Zeitraum" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">
@@ -292,23 +351,13 @@
                                                     </div>
                                                     <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
-                                                        <span>{{ data.days }} Tage</span>
+                                                        <span>{{ data.days }} {{ data.days === 1 ? 'Tag' : 'Tage' }}</span>
                                                     </div>
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <Calendar
-                                                    v-model="filterModel.value"
-                                                    dateFormat="dd.mm.yy"
-                                                    placeholder="Zeitraum"
-                                                    @date-select="filterCallback()"
-                                                    class="p-column-filter w-full"
-                                                    selectionMode="range"
-                                                />
-                                            </template>
                                         </Column>
 
-                                        <Column field="approvedBy" header="Genehmigt von" :sortable="true" :filter="true" filterMatchMode="contains">
+                                        <Column field="approvedBy" header="Genehmigt von" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.approvedBy }}</div>
@@ -318,12 +367,9 @@
                                                     </div>
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
-                                            </template>
                                         </Column>
 
-                                        <Column field="notes" header="Anmerkungen" :filter="true" filterMatchMode="contains">
+                                        <Column field="notes" header="Anmerkungen">
                                             <template #body="{ data }">
                                                 <div v-if="data.notes" class="max-w-xs truncate" :title="data.notes">
                                                     <i class="pi pi-comment text-gray-500 dark:text-gray-400 mr-2"></i>
@@ -333,19 +379,15 @@
                                                     Keine Anmerkungen
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Anmerkungen suchen" class="p-column-filter w-full" />
-                                            </template>
                                         </Column>
 
                                         <Column header="Aktionen" :exportable="false" style="min-width: 8rem">
                                             <template #body="{ data }">
                                                 <Button
                                                     icon="pi pi-eye"
-                                                    class="p-button-secondary p-button-rounded"
+                                                    class="p-button-secondary p-button-rounded p-button-sm"
                                                     @click="viewRequestDetails(data)"
-                                                    tooltip="Details anzeigen"
-                                                    tooltipOptions="{ position: 'top' }"
+                                                    v-tooltip.top="'Details anzeigen'"
                                                 />
                                             </template>
                                         </Column>
@@ -355,9 +397,62 @@
 
                             <TabPanel header="Abgelehnte Anträge">
                                 <div class="card">
+                                    <!-- Filter-Leiste für abgelehnte Anträge -->
+                                    <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Globale Suche</label>
+                                                <span class="p-input-icon-left w-full">
+
+                                                <InputText
+                                                    v-model="rejectedFilters['global'].value"
+                                                    placeholder="Alle Felder durchsuchen..."
+                                                    class="w-full p-inputtext-sm"
+                                                    @input="onRejectedGlobalFilterChange"
+                                                />
+                                            </span>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Abteilung</label>
+                                                <Select
+                                                    v-model="rejectedFilters['department'].value"
+                                                    :options="departmentOptions"
+                                                    optionLabel="label"
+                                                    optionValue="value"
+                                                    placeholder="Alle Abteilungen"
+                                                    class="w-full p-inputtext-sm"
+                                                    :showClear="true"
+                                                    @change="onRejectedDepartmentFilterChange"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zeitraum</label>
+                                                <DatePicker
+                                                    v-model="rejectedDateRangeFilter"
+                                                    dateFormat="dd.mm.yy"
+                                                    placeholder="Datumsbereich wählen"
+                                                    class="w-full p-inputtext-sm"
+                                                    selectionMode="range"
+                                                    :showIcon="true"
+                                                    @date-select="onRejectedDateRangeFilterChange"
+                                                    @clear-click="clearRejectedDateRangeFilter"
+                                                    :locale="de"
+                                                />
+                                            </div>
+                                            <div class="flex items-end">
+                                                <Button
+                                                    label="Filter zurücksetzen"
+                                                    icon="pi pi-filter-slash"
+                                                    class="p-button-outlined p-button-sm w-full"
+                                                    @click="clearRejectedFilters"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <DataTable
-                                        :value="rejectedRequests"
-                                        :paginator="rejectedRequests.length > 10"
+                                        :value="filteredRejectedRequests"
+                                        :paginator="filteredRejectedRequests.length > 10"
                                         :rows="10"
                                         :rowsPerPageOptions="[5, 10, 20, 50]"
                                         dataKey="id"
@@ -365,29 +460,26 @@
                                         responsiveLayout="scroll"
                                         class="p-datatable-sm modern-datatable"
                                         :loading="loading"
-                                        v-model:filters="rejectedFilters"
-                                        filterDisplay="menu"
-                                        :globalFilterFields="['employee.name', 'department', 'startDate', 'endDate', 'rejectedBy']"
                                         stripedRows
                                     >
                                         <template #header>
                                             <div class="flex justify-between items-center w-full">
-                                                <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">Abgelehnte Urlaubsanträge</h3>
-                                                <span class="p-input-icon-left ml-auto">
-                        <i class="pi pi-search" />
-                        <InputText v-model="rejectedFilters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
-                      </span>
+                                                <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">
+                                                    Abgelehnte Urlaubsanträge ({{ filteredRejectedRequests.length }})
+                                                </h3>
                                             </div>
                                         </template>
 
                                         <template #empty>
                                             <div class="text-center p-6">
                                                 <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                                                <p class="text-gray-500 dark:text-gray-400">Keine abgelehnten Urlaubsanträge vorhanden</p>
+                                                <p class="text-gray-500 dark:text-gray-400">
+                                                    {{ rejectedFilters['global'].value || hasActiveRejectedFilters ? 'Keine Anträge entsprechen den Filterkriterien' : 'Keine abgelehnten Urlaubsanträge vorhanden' }}
+                                                </p>
                                             </div>
                                         </template>
 
-                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true" :filter="true" filterMatchMode="contains">
+                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-3">
                                                     <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
@@ -397,25 +489,17 @@
                                                     </div>
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
+                                        </Column>
+
+                                        <Column field="department" header="Abteilung" :sortable="true">
+                                            <template #body="{ data }">
+                                            <span class="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-full text-sm">
+                                                {{ data.department }}
+                                            </span>
                                             </template>
                                         </Column>
 
-                                        <Column field="department" header="Abteilung" :sortable="true" :filter="true" filterMatchMode="equals">
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <Dropdown
-                                                    v-model="filterModel.value"
-                                                    @change="filterCallback()"
-                                                    :options="departmentOptions"
-                                                    placeholder="Alle Abteilungen"
-                                                    class="p-column-filter w-full"
-                                                    :showClear="true"
-                                                />
-                                            </template>
-                                        </Column>
-
-                                        <Column field="startDate" header="Zeitraum" :sortable="true" :filter="true" filterMatchMode="dateRange">
+                                        <Column field="startDate" header="Zeitraum" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">
@@ -423,23 +507,13 @@
                                                     </div>
                                                     <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
-                                                        <span>{{ data.days }} Tage</span>
+                                                        <span>{{ data.days }} {{ data.days === 1 ? 'Tag' : 'Tage' }}</span>
                                                     </div>
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <Calendar
-                                                    v-model="filterModel.value"
-                                                    dateFormat="dd.mm.yy"
-                                                    placeholder="Zeitraum"
-                                                    @date-select="filterCallback()"
-                                                    class="p-column-filter w-full"
-                                                    selectionMode="range"
-                                                />
-                                            </template>
                                         </Column>
 
-                                        <Column field="rejectedBy" header="Abgelehnt von" :sortable="true" :filter="true" filterMatchMode="contains">
+                                        <Column field="rejectedBy" header="Abgelehnt von" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.rejectedBy }}</div>
@@ -449,12 +523,9 @@
                                                     </div>
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Name suchen" class="p-column-filter w-full" />
-                                            </template>
                                         </Column>
 
-                                        <Column field="rejectionReason" header="Ablehnungsgrund" :filter="true" filterMatchMode="contains">
+                                        <Column field="rejectionReason" header="Ablehnungsgrund">
                                             <template #body="{ data }">
                                                 <div v-if="data.rejectionReason" class="max-w-xs truncate text-red-600 dark:text-red-400" :title="data.rejectionReason">
                                                     <i class="pi pi-exclamation-circle mr-2"></i>
@@ -464,19 +535,15 @@
                                                     Kein Grund angegeben
                                                 </div>
                                             </template>
-                                            <template #filter="{ filterModel, filterCallback }">
-                                                <InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Nach Grund suchen" class="p-column-filter w-full" />
-                                            </template>
                                         </Column>
 
                                         <Column header="Aktionen" :exportable="false" style="min-width: 8rem">
                                             <template #body="{ data }">
                                                 <Button
                                                     icon="pi pi-eye"
-                                                    class="p-button-secondary p-button-rounded"
+                                                    class="p-button-secondary p-button-rounded p-button-sm"
                                                     @click="viewRequestDetails(data)"
-                                                    tooltip="Details anzeigen"
-                                                    tooltipOptions="{ position: 'top' }"
+                                                    v-tooltip.top="'Details anzeigen'"
                                                 />
                                             </template>
                                         </Column>
@@ -520,7 +587,7 @@
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Anzahl Tage</div>
-                            <div class="font-medium">{{ selectedRequest?.days }} Tage</div>
+                            <div class="font-medium">{{ selectedRequest?.days }} {{ selectedRequest?.days === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
@@ -595,7 +662,7 @@
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Anzahl Tage</div>
-                            <div class="font-medium">{{ selectedRequest?.days }} Tage</div>
+                            <div class="font-medium">{{ selectedRequest?.days }} {{ selectedRequest?.days === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
@@ -669,7 +736,7 @@
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Anzahl Tage</div>
-                            <div class="font-medium">{{ selectedRequest.days }} Tage</div>
+                            <div class="font-medium">{{ selectedRequest.days }} {{ selectedRequest.days === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
@@ -758,19 +825,34 @@ import Textarea from 'primevue/textarea';
 import Tabs from 'primevue/tabs';
 import TabPanel from 'primevue/tabpanel';
 import Avatar from 'primevue/avatar';
-import Calendar from 'primevue/calendar';
+import DatePicker from 'primevue/datepicker';
 import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
 import VacationService from '@/Services/VacationService';
-import Dropdown from 'primevue/dropdown';
+import Select from 'primevue/select';
+import { router } from '@inertiajs/vue3';
+import {usePrimeVue} from "primevue/config";
 
-dayjs.locale('de');
 
-// Änderung im Script-Teil, um den Toast richtig zu initialisieren
 const toast = useToast();
-
+dayjs.locale('de');
+// Deutsche Lokalisierung für PrimeVue
+const de = {
+    firstDayOfWeek: 1,
+    dayNames: ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
+    dayNamesShort: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
+    dayNamesMin: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
+    monthNames: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+    monthNamesShort: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
+    today: "Heute",
+    clear: "Löschen",
+    weekHeader: "KW",
+    dateFormat: "dd.mm.yy",
+    firstDay: 1
+};
+const primevue = usePrimeVue();
 // Zustand
 const loading = ref(false);
 const processingRequest = ref(false);
@@ -781,7 +863,11 @@ const selectedRequest = ref(null);
 const approvalNotes = ref('');
 const rejectionReason = ref('');
 
-// Filter für DataTable
+// Sortierung
+const sortField = ref('requestDate');
+const sortOrder = ref(-1);
+
+// Filter für DataTable - Verbesserte Initialisierung
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'employee.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -812,27 +898,178 @@ const rejectedFilters = ref({
     rejectionReason: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
+// Separate Datumsbereich-Filter
+const dateRangeFilter = ref(null);
+const approvedDateRangeFilter = ref(null);
+const rejectedDateRangeFilter = ref(null);
+
+// Urlaubsanträge
+const pendingRequests = ref([]);
+const approvedRequests = ref([]);
+const rejectedRequests = ref([]);
+
+// Computed Properties für gefilterte Daten
+const filteredPendingRequests = computed(() => {
+    return applyFilters(pendingRequests.value, filters.value, dateRangeFilter.value);
+});
+
+const filteredApprovedRequests = computed(() => {
+    return applyFilters(approvedRequests.value, approvedFilters.value, approvedDateRangeFilter.value);
+});
+
+const filteredRejectedRequests = computed(() => {
+    return applyFilters(rejectedRequests.value, rejectedFilters.value, rejectedDateRangeFilter.value);
+});
+
+// Computed Properties für aktive Filter
+const hasActiveFilters = computed(() => {
+    return filters.value['global'].value ||
+        filters.value['department'].value ||
+        dateRangeFilter.value;
+});
+
+const hasActiveApprovedFilters = computed(() => {
+    return approvedFilters.value['global'].value ||
+        approvedFilters.value['department'].value ||
+        approvedDateRangeFilter.value;
+});
+
+const hasActiveRejectedFilters = computed(() => {
+    return rejectedFilters.value['global'].value ||
+        rejectedFilters.value['department'].value ||
+        rejectedDateRangeFilter.value;
+});
+
 const departmentOptions = computed(() => {
     const uniqueDepartments = new Set();
 
-    // Sammle alle eindeutigen Abteilungen aus allen Anfragen
     [...pendingRequests.value, ...approvedRequests.value, ...rejectedRequests.value].forEach(request => {
         if (request.department) {
             uniqueDepartments.add(request.department);
         }
     });
 
-    // Konvertiere in ein Array von Objekten für das Dropdown
     return Array.from(uniqueDepartments).map(dept => ({
         label: dept,
         value: dept
     }));
 });
 
-// Urlaubsanträge
-const pendingRequests = ref([]);
-const approvedRequests = ref([]);
-const rejectedRequests = ref([]);
+// Filterfunktionen
+const applyFilters = (data, filterObj, dateRange) => {
+    let filtered = [...data];
+
+    // Globaler Filter
+    if (filterObj['global'].value) {
+        const globalValue = filterObj['global'].value.toLowerCase();
+        filtered = filtered.filter(item => {
+            return (
+                item.employee.name.toLowerCase().includes(globalValue) ||
+                item.department.toLowerCase().includes(globalValue) ||
+                (item.notes && item.notes.toLowerCase().includes(globalValue)) ||
+                (item.substitute && item.substitute.name.toLowerCase().includes(globalValue)) ||
+                (item.approvedBy && item.approvedBy.toLowerCase().includes(globalValue)) ||
+                (item.rejectedBy && item.rejectedBy.toLowerCase().includes(globalValue)) ||
+                (item.rejectionReason && item.rejectionReason.toLowerCase().includes(globalValue))
+            );
+        });
+    }
+
+    // Abteilungsfilter
+    if (filterObj['department'].value) {
+        filtered = filtered.filter(item => item.department === filterObj['department'].value);
+    }
+
+    // Datumsbereichsfilter
+    if (dateRange && dateRange.length === 2 && dateRange[0] && dateRange[1]) {
+        const startFilter = dayjs(dateRange[0]).startOf('day');
+        const endFilter = dayjs(dateRange[1]).endOf('day');
+
+        filtered = filtered.filter(item => {
+            const itemStart = dayjs(item.startDate);
+            const itemEnd = dayjs(item.endDate);
+
+            // Prüfe ob sich die Zeiträume überschneiden
+            return itemStart.isBefore(endFilter) && itemEnd.isAfter(startFilter);
+        });
+    }
+
+    return filtered;
+};
+
+// Event Handler für Filter
+const onGlobalFilterChange = () => {
+    // Filter wird automatisch durch computed property angewendet
+};
+
+const onDepartmentFilterChange = () => {
+    // Filter wird automatisch durch computed property angewendet
+};
+
+const onDateRangeFilterChange = () => {
+    // Filter wird automatisch durch computed property angewendet
+};
+
+const onApprovedGlobalFilterChange = () => {
+    // Filter wird automatisch durch computed property angewendet
+};
+
+const onApprovedDepartmentFilterChange = () => {
+    // Filter wird automatisch durch computed property angewendet
+};
+
+const onApprovedDateRangeFilterChange = () => {
+    // Filter wird automatisch durch computed property angewendet
+};
+
+const onRejectedGlobalFilterChange = () => {
+    // Filter wird automatisch durch computed property angewendet
+};
+
+const onRejectedDepartmentFilterChange = () => {
+    // Filter wird automatisch durch computed property angewendet
+};
+
+const onRejectedDateRangeFilterChange = () => {
+    // Filter wird automatisch durch computed property angewendet
+};
+
+// Filter zurücksetzen
+const clearAllFilters = () => {
+    filters.value['global'].value = null;
+    filters.value['department'].value = null;
+    dateRangeFilter.value = null;
+};
+
+const clearApprovedFilters = () => {
+    approvedFilters.value['global'].value = null;
+    approvedFilters.value['department'].value = null;
+    approvedDateRangeFilter.value = null;
+};
+
+const clearRejectedFilters = () => {
+    rejectedFilters.value['global'].value = null;
+    rejectedFilters.value['department'].value = null;
+    rejectedDateRangeFilter.value = null;
+};
+
+const clearDateRangeFilter = () => {
+    dateRangeFilter.value = null;
+};
+
+const clearApprovedDateRangeFilter = () => {
+    approvedDateRangeFilter.value = null;
+};
+
+const clearRejectedDateRangeFilter = () => {
+    rejectedDateRangeFilter.value = null;
+};
+
+// Sortierung
+const onSort = (event) => {
+    sortField.value = event.sortField;
+    sortOrder.value = event.sortOrder;
+};
 
 // Daten vom Server laden
 const fetchVacationRequests = async () => {
@@ -851,7 +1088,7 @@ const fetchVacationRequests = async () => {
             life: 3000
         });
 
-        // Fallback mit Beispieldaten
+        // Fallback mit erweiterten Beispieldaten
         pendingRequests.value = [
             {
                 id: 1,
@@ -859,11 +1096,11 @@ const fetchVacationRequests = async () => {
                 department: 'Entwicklung',
                 startDate: new Date(2025, 3, 15),
                 endDate: new Date(2025, 3, 20),
-                days: 5,
+                days: 6,
                 requestDate: new Date(2025, 2, 1),
                 status: 'pending',
                 substitute: { name: 'Anna Schmidt', id: 2 },
-                notes: 'Familienurlaub'
+                notes: 'Familienurlaub in den Osterferien'
             },
             {
                 id: 2,
@@ -875,7 +1112,19 @@ const fetchVacationRequests = async () => {
                 requestDate: new Date(2025, 3, 15),
                 status: 'pending',
                 substitute: null,
-                notes: ''
+                notes: 'Kurzurlaub'
+            },
+            {
+                id: 5,
+                employee: { name: 'Peter Schneider', id: 6 },
+                department: 'Vertrieb',
+                startDate: new Date(2025, 5, 1),
+                endDate: new Date(2025, 5, 7),
+                days: 7,
+                requestDate: new Date(2025, 4, 10),
+                status: 'pending',
+                substitute: { name: 'Lisa Müller', id: 7 },
+                notes: 'Hochzeitsreise'
             }
         ];
 
@@ -891,7 +1140,20 @@ const fetchVacationRequests = async () => {
                 status: 'approved',
                 approvedBy: 'Maria Schmidt',
                 approvedDate: new Date(2025, 4, 5),
-                notes: 'Sommerurlaub'
+                notes: 'Sommerurlaub mit Familie'
+            },
+            {
+                id: 6,
+                employee: { name: 'Sandra Klein', id: 8 },
+                department: 'Personal',
+                startDate: new Date(2025, 2, 20),
+                endDate: new Date(2025, 2, 24),
+                days: 5,
+                requestDate: new Date(2025, 1, 15),
+                status: 'approved',
+                approvedBy: 'Hans Meier',
+                approvedDate: new Date(2025, 1, 18),
+                notes: 'Erholungsurlaub'
             }
         ];
 
@@ -907,12 +1169,36 @@ const fetchVacationRequests = async () => {
                 status: 'rejected',
                 rejectedBy: 'Maria Schmidt',
                 rejectedDate: new Date(2025, 1, 20),
-                rejectionReason: 'Personalmangel in diesem Zeitraum'
+                rejectionReason: 'Personalmangel in diesem Zeitraum aufgrund von Krankheitsausfällen'
+            },
+            {
+                id: 7,
+                employee: { name: 'Michael Wagner', id: 9 },
+                department: 'Entwicklung',
+                startDate: new Date(2025, 6, 1),
+                endDate: new Date(2025, 6, 21),
+                days: 15,
+                requestDate: new Date(2025, 5, 1),
+                status: 'rejected',
+                rejectedBy: 'Klaus Bauer',
+                rejectedDate: new Date(2025, 5, 3),
+                rejectionReason: 'Zu lange Abwesenheit während kritischer Projektphase'
             }
         ];
     } finally {
         loading.value = false;
     }
+};
+
+// Daten aktualisieren
+const refreshData = async () => {
+    await fetchVacationRequests();
+    toast.add({
+        severity: 'success',
+        summary: 'Aktualisiert',
+        detail: 'Die Daten wurden erfolgreich aktualisiert.',
+        life: 2000
+    });
 };
 
 // Formatierungsfunktionen
@@ -933,7 +1219,6 @@ const getInitials = (name) => {
 };
 
 const getInitialsColor = (name) => {
-    // Generate a deterministic color based on the name
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
         hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -953,12 +1238,14 @@ const approveRequest = (request) => {
     selectedRequest.value = request;
     approvalNotes.value = '';
     approveDialogVisible.value = true;
+    detailsDialogVisible.value = false;
 };
 
 const rejectRequest = (request) => {
     selectedRequest.value = request;
     rejectionReason.value = '';
     rejectDialogVisible.value = true;
+    detailsDialogVisible.value = false;
 };
 
 const closeApproveDialog = () => {
@@ -983,19 +1270,20 @@ const confirmApprove = async () => {
 
         toast.add({
             severity: 'success',
-            summary: 'Erfolg',
-            detail: `Urlaubsantrag von ${selectedRequest.value.employee.name} wurde genehmigt.`,
-            life: 3000
+            summary: 'Erfolgreich genehmigt',
+            detail: `Urlaubsantrag von ${selectedRequest.value.employee.name} wurde erfolgreich genehmigt.`,
+            life: 4000
         });
 
         closeApproveDialog();
-        fetchVacationRequests(); // Daten neu laden
+        await fetchVacationRequests(); // Daten neu laden
     } catch (error) {
+        console.error('Fehler beim Genehmigen:', error);
         toast.add({
             severity: 'error',
-            summary: 'Fehler',
-            detail: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
-            life: 3000
+            summary: 'Fehler beim Genehmigen',
+            detail: 'Der Urlaubsantrag konnte nicht genehmigt werden. Bitte versuchen Sie es später erneut.',
+            life: 5000
         });
     } finally {
         processingRequest.value = false;
@@ -1005,12 +1293,12 @@ const confirmApprove = async () => {
 const confirmReject = async () => {
     if (!selectedRequest.value) return;
 
-    if (!rejectionReason.value) {
+    if (!rejectionReason.value || rejectionReason.value.trim() === '') {
         toast.add({
             severity: 'warn',
-            summary: 'Warnung',
+            summary: 'Ablehnungsgrund erforderlich',
             detail: 'Bitte geben Sie einen Grund für die Ablehnung an.',
-            life: 3000
+            life: 4000
         });
         return;
     }
@@ -1022,19 +1310,20 @@ const confirmReject = async () => {
 
         toast.add({
             severity: 'info',
-            summary: 'Information',
+            summary: 'Erfolgreich abgelehnt',
             detail: `Urlaubsantrag von ${selectedRequest.value.employee.name} wurde abgelehnt.`,
-            life: 3000
+            life: 4000
         });
 
         closeRejectDialog();
-        fetchVacationRequests(); // Daten neu laden
+        await fetchVacationRequests(); // Daten neu laden
     } catch (error) {
+        console.error('Fehler beim Ablehnen:', error);
         toast.add({
             severity: 'error',
-            summary: 'Fehler',
-            detail: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
-            life: 3000
+            summary: 'Fehler beim Ablehnen',
+            detail: 'Der Urlaubsantrag konnte nicht abgelehnt werden. Bitte versuchen Sie es später erneut.',
+            life: 5000
         });
     } finally {
         processingRequest.value = false;
@@ -1042,51 +1331,93 @@ const confirmReject = async () => {
 };
 
 const showCalendarView = () => {
-    // Navigiere zur Kalenderansicht
-    window.location.href = route('company-calendar');
+    // Navigiere zur Kalenderansicht mit Inertia
+    router.visit('/company-calendar');
 };
 
 const exportData = () => {
     // Bestimme, welche Daten basierend auf dem aktiven Tab exportiert werden sollen
     let dataToExport = [];
-    const activeTabIndex = document.querySelector('.p-tabview-selected')?.getAttribute('aria-selected');
+    let fileName = '';
 
-    if (activeTabIndex === '0') {
-        dataToExport = pendingRequests.value;
-    } else if (activeTabIndex === '1') {
-        dataToExport = approvedRequests.value;
-    } else {
-        dataToExport = rejectedRequests.value;
+    // Versuche den aktiven Tab zu ermitteln
+    const activeTab = document.querySelector('.p-tabview-nav li.p-highlight');
+    const tabIndex = activeTab ? Array.from(activeTab.parentNode.children).indexOf(activeTab) : 0;
+
+    switch (tabIndex) {
+        case 0:
+            dataToExport = filteredPendingRequests.value;
+            fileName = 'offene_urlaubsantraege';
+            break;
+        case 1:
+            dataToExport = filteredApprovedRequests.value;
+            fileName = 'genehmigte_urlaubsantraege';
+            break;
+        case 2:
+            dataToExport = filteredRejectedRequests.value;
+            fileName = 'abgelehnte_urlaubsantraege';
+            break;
+        default:
+            dataToExport = filteredPendingRequests.value;
+            fileName = 'offene_urlaubsantraege';
     }
 
     if (dataToExport.length === 0) {
         toast.add({
             severity: 'warn',
-            summary: 'Keine Daten',
+            summary: 'Keine Daten vorhanden',
             detail: 'Es sind keine Daten zum Exportieren vorhanden.',
             life: 3000
         });
         return;
     }
 
-    // Erstelle CSV-Inhalt
-    let csvContent = "data:text/csv;charset=utf-8,";
+    // Erstelle CSV-Inhalt mit deutschen Überschriften
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM für korrekte Umlaute
 
-    // Header
-    const headers = ["Mitarbeiter", "Abteilung", "Startdatum", "Enddatum", "Tage", "Status", "Anmerkungen"];
+    // Header mit deutschen Bezeichnungen
+    const headers = [
+        "Mitarbeiter",
+        "Abteilung",
+        "Startdatum",
+        "Enddatum",
+        "Anzahl Tage",
+        "Status",
+        "Vertretung",
+        "Beantragt am",
+        "Anmerkungen"
+    ];
+
+    // Füge zusätzliche Header je nach Tab hinzu
+    if (tabIndex === 1) { // Genehmigte Anträge
+        headers.push("Genehmigt von", "Genehmigt am");
+    } else if (tabIndex === 2) { // Abgelehnte Anträge
+        headers.push("Abgelehnt von", "Abgelehnt am", "Ablehnungsgrund");
+    }
+
     csvContent += headers.join(";") + "\r\n";
 
     // Daten
     dataToExport.forEach(item => {
         const row = [
-            item.employee.name,
-            item.department,
+            `"${item.employee.name}"`,
+            `"${item.department}"`,
             formatDate(item.startDate),
             formatDate(item.endDate),
             item.days,
             item.status === 'pending' ? 'Ausstehend' : (item.status === 'approved' ? 'Genehmigt' : 'Abgelehnt'),
-            item.notes || ''
+            `"${item.substitute ? item.substitute.name : 'Keine Vertretung'}"`,
+            formatDateTime(item.requestDate),
+            `"${item.notes || 'Keine Anmerkungen'}"`
         ];
+
+        // Füge zusätzliche Daten je nach Tab hinzu
+        if (tabIndex === 1 && item.approvedBy) {
+            row.push(`"${item.approvedBy}"`, formatDateTime(item.approvedDate));
+        } else if (tabIndex === 2 && item.rejectedBy) {
+            row.push(`"${item.rejectedBy}"`, formatDateTime(item.rejectedDate), `"${item.rejectionReason || 'Kein Grund angegeben'}"`);
+        }
+
         csvContent += row.join(";") + "\r\n";
     });
 
@@ -1094,7 +1425,7 @@ const exportData = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `urlaubsantraege_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `${fileName}_${dayjs().format('YYYY-MM-DD')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1102,13 +1433,14 @@ const exportData = () => {
     toast.add({
         severity: 'success',
         summary: 'Export erfolgreich',
-        detail: 'Die Daten wurden erfolgreich exportiert.',
+        detail: `${dataToExport.length} Datensätze wurden erfolgreich exportiert.`,
         life: 3000
     });
 };
 
 // Komponente initialisieren
 onMounted(() => {
+    primevue.config.locale = de;
     fetchVacationRequests();
 });
 </script>
@@ -1213,6 +1545,138 @@ onMounted(() => {
     border-top: none;
 }
 
+/* Filter-Leiste Styling - Desktop */
+:deep(.p-dropdown) {
+    width: 100%;
+}
+
+:deep(.p-calendar) {
+    width: 100%;
+}
+
+/* Filter-Feld Styling */
+.filter-field {
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+:deep(.p-dropdown),
+:deep(.p-calendar),
+:deep(.p-inputtext) {
+    width: 100%;
+    box-sizing: border-box;
+    height: 38px;
+}
+
+:deep(.p-calendar .p-inputtext) {
+    width: 100%;
+}
+
+:deep(.p-dropdown-panel) {
+    width: auto !important;
+    min-width: 100%;
+}
+
+/* Responsive Verbesserungen */
+@media (max-width: 768px) {
+    /* DataTable Responsive */
+    :deep(.modern-datatable .p-datatable-tbody > tr > td) {
+        padding: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    :deep(.modern-datatable .p-datatable-thead > tr > th) {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    :deep(.modern-datatable .p-datatable-header) {
+        padding: 1rem;
+    }
+
+    /* Filter-Leiste Mobile */
+    .filter-field {
+        margin-bottom: 1rem;
+        flex: none;
+        width: 100%;
+    }
+
+    /* Grid Layout für Mobile anpassen */
+    .grid.grid-cols-1.md\\:grid-cols-4.gap-4 {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    /* Button auf Mobile */
+    .filter-field .p-button {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    /* Tabs auf Mobile */
+    :deep(.p-tabview .p-tabview-nav) {
+        padding: 0 0.5rem;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    :deep(.p-tabview .p-tabview-nav li .p-tabview-nav-link) {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    /* Header auf Mobile */
+    .flex.justify-between.items-center {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .flex.items-center.gap-2 {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .flex.items-center.gap-2 .p-button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Sehr kleine Bildschirme */
+    :deep(.modern-datatable .p-datatable-tbody > tr > td) {
+        padding: 0.25rem;
+        font-size: 0.75rem;
+    }
+
+    :deep(.modern-datatable .p-datatable-thead > tr > th) {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.625rem;
+    }
+
+    /* Statistik-Karten auf sehr kleinen Bildschirmen */
+    .grid.grid-cols-1.md\\:grid-cols-3.gap-6 {
+        gap: 1rem;
+    }
+
+    /* Dialog auf kleinen Bildschirmen */
+    :deep(.modern-dialog) {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        margin: 1rem;
+    }
+
+    :deep(.modern-dialog .p-dialog-header) {
+        padding: 1rem;
+    }
+
+    :deep(.modern-dialog .p-dialog-footer) {
+        padding: 0 1rem 1rem 1rem;
+    }
+}
+
 /* Dark mode adjustments */
 :deep(.dark .p-datatable .p-datatable-thead > tr > th) {
     background-color: var(--surface-card);
@@ -1225,5 +1689,21 @@ onMounted(() => {
 :deep(.dark .p-datatable .p-datatable-tbody > tr:hover) {
     background-color: rgba(255, 255, 255, 0.05);
 }
-</style>
 
+input{
+    padding: 1.5rem;
+}
+button{
+    padding: 0.75rem;
+}
+
+/* Verbesserte Filter-Leiste */
+.filter-bar {
+    background: linear-gradient(135deg, var(--surface-50) 0%, var(--surface-100) 100%);
+    border: 1px solid var(--surface-border);
+}
+
+:deep(.dark .filter-bar) {
+    background: linear-gradient(135deg, var(--surface-800) 0%, var(--surface-900) 100%);
+}
+</style>

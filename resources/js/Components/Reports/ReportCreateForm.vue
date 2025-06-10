@@ -28,7 +28,7 @@
                         <label for="year" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Lehrjahr *
                         </label>
-                        <Dropdown
+                        <Select
                             id="year"
                             v-model="form.year"
                             :options="yearOptions"
@@ -46,7 +46,7 @@
                         <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Berichtart *
                         </label>
-                        <Dropdown
+                        <Select
                             id="type"
                             v-model="form.type"
                             :options="typeOptions"
@@ -123,7 +123,7 @@
                         <label for="instructor_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Ausbilder *
                         </label>
-                        <Dropdown
+                        <Select
                             id="instructor_id"
                             v-model="form.instructor_id"
                             :options="instructors"
@@ -225,7 +225,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import Button from 'primevue/button'
 import Panel from 'primevue/panel'
-import Dropdown from 'primevue/dropdown'
+import Select from 'primevue/select'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Calendar from 'primevue/calendar'
