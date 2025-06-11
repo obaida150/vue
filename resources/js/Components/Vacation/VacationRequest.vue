@@ -54,7 +54,7 @@
                         <div class="grid">
                             <div class="col-12 md:col-5 field mb-3">
                                 <label :for="'startDate-' + index" class="block text-sm font-medium mb-1">Startdatum</label>
-                                <Calendar
+                                <DatePicker
                                     :id="'startDate-' + index"
                                     v-model="period.startDate"
                                     dateFormat="dd.mm.yy"
@@ -69,7 +69,7 @@
 
                             <div class="col-12 md:col-5 field mb-3">
                                 <label :for="'endDate-' + index" class="block text-sm font-medium mb-1">Enddatum</label>
-                                <Calendar
+                                <DatePicker
                                     :id="'endDate-' + index"
                                     v-model="period.endDate"
                                     dateFormat="dd.mm.yy"
@@ -115,7 +115,7 @@
 
                     <div class="field mb-4">
                         <label for="substitute" class="block text-sm font-medium mb-1">Vertretung</label>
-                        <Dropdown
+                        <Select
                             id="substitute"
                             v-model="vacationRequest.substitute"
                             :options="availableSubstitutes"
@@ -202,9 +202,9 @@ import "dayjs/locale/de"
 import axios from "axios"
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore"
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter"
-import Calendar from "primevue/calendar"
+import DatePicker from "primevue/datepicker"
 import InputNumber from "primevue/inputnumber"
-import Dropdown from "primevue/dropdown"
+import Select from "primevue/select"
 import Textarea from "primevue/textarea"
 import Button from "primevue/button"
 import Toast from "primevue/toast"
@@ -642,11 +642,11 @@ onMounted(() => {
     margin-bottom: 1.5rem;
 }
 
-:deep(.p-calendar) {
+:deep(.p-datepicker) {
     width: 100%;
 }
 
-:deep(.p-dropdown) {
+:deep(.p-select) {
     width: 100%;
 }
 

@@ -294,11 +294,11 @@
         >
             <div class="mb-4">
                 <label for="startDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Startdatum</label>
-                <Calendar id="startDate" v-model="newWish.startDate" dateFormat="dd.mm.yy" class="mt-1 w-full" @date-select="calculateDays" />
+                <DatePicker id="startDate" v-model="newWish.startDate" dateFormat="dd.mm.yy" class="mt-1 w-full" @date-select="calculateDays" />
             </div>
             <div class="mb-4">
                 <label for="endDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Enddatum</label>
-                <Calendar id="endDate" v-model="newWish.endDate" dateFormat="dd.mm.yy" class="mt-1 w-full" @date-select="calculateDays" />
+                <DatePicker id="endDate" v-model="newWish.endDate" dateFormat="dd.mm.yy" class="mt-1 w-full" @date-select="calculateDays" />
             </div>
             <div class="mb-4">
                 <label for="days" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Urlaubstage</label>
@@ -330,7 +330,7 @@ import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import Calendar from 'primevue/calendar';
+import DatePicker from 'primevue/datepicker';
 import InputNumber from 'primevue/inputnumber';
 import Textarea from 'primevue/textarea';
 import ProgressBar from 'primevue/progressbar';

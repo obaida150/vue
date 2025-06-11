@@ -101,7 +101,7 @@
                                     </div>
                                 </template>
                                 <template #filter="{ filterModel, filterCallback }">
-                                    <Dropdown
+                                    <Select
                                         v-model="filterModel.value"
                                         :options="departments"
                                         @change="filterCallback()"
@@ -327,7 +327,7 @@ import Dialog from 'primevue/dialog';
 import Avatar from 'primevue/avatar';
 import Toast from 'primevue/toast';
 import Tag from 'primevue/tag';
-import Dropdown from 'primevue/dropdown';
+import Select from 'primevue/select';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
@@ -346,7 +346,7 @@ export default defineComponent({
         Avatar,
         Toast,
         Tag,
-        Dropdown
+        Select
     },
 
     data() {

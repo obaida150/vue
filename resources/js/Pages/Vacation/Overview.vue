@@ -171,7 +171,7 @@
                                 <h3 class="text-xl font-bold mb-4">Urlaubsstatistik</h3>
 
                                 <div class="mb-6">
-                                    <Dropdown v-model="selectedStatYear" :options="availableYears" optionLabel="name" optionValue="value" placeholder="Jahr auswählen" class="w-full sm:w-auto" @change="updateYearlyStats" />
+                                    <Select v-model="selectedStatYear" :options="availableYears" optionLabel="name" optionValue="value" placeholder="Jahr auswählen" class="w-full sm:w-auto" @change="updateYearlyStats" />
                                 </div>
 
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -379,7 +379,7 @@ import interactionPlugin from "@fullcalendar/interaction"
 import deLocale from "@fullcalendar/core/locales/de"
 import VacationService from "@/Services/VacationService"
 import Chart from "primevue/chart"
-import Dropdown from "primevue/dropdown"
+import Select from "primevue/select"
 import HolidayService from '@/Services/holiday-service';
 
 dayjs.locale("de")

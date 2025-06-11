@@ -67,7 +67,7 @@
                                     <Tag v-else value="Keine Abteilung" severity="secondary" />
                                 </template>
                                 <template #filter="{ filterModel, filterCallback }">
-                                    <Dropdown
+                                    <Select
                                         v-model="filterModel.constraints[0].value"
                                         @change="filterCallback()"
                                         :options="departments"
@@ -85,7 +85,7 @@
                                     <Tag :value="data.role.name" :severity="getRoleSeverity(data.role.name)" />
                                 </template>
                                 <template #filter="{ filterModel, filterCallback }">
-                                    <Dropdown
+                                    <Select
                                         v-model="filterModel.constraints[0].value"
                                         @change="filterCallback()"
                                         :options="roles"
@@ -103,7 +103,7 @@
                                     <Tag :value="data.status ? 'Aktiv' : 'Inaktiv'" :severity="data.status ? 'success' : 'danger'" />
                                 </template>
                                 <template #filter="{ filterModel, filterCallback }">
-                                    <Dropdown
+                                    <Select
                                         v-model="filterModel.constraints[0].value"
                                         @change="filterCallback()"
                                         :options="[{name: 'Aktiv', value: true}, {name: 'Inaktiv', value: false}]"
@@ -188,7 +188,7 @@
 
                     <div class="col-12 md:col-6 field mb-4">
                         <label for="department" class="block text-sm font-medium mb-1">Abteilung <span class="text-red-500">*</span></label>
-                        <Dropdown
+                        <Select
                             id="department"
                             v-model="user.department"
                             :options="departments"
@@ -202,7 +202,7 @@
 
                     <div class="col-12 md:col-6 field mb-4">
                         <label for="role" class="block text-sm font-medium mb-1">Rolle <span class="text-red-500">*</span></label>
-                        <Dropdown
+                        <Select
                             id="role"
                             v-model="user.role"
                             :options="roles"
@@ -231,12 +231,12 @@
 
                     <div class="col-12 md:col-6 field mb-4">
                         <label for="entry_date" class="block text-sm font-medium mb-1">Eintrittsdatum</label>
-                        <Calendar id="entry_date" v-model="user.entry_date" dateFormat="dd.mm.yy" class="w-full" showIcon />
+                        <DatePicker id="entry_date" v-model="user.entry_date" dateFormat="dd.mm.yy" class="w-full" showIcon />
                     </div>
 
                     <div class="col-12 md:col-6 field mb-4">
                         <label for="birth_date" class="block text-sm font-medium mb-1">Geburtsdatum</label>
-                        <Calendar id="birth_date" v-model="user.birth_date" dateFormat="dd.mm.yy" class="w-full" showIcon />
+                        <DatePicker id="birth_date" v-model="user.birth_date" dateFormat="dd.mm.yy" class="w-full" showIcon />
                     </div>
 
                     <div class="col-12 field mb-4">
@@ -326,7 +326,7 @@ import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
-import Dropdown from 'primevue/dropdown';
+import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
 import Tag from 'primevue/tag';
 import Avatar from 'primevue/avatar';
@@ -336,7 +336,7 @@ import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
 import UserService from '@/Services/UserService';
 import InputNumber from 'primevue/inputnumber';
-import Calendar from 'primevue/calendar';
+import DatePicker from 'primevue/datepicker';
 import dayjs from 'dayjs';
 
 const toast = useToast();
@@ -746,7 +746,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.user-dialog :deep(.p-dropdown) {
+.user-dialog :deep(.p-select) {
     width: 100%;
 }
 
@@ -771,8 +771,8 @@ onMounted(() => {
 }
 
 .user-dialog :deep(.p-inputtext),
-.user-dialog :deep(.p-dropdown),
-.user-dialog :deep(.p-calendar),
+.user-dialog :deep(.p-select),
+.user-dialog :deep(.p-datepicker),
 .user-dialog :deep(.p-inputnumber) {
     border-radius: 0.375rem;
 }
@@ -781,7 +781,7 @@ onMounted(() => {
     border-radius: 0.375rem;
 }
 
-.user-dialog :deep(.p-calendar .p-button) {
+.user-dialog :deep(.p-datepicker .p-button) {
     border-radius: 0;
 }
 

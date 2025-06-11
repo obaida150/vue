@@ -37,7 +37,7 @@
                                 <label for="yearFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Lehrjahr
                                 </label>
-                                <Dropdown
+                                <Select
                                     id="yearFilter"
                                     v-model="filters.year"
                                     :options="yearOptions"
@@ -52,7 +52,7 @@
                                 <label for="typeFilter" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Berichtart
                                 </label>
-                                <Dropdown
+                                <Select
                                     id="typeFilter"
                                     v-model="filters.type"
                                     :options="typeOptions"
@@ -212,7 +212,7 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
-import Dropdown from 'primevue/dropdown'
+import Select from 'primevue/select'
 import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
 import Avatar from 'primevue/avatar'

@@ -4,7 +4,7 @@
     <!-- Geburtsdatum-Feld hinzufügen -->
     <div class="col-span-6 sm:col-span-4">
         <InputLabel for="birth_date" value="Geburtsdatum" />
-        <Calendar
+        <DatePicker
             id="birth_date"
             v-model="form.birth_date"
             dateFormat="dd.mm.yy"
@@ -20,7 +20,7 @@
 
 <script setup>
 // Bestehende Imports...
-import Calendar from 'primevue/calendar';
+import DatePicker from 'primevue/datepicker';
 import { computed } from 'vue';
 
 // Bestehender Code...

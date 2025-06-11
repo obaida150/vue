@@ -93,7 +93,7 @@
                         <label for="date_from" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Von *
                         </label>
-                        <Calendar
+                        <DatePicker
                             id="date_from"
                             v-model="form.date_from"
                             dateFormat="dd.mm.yy"
@@ -108,7 +108,7 @@
                         <label for="date_to" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Bis *
                         </label>
-                        <Calendar
+                        <DatePicker
                             id="date_to"
                             v-model="form.date_to"
                             dateFormat="dd.mm.yy"
@@ -228,7 +228,7 @@ import Panel from 'primevue/panel'
 import Select from 'primevue/select'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
-import Calendar from 'primevue/calendar'
+import DatePicker from 'primevue/datepicker'
 import Textarea from 'primevue/textarea'
 import { useToast } from 'primevue/usetoast'
 import axios from 'axios' // Declare axios variable

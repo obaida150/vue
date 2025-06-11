@@ -8,7 +8,7 @@
                         <label for="edit_year" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Lehrjahr *
                         </label>
-                        <Dropdown
+                        <Select
                             id="edit_year"
                             v-model="form.year"
                             :options="yearOptions"
@@ -26,7 +26,7 @@
                         <label for="edit_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Berichtart *
                         </label>
-                        <Dropdown
+                        <Select
                             id="edit_type"
                             v-model="form.type"
                             :options="typeOptions"
@@ -73,7 +73,7 @@
                         <label for="edit_date_from" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Von *
                         </label>
-                        <Calendar
+                        <DatePicker
                             id="edit_date_from"
                             v-model="form.date_from"
                             dateFormat="dd.mm.yy"
@@ -88,7 +88,7 @@
                         <label for="edit_date_to" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Bis *
                         </label>
-                        <Calendar
+                        <DatePicker
                             id="edit_date_to"
                             v-model="form.date_to"
                             dateFormat="dd.mm.yy"
@@ -103,7 +103,7 @@
                         <label for="edit_instructor_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Ausbilder *
                         </label>
-                        <Dropdown
+                        <Select
                             id="edit_instructor_id"
                             v-model="form.instructor_id"
                             :options="instructors"
@@ -222,10 +222,10 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import Button from 'primevue/button'
 import Panel from 'primevue/panel'
-import Dropdown from 'primevue/dropdown'
+import Select from 'primevue/select'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
-import Calendar from 'primevue/calendar'
+import DatePicker from 'primevue/datepicker'
 import Textarea from 'primevue/textarea'
 import { useToast } from 'primevue/usetoast'
 import axios from 'axios'
