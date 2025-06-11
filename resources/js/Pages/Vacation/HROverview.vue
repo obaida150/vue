@@ -12,7 +12,7 @@
             </div>
         </template>
 
-        <div class="py-12">
+        <div class="py-6">
             <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8">
                 <!-- Informationskarte -->
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
@@ -98,15 +98,15 @@
                             </Column>
 
                             <!-- Jährliches Urlaubskontingent -->
-                            <Column field="vacation_days_per_year" header="Jährliches Kontingent" :sortable="true" :filter="true" filterMatchMode="equals">
+                            <Column field="vacation_days_per_year" header="Jährliches Kontingent" :sortable="true" :filter="false" filterMatchMode="equals">
                                 <template #body="{ data }">
                                     <div class="text-center font-semibold">
                                         {{ data.vacation_days_per_year }} Tage
                                     </div>
                                 </template>
-                                <template #filter="{ filterModel, filterCallback }">
-                                    <InputNumber v-model="filterModel.value" @input="filterCallback()" placeholder="Tage" class="p-column-filter w-full" />
-                                </template>
+<!--                                <template #filter="{ filterModel, filterCallback }">-->
+<!--                                    <InputNumber v-model="filterModel.value" @input="filterCallback()" placeholder="Tage" class="p-column-filter w-full" />-->
+<!--                                </template>-->
                             </Column>
 
                             <!-- Resttage aus dem Vorjahr -->

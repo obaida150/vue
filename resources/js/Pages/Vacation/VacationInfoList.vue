@@ -12,7 +12,7 @@
             </div>
         </template>
 
-        <div class="py-12">
+        <div class="py-6">
             <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8">
                 <!-- Informationskarte -->
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">

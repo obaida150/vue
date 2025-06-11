@@ -66,53 +66,67 @@
                                     <Tag v-if="data.department" :value="data.department.name" :severity="getDepartmentSeverity(data.department.name)" />
                                     <Tag v-else value="Keine Abteilung" severity="secondary" />
                                 </template>
-                                <template #filter="{ filterModel, filterCallback }">
-                                    <Select
-                                        v-model="filterModel.constraints[0].value"
-                                        @change="filterCallback()"
-                                        :options="departments"
-                                        optionLabel="name"
-                                        optionValue="name"
-                                        placeholder="Alle Abteilungen"
-                                        class="p-column-filter"
-                                        :showClear="true"
-                                    />
-                                </template>
+<!--                                <template #filter="{ filterModel, filterCallback }">-->
+<!--                                    <Select-->
+<!--                                        v-model="filterModel.constraints[0].value"-->
+<!--                                        @change="filterCallback()"-->
+<!--                                        :options="departments"-->
+<!--                                        optionLabel="name"-->
+<!--                                        optionValue="name"-->
+<!--                                        placeholder="Alle Abteilungen"-->
+<!--                                        class="p-column-filter"-->
+<!--                                        :showClear="true"-->
+<!--                                    />-->
+<!--                                </template>-->
                             </Column>
 
                             <Column field="role.name" header="Rolle" :sortable="true">
                                 <template #body="{ data }">
                                     <Tag :value="data.role.name" :severity="getRoleSeverity(data.role.name)" />
                                 </template>
-                                <template #filter="{ filterModel, filterCallback }">
-                                    <Select
-                                        v-model="filterModel.constraints[0].value"
-                                        @change="filterCallback()"
-                                        :options="roles"
-                                        optionLabel="name"
-                                        optionValue="name"
-                                        placeholder="Alle Rollen"
-                                        class="p-column-filter"
-                                        :showClear="true"
-                                    />
-                                </template>
+<!--                                <template #filter="{ filterModel, filterCallback }">-->
+<!--                                    <Select-->
+<!--                                        v-model="filterModel.constraints[0].value"-->
+<!--                                        @change="filterCallback()"-->
+<!--                                        :options="roles"-->
+<!--                                        optionLabel="name"-->
+<!--                                        optionValue="name"-->
+<!--                                        placeholder="Alle Rollen"-->
+<!--                                        class="p-column-filter"-->
+<!--                                        :showClear="true"-->
+<!--                                    />-->
+<!--                                </template>-->
                             </Column>
 
                             <Column field="status" header="Status" :sortable="true">
                                 <template #body="{ data }">
                                     <Tag :value="data.status ? 'Aktiv' : 'Inaktiv'" :severity="data.status ? 'success' : 'danger'" />
                                 </template>
-                                <template #filter="{ filterModel, filterCallback }">
-                                    <Select
-                                        v-model="filterModel.constraints[0].value"
-                                        @change="filterCallback()"
-                                        :options="[{name: 'Aktiv', value: true}, {name: 'Inaktiv', value: false}]"
-                                        optionLabel="name"
-                                        optionValue="value"
-                                        placeholder="Alle Status"
-                                        class="p-column-filter"
-                                        :showClear="true"
-                                    />
+<!--                                <template #filter="{ filterModel, filterCallback }">-->
+<!--                                    <Select-->
+<!--                                        v-model="filterModel.constraints[0].value"-->
+<!--                                        @change="filterCallback()"-->
+<!--                                        :options="[{name: 'Aktiv', value: true}, {name: 'Inaktiv', value: false}]"-->
+<!--                                        optionLabel="name"-->
+<!--                                        optionValue="value"-->
+<!--                                        placeholder="Alle Status"-->
+<!--                                        class="p-column-filter"-->
+<!--                                        :showClear="true"-->
+<!--                                    />-->
+<!--                                </template>-->
+                            </Column>
+
+                            <Column field="employee_number" header="Personal Nummer" :sortable="true">
+                                <template #body="{ data }">
+                                    <Tag v-if="data.employee_number" :value="data.employee_number" :severity="getDepartmentSeverity(data.employee_number)" />
+                                    <Tag v-else value="Keine Personalnummer" severity="secondary" />
+                                </template>
+                            </Column>
+
+                            <Column field="initials" header="Kürzel" :sortable="true">
+                                <template #body="{ data }">
+                                    <Tag v-if="data.initials" :value="data.initials" :severity="getDepartmentSeverity(data.initials)" />
+                                    <Tag v-else value="Kein Kürzel" severity="secondary" />
                                 </template>
                             </Column>
 
@@ -125,20 +139,19 @@
                                             @click="editUser(data)"
                                             tooltip="Bearbeiten"
                                         />
-                                        <!-- Buttons ausgeblendet
-                                        <Button
-                                          icon="pi pi-key"
-                                          class="p-button-rounded p-button-warning"
-                                          @click="resetPassword(data)"
-                                          tooltip="Passwort zurücksetzen"
-                                        />
-                                        <Button
-                                          icon="pi pi-trash"
-                                          class="p-button-rounded p-button-danger"
-                                          @click="confirmDeleteUser(data)"
-                                          tooltip="Löschen"
-                                        />
-                                        -->
+<!--                                        <Button-->
+<!--                                          icon="pi pi-key"-->
+<!--                                          class="p-button-rounded p-button-warning"-->
+<!--                                          @click="resetPassword(data)"-->
+<!--                                          tooltip="Passwort zurücksetzen"-->
+<!--                                        />-->
+<!--                                        <Button-->
+<!--                                          icon="pi pi-trash"-->
+<!--                                          class="p-button-rounded p-button-danger"-->
+<!--                                          @click="confirmDeleteUser(data)"-->
+<!--                                          tooltip="Löschen"-->
+<!--                                        />-->
+
                                     </div>
                                 </template>
                             </Column>
@@ -242,7 +255,7 @@
                     <div class="col-12 field mb-4">
                         <label for="status" class="block text-sm font-medium mb-1">Status</label>
                         <div class="flex align-items-center gap-2">
-                            <InputSwitch v-model="user.status" />
+                            <ToggleSwitch  v-model="user.status" />
                             <span>{{ user.status ? 'Aktiv' : 'Inaktiv' }}</span>
                         </div>
                     </div>
