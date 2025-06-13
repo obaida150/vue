@@ -1,0 +1,103 @@
+{
+  "name": "Mitarbeiterportal",
+  "short_name": "Portal",
+  "description": "Mitarbeiterportal für Urlaubsanträge, Kalender und mehr",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/images/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "de",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Urlaubsantrag",
+      "short_name": "Urlaub",
+      "description": "Neuen Urlaubsantrag stellen",
+      "url": "/vacation",
+      "icons": [
+        {
+          "src": "/images/icons/vacation-shortcut.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Kalender",
+      "short_name": "Kalender",
+      "description": "Kalender anzeigen",
+      "url": "/calendar",
+      "icons": [
+        {
+          "src": "/images/icons/calendar-shortcut.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Parkplatz",
+      "short_name": "Parking",
+      "description": "Parkplatz reservieren",
+      "url": "/parking",
+      "icons": [
+        {
+          "src": "/images/icons/parking-shortcut.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

@@ -1,63 +1,18 @@
-import "./bootstrap"
-import "../css/app.css"
+import './bootstrap';
+import '../css/app.css';
 
-import { createApp, h } from "vue"
-import { createInertiaApp } from "@inertiajs/vue3"
-import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers"
-import { ZiggyVue } from "../../vendor/tightenco/ziggy"
-import { route } from "../../vendor/tightenco/ziggy"
+import { createApp, h } from 'vue';
+import { createInertiaApp } from '@inertiajs/vue3';
+import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import PrimeVue from 'primevue/config';
+import Aura from '@primeuix/themes/aura';
 
-// PrimeVue imports
-import PrimeVue from "primevue/config"
-import Aura from "@primeuix/themes/aura"
-import ConfirmationService from "primevue/confirmationservice"
-import ToastService from "primevue/toastservice"
-import Tooltip from "primevue/tooltip"
-
-// PrimeVue Komponenten für das Dashboard
-import Avatar from "primevue/avatar"
-import Dropdown from "primevue/dropdown"
-import Chart from "primevue/chart"
-import DataTable from "primevue/datatable"
-import Column from "primevue/column"
-import Tag from "primevue/tag"
-
-// Zusätzliche PrimeVue Komponenten für Reports
-import Button from "primevue/button"
-import Dialog from "primevue/dialog"
-import InputText from "primevue/inputtext"
-import Textarea from "primevue/textarea"
-import Calendar from "primevue/calendar"
-import Toast from "primevue/toast"
-import ConfirmDialog from "primevue/confirmdialog"
-
-// PrimeVue CSS Importe
-import "primeicons/primeicons.css"
-
-const appName = import.meta.env.VITE_APP_NAME || "Laravel"
-
-// Initialize dark mode before app creation
-const initializeDarkMode = () => {
-    // Check localStorage first
-    const savedTheme = localStorage.getItem("theme")
-    if (savedTheme === "dark") {
-        document.documentElement.classList.add("dark")
-    } else if (savedTheme === "light") {
-        document.documentElement.classList.remove("dark")
-    } else {
-        // Check system preference if no saved preference
-        if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-            document.documentElement.classList.add("dark")
-        }
-    }
-}
-
-// Initialize dark mode
-initializeDarkMode()
+const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
-    resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob("./Pages/**/*.vue")),
+    resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
         const app = createApp({ render: () => h(App, props) })
             .use(plugin)
@@ -65,49 +20,86 @@ createInertiaApp({
             .use(PrimeVue, {
                 theme: {
                     preset: Aura,
-                },
-            })
-            .use(ToastService)
-            .use(ConfirmationService)
-            .directive("tooltip", Tooltip)
+                    options: {
+                        prefix: 'p',
+                        darkModeSelector: '.dark',
+                        cssLayer: false
+                    }
+                }
+            });
 
-        // Make route function globally available
-        app.config.globalProperties.route = route
-        window.route = route
+        // PWA-spezifische Funktionen
+        app.config.globalProperties.$pwa = {
+            // Offline-Status prüfen
+            isOnline: () => navigator.onLine,
+            
+            // Daten für Offline-Sync speichern
+            storeForSync: async (storeName, data) => {
+                if ('indexedDB' in window) {
+                    try {
+                        const db = await openDB();
+                        const transaction = db.transaction([storeName], 'readwrite');
+                        const store = transaction.objectStore(storeName);
+                        await store.add({
+                            id: Date.now(),
+                            data: data,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        // Background Sync registrieren
+                        if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+                            const registration = await navigator.serviceWorker.ready;
+                            await registration.sync.register(storeName);
+                        }
+                    } catch (error) {
+                        console.error('Fehler beim Speichern für Offline-Sync:', error);
+                    }
+                }
+            },
+            
+            // Push-Benachrichtigungen aktivieren
+            enableNotifications: async () => {
+                if ('Notification' in window && 'serviceWorker' in navigator) {
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        const registration = await navigator.serviceWorker.ready;
+                        // Hier würden Sie normalerweise den Push-Service konfigurieren
+                        console.log('Push-Benachrichtigungen aktiviert');
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
 
-        // Registriere PrimeVue Komponenten für das Dashboard
-        app.component("Avatar", Avatar)
-        app.component("Dropdown", Dropdown)
-        app.component("Chart", Chart)
-        app.component("DataTable", DataTable)
-        app.component("Column", Column)
-        app.component("Tag", Tag)
+        // IndexedDB für Offline-Funktionalität
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('OfflineRequests', 1);
+                
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+                
+                request.onupgradeneeded = () => {
+                    const db = request.result;
+                    
+                    // Stores für verschiedene Offline-Aktionen erstellen
+                    if (!db.objectStoreNames.contains('vacation-requests')) {
+                        db.createObjectStore('vacation-requests', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('parking-reservations')) {
+                        db.createObjectStore('parking-reservations', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('calendar-events')) {
+                        db.createObjectStore('calendar-events', { keyPath: 'id' });
+                    }
+                };
+            });
+        }
 
-        // Registriere zusätzliche PrimeVue Komponenten für Reports
-        app.component("Button", Button)
-        app.component("Dialog", Dialog)
-        app.component("InputText", InputText)
-        app.component("Textarea", Textarea)
-        app.component("Calendar", Calendar)
-        app.component("Toast", Toast)
-        app.component("ConfirmDialog", ConfirmDialog)
-
-        return app.mount(el)
+        return app.mount(el);
     },
     progress: {
-        color: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "#D1D5DB" : "#4B5563",
+        color: '#3b82f6',
     },
-})
-
-// Add event listener for system theme changes
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
-    const savedTheme = localStorage.getItem("theme")
-    // Only apply system preference if user hasn't set a preference
-    if (!savedTheme) {
-        if (e.matches) {
-            document.documentElement.classList.add("dark")
-        } else {
-            document.documentElement.classList.remove("dark")
-        }
-    }
-})
+});

@@ -1,1102 +1,203 @@
-<script setup>
-import { ref, onMounted, computed, watch } from 'vue';
-import { useToast } from 'primevue/usetoast';
-import axios from 'axios';
-import { usePage } from '@inertiajs/vue3';
-import AppLayout from '@/Layouts/AppLayout.vue';
-
-// PrimeVue Komponenten explizit importieren
-import ToggleSwitch from 'primevue/toggleswitch';
-import Select from 'primevue/select';
-import Chart from 'primevue/chart';
-import DataTable from 'primevue/datatable';
-import Column from 'primevue/column';
-import Tag from 'primevue/tag';
-
-const toast = useToast();
-const page = usePage();
-
-// Benutzer aus Inertia-Props holen
-const currentUser = computed(() => page.props.auth.user);
-const userRole = computed(() => currentUser.value.role_id || 4); // Standard: Mitarbeiter
-
-const selectedEmployee = ref(null);
-const availableEmployees = ref([]);
-const selectedYear = ref(new Date().getFullYear());
-const selectedMonth = ref(null);
-const loading = ref(true);
-const showTeamOverview = ref(false); // Toggle für die Gesamtübersicht
-
-// Neue Variablen für die Abteilungsfilterung
-const selectedDepartment = ref(null);
-const availableDepartments = ref([]);
-const isHR = computed(() => userRole.value <= 2); // HR-Rolle (1 oder 2)
-
-const years = ref([
-    new Date().getFullYear() - 2,
-    new Date().getFullYear() - 1,
-    new Date().getFullYear(),
-    new Date().getFullYear() + 1
-]);
-
-const months = ref([
-    { name: 'Januar', value: 1 },
-    { name: 'Februar', value: 2 },
-    { name: 'März', value: 3 },
-    { name: 'April', value: 4 },
-    { name: 'Mai', value: 5 },
-    { name: 'Juni', value: 6 },
-    { name: 'Juli', value: 7 },
-    { name: 'August', value: 8 },
-    { name: 'September', value: 9 },
-    { name: 'Oktober', value: 10 },
-    { name: 'November', value: 11 },
-    { name: 'Dezember', value: 12 }
-]);
-
-// Statistik-Daten
-const statistics = ref({
-    homeoffice: {
-        total: 0,
-        monthly: []
-    },
-    absence: {
-        total: 0,
-        monthly: []
-    },
-    fieldService: {
-        total: 0,
-        monthly: []
-    },
-    vacation: {
-        used: 0,
-        total: 30,
-        entries: []
-    }
-});
-
-const vacationData = ref([]);
-const teamVacationOverview = ref([]); // Neue Daten für die Teamübersicht
-const allVacationRequests = ref([]); // Alle Urlaubsanträge
-const allEmployees = ref([]); // Alle Mitarbeiter (ungefiltert)
-
-// Chart-Daten
-const homeofficeChartData = computed(() => {
-    const labels = selectedMonth.value
-        ? Array.from({ length: getDaysInMonth(selectedYear.value, selectedMonth.value) }, (_, i) => i + 1)
-        : months.value.map(m => m.name);
-
-    return {
-        labels,
-        datasets: [
-            {
-                label: 'Homeoffice Tage',
-                backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                borderColor: 'rgb(59, 130, 246)',
-                data: statistics.value.homeoffice.monthly
-            }
-        ]
-    };
-});
-
-const absenceChartData = computed(() => {
-    return {
-        labels: months.value.map(m => m.name),
-        datasets: [
-            {
-                label: 'Abwesenheitstage',
-                backgroundColor: 'rgba(245, 158, 11, 0.5)',
-                borderColor: 'rgb(245, 158, 11)',
-                data: statistics.value.absence.monthly
-            }
-        ]
-    };
-});
-
-const fieldServiceChartData = computed(() => {
-    return {
-        labels: months.value.map(m => m.name),
-        datasets: [
-            {
-                label: 'Außendiensttage',
-                backgroundColor: 'rgba(139, 92, 246, 0.5)',
-                borderColor: 'rgb(139, 92, 246)',
-                data: statistics.value.fieldService.monthly
-            }
-        ]
-    };
-});
-
-const chartOptions = {
-    plugins: {
-        legend: {
-            position: 'bottom'
-        }
-    },
-    scales: {
-        y: {
-            beginAtZero: true,
-            ticks: {
-                stepSize: 1
-            }
-        }
-    },
-    responsive: true,
-    maintainAspectRatio: false
-};
-
-// Funktionen
-function getMonthName(monthNumber) {
-    const month = months.value.find(m => m.value === monthNumber);
-    return month ? month.name : '';
-}
-
-function getDaysInMonth(year, month) {
-    return new Date(year, month, 0).getDate();
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE');
-}
-
-function getStatusSeverity(status) {
-    switch (status) {
-        case 'approved': return 'success';
-        case 'pending': return 'warning';
-        case 'rejected': return 'danger';
-        default: return 'info';
-    }
-}
-
-// Verbessere die loadTeamVacationOverview-Funktion, um die Abteilungszuweisung zu korrigieren
-async function loadTeamVacationOverview() {
-    try {
-        // Nur für Abteilungsleiter und HR
-        if (userRole.value > 3) return;
-
-        // Verwende die bereits geladenen Mitarbeiter
-        let employees = [...allEmployees.value];
-
-        // Filtere Mitarbeiter basierend auf der Rolle und ausgewählter Abteilung
-        if (userRole.value === 3) { // Abteilungsleiter sieht nur sein Team
-            employees = employees.filter(emp =>
-                emp.team_id === currentUser.value.current_team_id
-            );
-        } else if (isHR.value && selectedDepartment.value && selectedDepartment.value.id) {
-            // HR mit ausgewählter Abteilung
-            employees = employees.filter(emp =>
-                emp.team_id === selectedDepartment.value.id
-            );
-        }
-
-        // Initialisiere die Teamübersicht
-        const teamData = [];
-
-        // Lade alle genehmigten Urlaubsanträge
-        const allRequestsResponse = await axios.get('/api/vacation/all-requests');
-        const allRequests = allRequestsResponse.data || [];
-
-        // Definiere eine Map für Abteilungsnamen
-        const teamNames = {
-            1: 'IT',
-            2: 'Schaden',
-            3: 'Vertrieb',
-            4: 'Personal',
-            5: 'Betrieb',
-            6: 'Geschäftsleitung',
-            7: 'Azubis'
-        };
-
-        // Verarbeite die Daten für jeden Mitarbeiter
-        for (const employee of employees) {
-            // Filtere Urlaubsanträge für diesen Mitarbeiter und das ausgewählte Jahr
-            const employeeRequests = allRequests.filter(req => {
-                // Prüfe, ob die Felder existieren
-                if (!req.start_date || !req.user_id) {
-                    console.warn('Ungültiger Urlaubsantrag:', req);
-                    return false;
-                }
-
-                // Prüfe, ob die user_id als String oder Zahl vorliegt
-                const reqUserId = typeof req.user_id === 'string' ? parseInt(req.user_id, 10) : req.user_id;
-                const empId = typeof employee.id === 'string' ? parseInt(employee.id, 10) : employee.id;
-
-                // Prüfe das Jahr
-                let startYear;
-                try {
-                    startYear = new Date(req.start_date).getFullYear();
-                } catch (e) {
-                    console.warn('Ungültiges Startdatum:', req.start_date);
-                    return false;
-                }
-
-                return reqUserId === empId && startYear === selectedYear.value;
-            });
-
-            // Berechne die Summe der genehmigten Urlaubstage
-            const usedDays = employeeRequests
-                .filter(req => req.status === 'approved')
-                .reduce((sum, req) => {
-                    // Prüfe, ob days eine Zahl ist
-                    const days = typeof req.days === 'number' ? req.days : parseInt(req.days, 10);
-                    return sum + (isNaN(days) ? 0 : days);
-                }, 0);
-
-            // Standard-Urlaubsanspruch (kann angepasst werden)
-            const totalEntitlement = 30;
-
-            // Hole den Abteilungsnamen
-            let teamName = 'Keine Abteilung';
-
-            // Versuche, den Abteilungsnamen aus verschiedenen Quellen zu bekommen
-            if (employee.team && employee.team.name) {
-                teamName = employee.team.name;
-            } else if (employee.team_id) {
-                // Suche die Abteilung in den verfügbaren Abteilungen
-                const department = availableDepartments.value.find(dept => dept.id === employee.team_id);
-                if (department) {
-                    teamName = department.name;
-                } else {
-                    // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
-                    teamName = teamNames[employee.team_id] || `Team ${employee.team_id}`;
-                }
-            }
-
-            // Füge den Mitarbeiter zur Teamübersicht hinzu - mit vereinfachten Feldnamen
-            teamData.push({
-                name: employee.name,
-                abteilung: teamName,
-                tage: usedDays,
-                resttage: totalEntitlement - usedDays,
-                tagelast: 0 // Standardwert, falls keine Daten verfügbar
-            });
-        }
-
-        teamVacationOverview.value = teamData;
-    } catch (error) {
-        console.error('Fehler beim Laden der Team-Urlaubsdaten:', error);
-        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Team-Urlaubsdaten', life: 3000 });
-
-        // Setze leere Daten im Fehlerfall
-        teamVacationOverview.value = [];
-    }
-}
-
-async function loadDepartments() {
-    try {
-        // Versuche die Teams aus den Inertia-Props zu lesen
-        const userTeams = page.props.auth?.user?.all_teams || [];
-
-        if (userTeams && userTeams.length > 0) {
-            // Konvertiere die Teams in das richtige Format
-            availableDepartments.value = userTeams.map(team => ({
-                id: team.id,
-                name: team.name
-            }));
-        }
-        // Unabhängig davon, ob Teams aus Inertia-Props geladen wurden,
-        // rufe immer createLocalDepartmentsFromEmployees auf, um sicherzustellen,
-        // dass alle Abteilungen geladen werden
-        createLocalDepartmentsFromEmployees();
-        // Option für "Alle Abteilungen" hinzufügen, falls noch nicht vorhanden
-        if (!availableDepartments.value.some(dept => dept.id === null)) {
-            availableDepartments.value.unshift({ id: null, name: 'Alle Abteilungen' });
-        }
-    } catch (error) {
-        console.error('Fehler beim Laden der Abteilungen:', error);
-        // Fallback: Verwende Mitarbeiterdaten
-        createLocalDepartmentsFromEmployees();
-
-        // Option für "Alle Abteilungen" hinzufügen
-        if (!availableDepartments.value.some(dept => dept.id === null)) {
-            availableDepartments.value.unshift({ id: null, name: 'Alle Abteilungen' });
-        }
-    }
-}
-
-// Verbessere die createLocalDepartmentsFromEmployees-Funktion, um sicherzustellen, dass alle Abteilungen geladen werden
-function createLocalDepartmentsFromEmployees() {
-    const departments = new Map();
-    const teamNames = {
-        1: 'IT',
-        2: 'Schaden',
-        3: 'Vertrieb',
-        4: 'Personal',
-        5: 'Betrieb',
-        6: 'Geschäftsleitung',
-        7: 'Azubis'
-    };
-
-    // Füge zuerst alle bekannten Abteilungen aus der teamNames-Map hinzu
-    Object.entries(teamNames).forEach(([id, name]) => {
-        departments.set(parseInt(id), {
-            id: parseInt(id),
-            name: name
-        });
-    });
-
-    // Wenn Mitarbeiterdaten vorhanden sind, ergänze die Liste
-    if (allEmployees.value && allEmployees.value.length > 0) {
-        allEmployees.value.forEach(employee => {
-            let teamId = null;
-            let teamName = null;
-
-            // Versuche, team_id und team-Name aus verschiedenen möglichen Strukturen zu extrahieren
-            if (employee.team) {
-                if (typeof employee.team === 'object') {
-                    teamId = employee.team.id;
-                    teamName = employee.team.name;
-                } else if (typeof employee.team === 'number' || typeof employee.team === 'string') {
-                    teamId = employee.team;
-                    // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
-                    teamName = teamNames[teamId] || `Team ${employee.team}`;
-                }
-            }
-
-            // Alternative: Direkte team_id und department_id/name Felder prüfen
-            if (!teamId && employee.team_id) {
-                teamId = employee.team_id;
-                // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
-                teamName = employee.department_name || teamNames[teamId] || `Team ${teamId}`;
-            }
-
-            // Weitere mögliche Felder prüfen
-            if (!teamId && employee.department_id) {
-                teamId = employee.department_id;
-                // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
-                teamName = employee.department_name || teamNames[teamId] || `Abteilung ${teamId}`;
-            }
-
-            // Wenn eine Abteilung gefunden wurde, zur Map hinzufügen
-            if (teamId && !departments.has(teamId)) {
-                departments.set(teamId, {
-                    id: teamId,
-                    name: teamName || teamNames[teamId] || `Abteilung ${teamId}`
-                });
-            }
-        });
-    } else {
-        console.log('Keine Mitarbeiterdaten für Abteilungsextraktion verfügbar');
-    }
-
-    // Wenn keine Abteilungen gefunden wurden, verwende Standard-Abteilungen
-    if (departments.size === 0) {
-        availableDepartments.value = [
-            { id: 1, name: 'IT' },
-            { id: 2, name: 'Schaden' },
-            { id: 3, name: 'Vertrieb' },
-            { id: 4, name: 'Personal' },
-            { id: 5, name: 'Betrieb' },
-            { id: 6, name: 'Geschäftsleitung' },
-            { id: 7, name: 'Azubis' },
-            { id: null, name: 'Alle Abteilungen' } // Fallback für alle Abteilungen
-        ];
-    } else {
-        availableDepartments.value = Array.from(departments.values());
-    }
-}
-
-// Aktualisiere die initializeDashboard-Funktion, um die Debug-Funktion aufzurufen
-async function initializeDashboard() {
-    try {
-        loading.value = true;
-
-        // Lade verfügbare Mitarbeiter basierend auf der Rolle
-        await loadAvailableEmployees();
-
-        // Lade Abteilungen NACH dem Laden der Mitarbeiter (für HR)
-        if (isHR.value) {
-            await loadDepartments();
-        }
-
-        // Setze den aktuellen Benutzer als ausgewählten Mitarbeiter
-        selectedEmployee.value = {
-            id: currentUser.value.id,
-            name: currentUser.value.name
-        };
-
-        // Lade alle Urlaubsanträge (für die Teamübersicht)
-        await loadAllVacationRequests();
-
-        // Lade Daten für den aktuellen Benutzer
-        await loadEmployeeData();
-
-        // Wenn Abteilungsleiter oder HR und Teamübersicht aktiviert, lade auch die Teamübersicht
-        if (userRole.value <= 3 && showTeamOverview.value) {
-            await loadTeamVacationOverview();
-        }
-    } catch (error) {
-        console.error('Fehler beim Initialisieren des Dashboards:', error);
-        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Initialisieren des Dashboards', life: 3000 });
-    } finally {
-        loading.value = false;
-    }
-}
-
-async function loadAvailableEmployees() {
-    try {
-        // Lade Mitarbeiter basierend auf der Rolle
-        let employees = [];
-
-        if (userRole.value <= 3) { // HR oder Abteilungsleiter
-            const response = await axios.get('/api/employees');
-            allEmployees.value = response.data; // Speichere alle Mitarbeiter
-            employees = [...allEmployees.value]; // Kopie erstellen
-
-            // Filtere Mitarbeiter basierend auf der Rolle und ausgewählter Abteilung
-            if (userRole.value === 3) { // Abteilungsleiter sieht nur sein Team
-                employees = employees.filter(emp =>
-                    emp.team_id === currentUser.value.current_team_id
-                );
-            } else if (isHR.value && selectedDepartment.value && selectedDepartment.value.id) {
-                // HR mit ausgewählter Abteilung
-                employees = employees.filter(emp =>
-                    emp.team_id === selectedDepartment.value.id
-                );
-            }
-        } else {
-            // Mitarbeiter sieht nur sich selbst
-            employees = [{
-                id: currentUser.value.id,
-                name: currentUser.value.name
-            }];
-        }
-
-        availableEmployees.value = employees;
-    } catch (error) {
-        console.error('Fehler beim Laden der Mitarbeiterdaten:', error);
-        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Mitarbeiterdaten', life: 3000 });
-    }
-}
-
-// Lade alle Urlaubsanträge für die Teamübersicht
-async function loadAllVacationRequests() {
-    try {
-        // Lade alle Urlaubsanträge
-        const response = await axios.get('/api/vacation/user');
-        const requests = response.data.requests || [];
-        // Speichere alle Urlaubsanträge
-        allVacationRequests.value = requests;
-    } catch (error) {
-        console.error('Fehler beim Laden aller Urlaubsanträge:', error);
-        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden aller Urlaubsanträge', life: 3000 });
-    }
-}
-
-async function loadEmployeeData() {
-    if (!selectedEmployee.value) return;
-
-    try {
-        loading.value = true;
-
-        // Lade Urlaubsdaten
-        await loadVacationData();
-
-        // Lade Homeoffice- und Abwesenheitsdaten
-        await loadEventsData();
-    } catch (error) {
-        console.error('Fehler beim Laden der Daten:', error);
-        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Daten', life: 3000 });
-    } finally {
-        loading.value = false;
-    }
-}
-
-// Korrigierte Funktion zum Laden der Urlaubsdaten
-async function loadVacationData() {
-    try {
-        // Prüfen, ob der ausgewählte Mitarbeiter der angemeldete Benutzer ist
-        const isCurrentUser = selectedEmployee.value.id === currentUser.value.id;
-
-        if (isCurrentUser) {
-            // Für den angemeldeten Benutzer können wir den normalen Endpunkt verwenden
-            const response = await axios.get(`/api/vacation/yearly/${selectedYear.value}`);
-            const vacationStats = response.data.stats;
-
-            // Aktualisiere die Urlaubsstatistik
-            statistics.value.vacation.total = vacationStats.totalEntitlement;
-            statistics.value.vacation.used = vacationStats.used;
-        } else {
-            // Standard-Urlaubsanspruch (kann angepasst werden)
-            const totalEntitlement = 30;
-
-            // Lade alle Urlaubsanträge
-            const allRequestsResponse = await axios.get('/api/vacation/all-requests');
-            const allRequests = allRequestsResponse.data || [];
-            // Filtere Urlaubsanträge für den ausgewählten Mitarbeiter und das ausgewählte Jahr
-            const employeeRequests = allRequests.filter(req => {
-                // Prüfe, ob die Felder existieren
-                if (!req.start_date || !req.user_id) {
-                    console.warn('Ungültiger Urlaubsantrag:', req);
-                    return false;
-                }
-
-                // Prüfe, ob die user_id als String oder Zahl vorliegt
-                const reqUserId = typeof req.user_id === 'string' ? parseInt(req.user_id, 10) : req.user_id;
-                const empId = typeof selectedEmployee.value.id === 'string' ?
-                    parseInt(selectedEmployee.value.id, 10) : selectedEmployee.value.id;
-
-                // Prüfe das Jahr
-                let startYear;
-                try {
-                    startYear = new Date(req.start_date).getFullYear();
-                } catch (e) {
-                    console.warn('Ungültiges Startdatum:', req.start_date);
-                    return false;
-                }
-
-                return reqUserId === empId && startYear === selectedYear.value;
-            });
-
-            // Berechne die Summe der genehmigten Urlaubstage
-            const usedDays = employeeRequests
-                .filter(req => req.status === 'approved')
-                .reduce((sum, req) => {
-                    // Prüfe, ob days eine Zahl ist
-                    const days = typeof req.days === 'number' ? req.days : parseInt(req.days, 10);
-                    return sum + (isNaN(days) ? 0 : days);
-                }, 0);
-
-            // Aktualisiere die Urlaubsstatistik
-            statistics.value.vacation.total = totalEntitlement;
-            statistics.value.vacation.used = usedDays;
-
-            // Formatiere die Daten für die Tabelle
-            vacationData.value = employeeRequests.map(req => ({
-                start_date: req.start_date,
-                end_date: req.end_date,
-                days: req.days,
-                status: req.status,
-                notes: req.notes || ''
-            }));
-
-            return; // Wir haben die Daten bereits verarbeitet
-        }
-
-        // Lade Urlaubsanträge für den angemeldeten Benutzer
-        const userResponse = await axios.get('/api/vacation/user');
-        const requests = userResponse.data.requests;
-
-        // Filtere Urlaubsanträge für den ausgewählten Benutzer und das ausgewählte Jahr
-        const filteredRequests = requests.filter(req => {
-            if (!req.startDate) return false;
-
-            const startYear = new Date(req.startDate).getFullYear();
-            return startYear === selectedYear.value;
-        });
-
-        // Formatiere die Daten für die Tabelle
-        vacationData.value = filteredRequests.map(req => ({
-            start_date: req.startDate,
-            end_date: req.endDate,
-            days: req.days,
-            status: req.status,
-            notes: req.notes || ''
-        }));
-    } catch (error) {
-        console.error('Fehler beim Laden der Urlaubsdaten:', error);
-        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Urlaubsdaten', life: 3000 });
-    }
-}
-
-async function loadEventsData() {
-    try {
-        // Lade Ereignistypen
-        const eventTypesResponse = await axios.get('/api/event-types');
-        const eventTypes = eventTypesResponse.data;
-
-        // Finde die IDs für Homeoffice, Abwesend und Außendienst
-        const homeofficeTypeId = eventTypes.find(type => type.name === 'Homeoffice')?.id;
-        const absenceTypeId = eventTypes.find(type => type.name === 'Abwesend')?.id;
-        const fieldServiceTypeId = eventTypes.find(type => type.name === 'Außendienst')?.id;
-
-        // Parameter für die Ereignisabfrage
-        const params = {
-            start_date: `${selectedYear.value}-01-01`,
-            end_date: `${selectedYear.value}-12-31`
-        };
-
-        // Lade Ereignisse
-        const eventsResponse = await axios.get('/api/events', { params });
-        const events = eventsResponse.data;
-
-        // Filtere Ereignisse für den ausgewählten Benutzer
-        const userEvents = events.filter(event =>
-            event.user_id === selectedEmployee.value.id
-        );
-
-        // Verarbeite Homeoffice-Daten
-        processHomeofficeData(userEvents, homeofficeTypeId);
-
-        // Verarbeite Abwesenheitsdaten
-        processAbsenceData(userEvents, absenceTypeId);
-
-        // Verarbeite Außendienst-Daten
-        processFieldServiceData(userEvents, fieldServiceTypeId);
-    } catch (error) {
-        console.error('Fehler beim Laden der Ereignisdaten:', error);
-        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Ereignisdaten', life: 3000 });
-    }
-}
-
-function processHomeofficeData(events, homeofficeTypeId) {
-    // Initialisiere monatliche Daten
-    const monthlyData = Array(12).fill(0);
-    let total = 0;
-
-    // Filtere Homeoffice-Ereignisse
-    const homeofficeEvents = events.filter(event => event.event_type_id === homeofficeTypeId);
-
-    // Verarbeite jedes Homeoffice-Ereignis
-    homeofficeEvents.forEach(event => {
-        const startDate = new Date(event.start_date);
-        const endDate = new Date(event.end_date);
-
-        // Wenn ein Monat ausgewählt ist, filtere nur Ereignisse in diesem Monat
-        if (selectedMonth.value && (startDate.getMonth() + 1 !== selectedMonth.value && endDate.getMonth() + 1 !== selectedMonth.value)) {
-            return;
-        }
-
-        // Berechne die Anzahl der Tage
-        const days = calculateWorkingDays(startDate, endDate);
-        total += days;
-
-        // Verteile die Tage auf die entsprechenden Monate
-        if (selectedMonth.value) {
-            // Wenn ein Monat ausgewählt ist, erstelle tägliche Daten
-            const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
-            const dailyData = Array(daysInMonth).fill(0);
-
-            let currentDate = new Date(startDate);
-            while (currentDate <= endDate) {
-                if (currentDate.getMonth() + 1 === selectedMonth.value) {
-                    const day = currentDate.getDate() - 1; // 0-basierter Index
-                    dailyData[day] = 1;
-                }
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-
-            statistics.value.homeoffice.monthly = dailyData;
-        } else {
-            // Wenn kein Monat ausgewählt ist, verteile auf Monate
-            let currentDate = new Date(startDate);
-            while (currentDate <= endDate) {
-                // Zähle nur Werktage (Mo-Fr)
-                const dayOfWeek = currentDate.getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
-                    const month = currentDate.getMonth();
-                    monthlyData[month]++;
-                }
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-
-            statistics.value.homeoffice.monthly = monthlyData;
-        }
-    });
-
-    statistics.value.homeoffice.total = total;
-}
-
-function processAbsenceData(events, absenceTypeId) {
-    // Initialisiere monatliche Daten
-    const monthlyData = Array(12).fill(0);
-    let total = 0;
-
-    // Filtere Abwesenheits-Ereignisse
-    const absenceEvents = events.filter(event => event.event_type_id === absenceTypeId);
-
-    // Verarbeite jedes Abwesenheits-Ereignis
-    absenceEvents.forEach(event => {
-        const startDate = new Date(event.start_date);
-        const endDate = new Date(event.end_date);
-
-        // Berechne die Anzahl der Tage
-        const days = calculateWorkingDays(startDate, endDate);
-        total += days;
-
-        // Verteile die Tage auf die entsprechenden Monate
-        let currentDate = new Date(startDate);
-        while (currentDate <= endDate) {
-            // Zähle nur Werktage (Mo-Fr)
-            const dayOfWeek = currentDate.getDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
-                const month = currentDate.getMonth();
-                monthlyData[month]++;
-            }
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-    });
-
-    statistics.value.absence.monthly = monthlyData;
-    statistics.value.absence.total = total;
-}
-
-function processFieldServiceData(events, fieldServiceTypeId) {
-    // Initialisiere monatliche Daten
-    const monthlyData = Array(12).fill(0);
-    let total = 0;
-
-    // Filtere Außendienst-Ereignisse
-    const fieldServiceEvents = events.filter(event => event.event_type_id === fieldServiceTypeId);
-
-    // Verarbeite jedes Außendienst-Ereignis
-    fieldServiceEvents.forEach(event => {
-        const startDate = new Date(event.start_date);
-        const endDate = new Date(event.end_date);
-
-        // Berechne die Anzahl der Tage
-        const days = calculateWorkingDays(startDate, endDate);
-        total += days;
-
-        // Verteile die Tage auf die entsprechenden Monate
-        let currentDate = new Date(startDate);
-        while (currentDate <= endDate) {
-            // Zähle nur Werktage (Mo-Fr)
-            const dayOfWeek = currentDate.getDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
-                const month = currentDate.getMonth();
-                monthlyData[month]++;
-            }
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-    });
-
-    statistics.value.fieldService.monthly = monthlyData;
-    statistics.value.fieldService.total = total;
-}
-
-function calculateWorkingDays(startDate, endDate) {
-    let count = 0;
-    let currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-        // Zähle nur Werktage (Mo-Fr)
-        const dayOfWeek = currentDate.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
-            count++;
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return count;
-}
-
-function updateData() {
-    loadEmployeeData();
-
-    // Wenn Abteilungsleiter oder HR und Teamübersicht aktiviert, lade auch die Teamübersicht neu
-    if (userRole.value <= 3 && showTeamOverview.value) {
-        loadTeamVacationOverview();
-    }
-}
-
-// Beobachte Änderungen am ausgewählten Mitarbeiter
-watch(selectedEmployee, (newValue) => {
-    if (newValue) {
-        loadEmployeeData();
-    }
-});
-
-// Beobachte Änderungen am Toggle für die Teamübersicht
-watch(showTeamOverview, (newValue) => {
-    if (newValue && userRole.value <= 3) {
-        loadTeamVacationOverview();
-    }
-});
-
-// Beobachte Änderungen an der ausgewählten Abteilung
-watch(selectedDepartment, (newValue) => {
-    if (isHR.value) {
-        // Aktualisiere die Mitarbeiterliste basierend auf der ausgewählten Abteilung
-        loadAvailableEmployees();
-
-        // Wenn Teamübersicht aktiviert ist, aktualisiere auch diese
-        if (showTeamOverview.value) {
-            loadTeamVacationOverview();
-        }
-    }
-});
-
-// Initialisierung
-onMounted(() => {
-    initializeDashboard();
-});
-</script>
-
 <template>
     <AppLayout title="Dashboard">
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Mitarbeiter Dashboard
+                Dashboard
             </h2>
         </template>
 
         <div class="py-12">
-            <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-6">
-                    <!-- Filter Controls -->
-                    <div class="mb-6 flex flex-col md:flex-row gap-4">
-                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4 flex-1">
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Zeitraum</h2>
-                            <div class="flex flex-col sm:flex-row gap-4">
-                                <div class="flex-1">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jahr</label>
-                                    <Select
-                                        v-model="selectedYear"
-                                        :options="years"
-                                        placeholder="Jahr auswählen"
-                                        class="w-full"
-                                        @change="updateData"
-                                    />
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <!-- PWA Status Card -->
+                <div v-if="isPWA" class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-green-800 font-medium">App-Modus aktiv</span>
+                        <span class="text-green-600 text-sm ml-2">Sie nutzen die installierte App-Version</span>
+                    </div>
+                </div>
+
+                <!-- Offline Status -->
+                <div v-if="!isOnline" class="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                        <span class="text-yellow-800 font-medium">Offline-Modus</span>
+                        <span class="text-yellow-600 text-sm ml-2">Einige Funktionen sind eingeschränkt verfügbar</span>
+                    </div>
+                </div>
+
+                <!-- Quick Actions Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Urlaubsantrag -->
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg">
+                        <div class="p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-8 w-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
                                 </div>
-                                <div class="flex-1">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monat</label>
-                                    <Select
-                                        v-model="selectedMonth"
-                                        :options="months"
-                                        optionLabel="name"
-                                        optionValue="value"
-                                        placeholder="Monat auswählen"
-                                        class="w-full"
-                                        @change="updateData"
-                                    />
+                                <div class="ml-4">
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Urlaubsantrag</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Neuen Antrag stellen</p>
                                 </div>
+                            </div>
+                            <div class="mt-4">
+                                <Link :href="route('vacation')" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 active:bg-blue-900 focus:outline-none focus:border-blue-900 focus:ring ring-blue-300 disabled:opacity-25 transition ease-in-out duration-150">
+                                    Antrag stellen
+                                </Link>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Abteilungsfilter (nur für HR) -->
-                    <div v-if="isHR" class="mb-6">
-                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Abteilungsfilter</h2>
-                            <div class="flex flex-col sm:flex-row gap-4">
-                                <div class="flex-1">
-                                    <Select
-                                        v-model="selectedDepartment"
-                                        :options="availableDepartments"
-                                        optionLabel="name"
-                                        placeholder="Abteilung auswählen"
-                                        class="w-full"
-                                    />
+                    <!-- Kalender -->
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg">
+                        <div class="p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-8 w-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                    </svg>
                                 </div>
+                                <div class="ml-4">
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Kalender</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Termine verwalten</p>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <Link :href="route('calendar')" class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 active:bg-green-900 focus:outline-none focus:border-green-900 focus:ring ring-green-300 disabled:opacity-25 transition ease-in-out duration-150">
+                                    Öffnen
+                                </Link>
                             </div>
                         </div>
                     </div>
 
-                    <!-- User Selector (nur für Abteilungsleiter und HR) -->
-                    <div v-if="userRole <= 3" class="mb-6">
-                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Mitarbeiter auswählen</h2>
-                            <Select
-                                v-model="selectedEmployee"
-                                :options="availableEmployees"
-                                optionLabel="name"
-                                placeholder="Mitarbeiter auswählen"
-                                class="w-full md:w-80"
-                                @change="loadEmployeeData"
-                            />
+                    <!-- Parkplatz -->
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg">
+                        <div class="p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-8 w-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Parkplatz</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Platz reservieren</p>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <Link :href="route('parking.index')" class="inline-flex items-center px-4 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-purple-700 active:bg-purple-900 focus:outline-none focus:border-purple-900 focus:ring ring-purple-300 disabled:opacity-25 transition ease-in-out duration-150">
+                                    Reservieren
+                                </Link>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Loading Indicator -->
-                    <div v-if="loading" class="flex justify-center items-center py-12">
-                        <i class="pi pi-spin pi-spinner text-4xl text-blue-500"></i>
+                    <!-- Berichtsheft (nur für Azubis) -->
+                    <div v-if="$page.props.auth.user.is_apprentice" class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg">
+                        <div class="p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-8 w-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Berichtsheft</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Berichte verwalten</p>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <Link :href="route('reports.index')" class="inline-flex items-center px-4 py-2 bg-orange-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-orange-700 active:bg-orange-900 focus:outline-none focus:border-orange-900 focus:ring ring-orange-300 disabled:opacity-25 transition ease-in-out duration-150">
+                                    Öffnen
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Welcome Card -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg">
+                    <div class="p-6 lg:p-8 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                        <h1 class="text-2xl font-medium text-gray-900 dark:text-white">
+                            Willkommen, {{ $page.props.auth.user.name }}!
+                        </h1>
+
+                        <p class="mt-6 text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Willkommen im Mitarbeiterportal. Hier können Sie Ihre Urlaubsanträge verwalten, 
+                            Ihren Kalender einsehen, Parkplätze reservieren und vieles mehr.
+                        </p>
                     </div>
 
-                    <div v-else>
-                        <!-- Statistics Cards -->
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                            <!-- Homeoffice Card -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                                <div class="p-5">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 bg-blue-100 dark:bg-blue-900 rounded-md p-3">
-                                            <i class="pi pi-home text-blue-600 dark:text-blue-300 text-xl"></i>
-                                        </div>
-                                        <div class="ml-5 w-0 flex-1">
-                                            <dl>
-                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Homeoffice Tage</dt>
-                                                <dd>
-                                                    <div class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ statistics.homeoffice.total }}</div>
-                                                </dd>
-                                            </dl>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-gray-50 dark:bg-gray-800 px-5 py-3">
-                                    <div class="text-sm">
-                    <span class="font-medium text-blue-700 dark:text-blue-300">
-                      {{ selectedMonth ? `${getMonthName(selectedMonth)} ${selectedYear}` : selectedYear }}
-                    </span>
-                                    </div>
-                                </div>
+                    <div class="bg-gray-200 dark:bg-gray-800 bg-opacity-25 grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 p-6 lg:p-8">
+                        <div>
+                            <div class="flex items-center">
+                                <svg class="w-6 h-6 stroke-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                                </svg>
+                                <h2 class="ml-3 text-xl font-semibold text-gray-900 dark:text-white">
+                                    Mobile App
+                                </h2>
                             </div>
 
-                            <!-- Abwesenheit Card -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                                <div class="p-5">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 bg-yellow-100 dark:bg-yellow-900 rounded-md p-3">
-                                            <i class="pi pi-calendar-times text-yellow-600 dark:text-yellow-300 text-xl"></i>
-                                        </div>
-                                        <div class="ml-5 w-0 flex-1">
-                                            <dl>
-                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Abwesenheitstage</dt>
-                                                <dd>
-                                                    <div class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ statistics.absence.total }}</div>
-                                                </dd>
-                                            </dl>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-gray-50 dark:bg-gray-800 px-5 py-3">
-                                    <div class="text-sm">
-                    <span class="font-medium text-yellow-700 dark:text-yellow-300">
-                      {{ selectedYear }}
-                    </span>
-                                    </div>
-                                </div>
-                            </div>
+                            <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+                                Diese Anwendung funktioniert als Progressive Web App (PWA). Sie können sie auf Ihrem 
+                                Smartphone installieren und wie eine native App nutzen - auch offline!
+                            </p>
 
-                            <!-- Außendienst Card -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                                <div class="p-5">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 bg-purple-100 dark:bg-purple-900 rounded-md p-3">
-                                            <i class="pi pi-briefcase text-purple-600 dark:text-purple-300 text-xl"></i>
-                                        </div>
-                                        <div class="ml-5 w-0 flex-1">
-                                            <dl>
-                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Außendiensttage</dt>
-                                                <dd>
-                                                    <div class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ statistics.fieldService.total }}</div>
-                                                </dd>
-                                            </dl>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-gray-50 dark:bg-gray-800 px-5 py-3">
-                                    <div class="text-sm">
-                    <span class="font-medium text-purple-700 dark:text-purple-300">
-                      {{ selectedYear }}
-                    </span>
-                                    </div>
-                                </div>
-                            </div>
+                            <p class="mt-4 text-sm">
+                                <button @click="showInstallInstructions = !showInstallInstructions" class="text-blue-600 hover:text-blue-800 underline">
+                                    Installationsanleitung anzeigen
+                                </button>
+                            </p>
 
-                            <!-- Urlaub Card -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                                <div class="p-5">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 bg-green-100 dark:bg-green-900 rounded-md p-3">
-                                            <i class="pi pi-calendar-plus text-green-600 dark:text-green-300 text-xl"></i>
-                                        </div>
-                                        <div class="ml-5 w-0 flex-1">
-                                            <dl>
-                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Urlaubstage</dt>
-                                                <dd>
-                                                    <div class="text-lg font-medium text-gray-900 dark:text-gray-100">
-                                                        {{ statistics.vacation.used }} / {{ statistics.vacation.total }}
-                                                    </div>
-                                                </dd>
-                                            </dl>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-gray-50 dark:bg-gray-800 px-5 py-3">
-                                    <div class="text-sm">
-                    <span class="font-medium text-green-700 dark:text-green-300">
-                      {{ selectedYear }}
-                    </span>
-                                    </div>
+                            <div v-if="showInstallInstructions" class="mt-4 p-4 bg-blue-50 rounded-lg">
+                                <h3 class="font-semibold text-blue-900 mb-2">So installieren Sie die App:</h3>
+                                <div class="text-sm text-blue-800 space-y-2">
+                                    <p><strong>Android (Chrome):</strong></p>
+                                    <ul class="list-disc list-inside ml-4 space-y-1">
+                                        <li>Tippen Sie auf das Menü (⋮) in Chrome</li>
+                                        <li>Wählen Sie "Zum Startbildschirm hinzufügen"</li>
+                                        <li>Bestätigen Sie mit "Hinzufügen"</li>
+                                    </ul>
+                                    <p class="mt-3"><strong>iPhone (Safari):</strong></p>
+                                    <ul class="list-disc list-inside ml-4 space-y-1">
+                                        <li>Tippen Sie auf das Teilen-Symbol (□↗)</li>
+                                        <li>Scrollen Sie nach unten und wählen Sie "Zum Home-Bildschirm"</li>
+                                        <li>Bestätigen Sie mit "Hinzufügen"</li>
+                                    </ul>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Charts Section -->
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                            <!-- Homeoffice Chart -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
-                                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Homeoffice Übersicht</h2>
-                                <Chart type="bar" :data="homeofficeChartData" :options="chartOptions" class="h-80" />
+                        <div>
+                            <div class="flex items-center">
+                                <svg class="w-6 h-6 stroke-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                </svg>
+                                <h2 class="ml-3 text-xl font-semibold text-gray-900 dark:text-white">
+                                    Offline-Funktionen
+                                </h2>
                             </div>
 
-                            <!-- Abwesenheit Chart -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
-                                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Abwesenheit Übersicht</h2>
-                                <Chart type="bar" :data="absenceChartData" :options="chartOptions" class="h-80" />
-                            </div>
+                            <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+                                Auch ohne Internetverbindung können Sie die App nutzen. Ihre Aktionen werden 
+                                automatisch synchronisiert, sobald Sie wieder online sind.
+                            </p>
 
-                            <!-- Außendienst Chart -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
-                                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Außendienst Übersicht</h2>
-                                <Chart type="bar" :data="fieldServiceChartData" :options="chartOptions" class="h-80" />
-                            </div>
-                        </div>
-
-                        <!-- Urlaub Section -->
-                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                            <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
-                                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Urlaubsübersicht</h2>
-
-                                <!-- Toggle für Teamübersicht (nur für Abteilungsleiter und HR) -->
-                                <div v-if="userRole <= 3" class="flex items-center">
-                                    <span class="mr-2 text-sm text-gray-600 dark:text-gray-400">Einzelansicht</span>
-                                    <ToggleSwitch v-model="showTeamOverview" />
-                                    <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Teamübersicht</span>
-                                </div>
-                            </div>
-
-                            <!-- Einzelne Urlaubsanträge -->
-                            <div v-if="!showTeamOverview || userRole > 3">
-                                <DataTable
-                                    :value="vacationData"
-                                    :paginator="true"
-                                    :rows="5"
-                                    stripedRows
-                                    responsiveLayout="scroll"
-                                    class="p-datatable-sm"
-                                >
-                                    <Column field="start_date" header="Von" :sortable="true">
-                                        <template #body="slotProps">
-                                            {{ formatDate(slotProps.data.start_date) }}
-                                        </template>
-                                    </Column>
-                                    <Column field="end_date" header="Bis" :sortable="true">
-                                        <template #body="slotProps">
-                                            {{ formatDate(slotProps.data.end_date) }}
-                                        </template>
-                                    </Column>
-                                    <Column field="days" header="Tage" :sortable="true"></Column>
-                                    <Column field="status" header="Status" :sortable="true">
-                                        <template #body="slotProps">
-                                            <Tag
-                                                :value="slotProps.data.status"
-                                                :severity="getStatusSeverity(slotProps.data.status)"
-                                            />
-                                        </template>
-                                    </Column>
-                                    <Column field="notes" header="Notizen" :sortable="true"></Column>
-                                </DataTable>
-                            </div>
-
-                            <!-- Teamübersicht (nur für Abteilungsleiter und HR) -->
-                            <div v-else>
-                                <DataTable
-                                    :value="teamVacationOverview"
-                                    :paginator="true"
-                                    :rows="10"
-                                    stripedRows
-                                    responsiveLayout="scroll"
-                                    class="p-datatable-sm"
-                                >
-                                    <Column field="name" header="Name" :sortable="true"></Column>
-                                    <Column field="abteilung" header="Abteilung" :sortable="true" v-if="isHR"></Column>
-                                    <Column field="tage" header="Tage" :sortable="true"></Column>
-                                    <Column field="resttage" header="Resttage" :sortable="true"></Column>
-                                    <Column field="tagelast" header="Tagelast" :sortable="true"></Column>
-                                </DataTable>
+                            <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                                <p><strong>Offline verfügbar:</strong></p>
+                                <ul class="list-disc list-inside ml-4 mt-2 space-y-1">
+                                    <li>Kalender anzeigen</li>
+                                    <li>Urlaubsanträge vorbereiten</li>
+                                    <li>Parkplatz-Reservierungen planen</li>
+                                    <li>Bereits geladene Daten einsehen</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -1105,3 +206,51 @@ onMounted(() => {
         </div>
     </AppLayout>
 </template>
+
+<script>
+import { defineComponent } from 'vue'
+import AppLayout from '@/Layouts/AppLayout.vue'
+import { Link } from '@inertiajs/vue3'
+
+export default defineComponent({
+    components: {
+        AppLayout,
+        Link,
+    },
+
+    data() {
+        return {
+            showInstallInstructions: false,
+            isOnline: navigator.onLine,
+            isPWA: false
+        }
+    },
+
+    mounted() {
+        // PWA-Status prüfen
+        this.checkPWAStatus();
+        
+        // Online-Status überwachen
+        window.addEventListener('online', this.updateOnlineStatus);
+        window.addEventListener('offline', this.updateOnlineStatus);
+    },
+
+    beforeUnmount() {
+        window.removeEventListener('online', this.updateOnlineStatus);
+        window.removeEventListener('offline', this.updateOnlineStatus);
+    },
+
+    methods: {
+        updateOnlineStatus() {
+            this.isOnline = navigator.onLine;
+        },
+
+        checkPWAStatus() {
+            // Prüfen ob die App im Standalone-Modus läuft (installiert)
+            this.isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                        window.navigator.standalone ||
+                        document.referrer.includes('android-app://');
+        }
+    }
+})
+</script>
