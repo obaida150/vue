@@ -322,6 +322,13 @@ Route::middleware([
         return Inertia::render('Calendar/Company');
     })->name('company-calendar');
 
+    // FEHLENDE PROFILE ROUTE - HIER WAR DAS PROBLEM!
+    Route::get('/profile', function () {
+        return Inertia::render('Profile/Show', [
+            'sessions' => collect(), // Leere Sessions als Fallback
+        ]);
+    })->name('profile.show');
+
     // Urlaubsverwaltung Routen
     Route::get('/vacation', function () {
         return Inertia::render('Vacation/Overview');
@@ -335,9 +342,11 @@ Route::middleware([
     Route::get('/users', function () {
         return Inertia::render('Users/Index');
     })->name('users.index');
+
     Route::get('/vacation/hr-overview', function () {
         return Inertia::render('Vacation/HROverview');
     })->name('vacation.hr-overview');
+
     Route::get('/vacation/info-list', function () {
         return Inertia::render('Vacation/VacationInfoList');
     })->name('vacation.info-list');
