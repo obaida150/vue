@@ -344,7 +344,7 @@ import Dialog from 'primevue/dialog';
 import Tag from 'primevue/tag';
 import Avatar from 'primevue/avatar';
 import Password from 'primevue/password';
-import InputSwitch from 'primevue/inputswitch';
+import ToggleSwitch from 'primevue/toggleswitch';
 import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
 import UserService from '@/Services/UserService';
