@@ -169,9 +169,15 @@
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">
                                                         {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
                                                     </div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
+                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
-                                                        <span>{{ data.days }} {{ data.days === 1 ? 'Tag' : 'Tage' }}</span>
+                                                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
+                                                        <Tag
+                                                            :value="getDayTypeLabel(data.dayType)"
+                                                            :severity="getDayTypeSeverity(data.dayType)"
+                                                            class="text-xs"
+                                                        />
+                                                        <span>{{ getActualDays(data) }} {{ getActualDays(data) === 1 ? 'Tag' : 'Tage' }}</span>
                                                     </div>
                                                 </div>
                                             </template>
@@ -349,9 +355,15 @@
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">
                                                         {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
                                                     </div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
+                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
-                                                        <span>{{ data.days }} {{ data.days === 1 ? 'Tag' : 'Tage' }}</span>
+                                                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
+                                                        <Tag
+                                                            :value="getDayTypeLabel(data.dayType)"
+                                                            :severity="getDayTypeSeverity(data.dayType)"
+                                                            class="text-xs"
+                                                        />
+                                                        <span>{{ getActualDays(data) }} {{ getActualDays(data) === 1 ? 'Tag' : 'Tage' }}</span>
                                                     </div>
                                                 </div>
                                             </template>
@@ -505,9 +517,15 @@
                                                     <div class="font-medium text-gray-900 dark:text-gray-100">
                                                         {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
                                                     </div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
+                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
-                                                        <span>{{ data.days }} {{ data.days === 1 ? 'Tag' : 'Tage' }}</span>
+                                                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
+                                                        <Tag
+                                                            :value="getDayTypeLabel(data.dayType)"
+                                                            :severity="getDayTypeSeverity(data.dayType)"
+                                                            class="text-xs"
+                                                        />
+                                                        <span>{{ getActualDays(data) }} {{ getActualDays(data) === 1 ? 'Tag' : 'Tage' }}</span>
                                                     </div>
                                                 </div>
                                             </template>
@@ -585,9 +603,20 @@
                                 {{ selectedRequest ? formatDate(selectedRequest.startDate) : '' }} - {{ selectedRequest ? formatDate(selectedRequest.endDate) : '' }}
                             </div>
                         </div>
+                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Anzahl Tage</div>
-                            <div class="font-medium">{{ selectedRequest?.days }} {{ selectedRequest?.days === 1 ? 'Tag' : 'Tage' }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
+                            <div class="font-medium">
+                                <Tag
+                                    v-if="selectedRequest"
+                                    :value="getDayTypeLabel(selectedRequest.dayType)"
+                                    :severity="getDayTypeSeverity(selectedRequest.dayType)"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
+                            <div class="font-medium">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
@@ -660,9 +689,20 @@
                                 {{ selectedRequest ? formatDate(selectedRequest.startDate) : '' }} - {{ selectedRequest ? formatDate(selectedRequest.endDate) : '' }}
                             </div>
                         </div>
+                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Anzahl Tage</div>
-                            <div class="font-medium">{{ selectedRequest?.days }} {{ selectedRequest?.days === 1 ? 'Tag' : 'Tage' }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
+                            <div class="font-medium">
+                                <Tag
+                                    v-if="selectedRequest"
+                                    :value="getDayTypeLabel(selectedRequest.dayType)"
+                                    :severity="getDayTypeSeverity(selectedRequest.dayType)"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
+                            <div class="font-medium">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
@@ -734,9 +774,19 @@
                                 {{ formatDate(selectedRequest.startDate) }} - {{ formatDate(selectedRequest.endDate) }}
                             </div>
                         </div>
+                        <!-- NEU: Zeige Urlaubstyp -->
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Anzahl Tage</div>
-                            <div class="font-medium">{{ selectedRequest.days }} {{ selectedRequest.days === 1 ? 'Tag' : 'Tage' }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
+                            <div class="font-medium">
+                                <Tag
+                                    :value="getDayTypeLabel(selectedRequest.dayType)"
+                                    :severity="getDayTypeSeverity(selectedRequest.dayType)"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
+                            <div class="font-medium">{{ getActualDays(selectedRequest) }} {{ getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
@@ -827,6 +877,7 @@ import TabPanel from 'primevue/tabpanel';
 import Avatar from 'primevue/avatar';
 import DatePicker from 'primevue/datepicker';
 import Toast from 'primevue/toast';
+import Tag from 'primevue/tag';
 import { useToast } from 'primevue/usetoast';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
@@ -853,6 +904,51 @@ const de = {
     firstDay: 1
 };
 const primevue = usePrimeVue();
+
+// NEU: Hilfsfunktionen für Halbtags-Anzeige
+const getDayTypeLabel = (dayType) => {
+    switch (dayType) {
+        case 'morning':
+            return 'Vormittag'
+        case 'afternoon':
+            return 'Nachmittag'
+        case 'full_day':
+        default:
+            return 'Ganzer Tag'
+    }
+}
+
+const getDayTypeSeverity = (dayType) => {
+    switch (dayType) {
+        case 'morning':
+            return 'info'
+        case 'afternoon':
+            return 'warning'
+        case 'full_day':
+        default:
+            return 'primary'
+    }
+}
+
+const getActualDays = (request) => {
+    // Verwende actualDays falls vorhanden, sonst berechne basierend auf dayType
+    if (request.actualDays !== undefined) {
+        return request.actualDays
+    }
+
+    // Fallback-Berechnung
+    if (request.dayType && request.dayType !== 'full_day') {
+        // Prüfe ob es ein einzelner Tag ist
+        const startDate = dayjs(request.startDate)
+        const endDate = dayjs(request.endDate)
+        if (startDate.isSame(endDate, 'day')) {
+            return 0.5
+        }
+    }
+
+    return request.days || 0
+}
+
 // Zustand
 const loading = ref(false);
 const processingRequest = ref(false);
@@ -970,7 +1066,9 @@ const applyFilters = (data, filterObj, dateRange) => {
                 (item.substitute && item.substitute.name.toLowerCase().includes(globalValue)) ||
                 (item.approvedBy && item.approvedBy.toLowerCase().includes(globalValue)) ||
                 (item.rejectedBy && item.rejectedBy.toLowerCase().includes(globalValue)) ||
-                (item.rejectionReason && item.rejectionReason.toLowerCase().includes(globalValue))
+                (item.rejectionReason && item.rejectionReason.toLowerCase().includes(globalValue)) ||
+                // NEU: Durchsuche auch Urlaubstyp
+                getDayTypeLabel(item.dayType).toLowerCase().includes(globalValue)
             );
         });
     }
@@ -1088,7 +1186,7 @@ const fetchVacationRequests = async () => {
             life: 3000
         });
 
-        // Fallback mit erweiterten Beispieldaten
+        // Fallback mit erweiterten Beispieldaten - NEU: Mit Halbtags-Daten
         pendingRequests.value = [
             {
                 id: 1,
@@ -1097,6 +1195,8 @@ const fetchVacationRequests = async () => {
                 startDate: new Date(2025, 3, 15),
                 endDate: new Date(2025, 3, 20),
                 days: 6,
+                dayType: 'full_day',
+                actualDays: 6,
                 requestDate: new Date(2025, 2, 1),
                 status: 'pending',
                 substitute: { name: 'Anna Schmidt', id: 2 },
@@ -1107,12 +1207,14 @@ const fetchVacationRequests = async () => {
                 employee: { name: 'Julia Weber', id: 3 },
                 department: 'Marketing',
                 startDate: new Date(2025, 4, 10),
-                endDate: new Date(2025, 4, 14),
-                days: 5,
+                endDate: new Date(2025, 4, 10),
+                days: 1,
+                dayType: 'morning',
+                actualDays: 0.5,
                 requestDate: new Date(2025, 3, 15),
                 status: 'pending',
                 substitute: null,
-                notes: 'Kurzurlaub'
+                notes: 'Arzttermin am Vormittag'
             },
             {
                 id: 5,
@@ -1121,6 +1223,8 @@ const fetchVacationRequests = async () => {
                 startDate: new Date(2025, 5, 1),
                 endDate: new Date(2025, 5, 7),
                 days: 7,
+                dayType: 'full_day',
+                actualDays: 5, // Wochenenden nicht mitgezählt
                 requestDate: new Date(2025, 4, 10),
                 status: 'pending',
                 substitute: { name: 'Lisa Müller', id: 7 },
@@ -1136,6 +1240,8 @@ const fetchVacationRequests = async () => {
                 startDate: new Date(2025, 5, 1),
                 endDate: new Date(2025, 5, 14),
                 days: 10,
+                dayType: 'full_day',
+                actualDays: 10,
                 requestDate: new Date(2025, 4, 1),
                 status: 'approved',
                 approvedBy: 'Maria Schmidt',
@@ -1147,13 +1253,15 @@ const fetchVacationRequests = async () => {
                 employee: { name: 'Sandra Klein', id: 8 },
                 department: 'Personal',
                 startDate: new Date(2025, 2, 20),
-                endDate: new Date(2025, 2, 24),
-                days: 5,
+                endDate: new Date(2025, 2, 20),
+                days: 1,
+                dayType: 'afternoon',
+                actualDays: 0.5,
                 requestDate: new Date(2025, 1, 15),
                 status: 'approved',
                 approvedBy: 'Hans Meier',
                 approvedDate: new Date(2025, 1, 18),
-                notes: 'Erholungsurlaub'
+                notes: 'Nachmittag frei für Behördengang'
             }
         ];
 
@@ -1165,6 +1273,8 @@ const fetchVacationRequests = async () => {
                 startDate: new Date(2025, 2, 20),
                 endDate: new Date(2025, 2, 24),
                 days: 5,
+                dayType: 'full_day',
+                actualDays: 5,
                 requestDate: new Date(2025, 1, 15),
                 status: 'rejected',
                 rejectedBy: 'Maria Schmidt',
@@ -1178,6 +1288,8 @@ const fetchVacationRequests = async () => {
                 startDate: new Date(2025, 6, 1),
                 endDate: new Date(2025, 6, 21),
                 days: 15,
+                dayType: 'full_day',
+                actualDays: 15,
                 requestDate: new Date(2025, 5, 1),
                 status: 'rejected',
                 rejectedBy: 'Klaus Bauer',
@@ -1372,7 +1484,7 @@ const exportData = () => {
         return;
     }
 
-    // Erstelle CSV-Inhalt mit deutschen Überschriften
+    // Erstelle CSV-Inhalt mit deutschen Überschriften - NEU: Mit Halbtags-Informationen
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM für korrekte Umlaute
 
     // Header mit deutschen Bezeichnungen
@@ -1381,7 +1493,8 @@ const exportData = () => {
         "Abteilung",
         "Startdatum",
         "Enddatum",
-        "Anzahl Tage",
+        "Urlaubsart",
+        "Tatsächliche Tage",
         "Status",
         "Vertretung",
         "Beantragt am",
@@ -1404,7 +1517,8 @@ const exportData = () => {
             `"${item.department}"`,
             formatDate(item.startDate),
             formatDate(item.endDate),
-            item.days,
+            `"${getDayTypeLabel(item.dayType)}"`, // NEU
+            getActualDays(item), // NEU
             item.status === 'pending' ? 'Ausstehend' : (item.status === 'approved' ? 'Genehmigt' : 'Abgelehnt'),
             `"${item.substitute ? item.substitute.name : 'Keine Vertretung'}"`,
             formatDateTime(item.requestDate),

@@ -30,7 +30,12 @@ class UserController extends Controller
                 return response()->json(['error' => 'Nicht autorisiert'], 403);
             }
 
-            $users = User::with(['role', 'currentTeam', 'mentor', 'apprentices'])->get()->map(function ($user) {
+            $users = User::with(['role', 'currentTeam', 'mentor', 'apprentices', 'vacationBalances'])->get()->map(function ($user) {
+                // NEU: Hole den aktuellen Urlaubssaldo
+                $currentBalance = $user->vacationBalances()
+                    ->where('year', Carbon::now()->year)
+                    ->first();
+
                 return [
                     'id' => $user->id,
                     'name' => $user->full_name,
@@ -61,6 +66,21 @@ class UserController extends Controller
                         'name' => $user->mentor->full_name
                     ] : null,
                     'apprentices_count' => $user->apprentices->count(),
+                    // NEU: Urlaubssaldo-Informationen (unterstützt Halbtage und Carry-Over)
+                    'vacation_balance' => $currentBalance ? [
+                        'total_days' => (float) $currentBalance->total_days,
+                        'used_days' => (float) $currentBalance->used_days,
+                        'remaining_days' => (float) $currentBalance->remaining_days,
+                        'carry_over_days' => (float) $currentBalance->carry_over_days,
+                        'carry_over_used' => (float) $currentBalance->carry_over_used,
+                        'carry_over_expires_at' => $currentBalance->carry_over_expires_at ? $currentBalance->carry_over_expires_at->format('Y-m-d') : null,
+                        'max_carry_over' => (float) $currentBalance->max_carry_over,
+                        'available_carry_over' => (float) $currentBalance->getAvailableCarryOverDays(),
+                        'total_available' => (float) $currentBalance->total_available_days,
+                        'usage_percentage' => (float) $currentBalance->usage_percentage,
+                        'is_fully_used' => $currentBalance->is_fully_used,
+                        'description' => $currentBalance->description
+                    ] : null,
                     'created_at' => $user->created_at->format('Y-m-d H:i:s'),
                     'updated_at' => $user->updated_at->format('Y-m-d H:i:s')
                 ];
@@ -87,7 +107,23 @@ class UserController extends Controller
                 return response()->json(['error' => 'Nicht autorisiert'], 403);
             }
 
-            $user = User::with(['role', 'currentTeam', 'mentor', 'apprentices'])->findOrFail($id);
+            $user = User::with(['role', 'currentTeam', 'mentor', 'apprentices', 'vacationBalances'])->findOrFail($id);
+
+            // NEU: Hole alle Urlaubssalden für verschiedene Jahre
+            $vacationBalances = $user->vacationBalances()
+                ->orderBy('year', 'desc')
+                ->get()
+                ->map(function($balance) {
+                    return [
+                        'year' => $balance->year,
+                        'total_days' => (float) $balance->total_days,
+                        'used_days' => (float) $balance->used_days,
+                        'remaining_days' => (float) $balance->remaining_days,
+                        'usage_percentage' => (float) $balance->usage_percentage,
+                        'is_fully_used' => $balance->is_fully_used,
+                        'description' => $balance->description
+                    ];
+                });
 
             return response()->json([
                 'id' => $user->id,
@@ -124,7 +160,9 @@ class UserController extends Controller
                         'id' => $apprentice->id,
                         'name' => $apprentice->full_name
                     ];
-                })
+                }),
+                // NEU: Urlaubssalden für alle Jahre (unterstützt Halbtage)
+                'vacation_balances' => $vacationBalances
             ]);
         } catch (\Exception $e) {
             Log::error('Error in UserController::show: ' . $e->getMessage());
@@ -191,7 +229,7 @@ class UserController extends Controller
                 'role_id' => 'required|exists:roles,id',
                 'initials' => 'nullable|string|max:5',
                 'employee_number' => 'nullable|string|max:50',
-                'vacation_days_per_year' => 'nullable|integer|min:0|max:50',
+                'vacation_days_per_year' => 'nullable|numeric|min:0|max:50', // NEU: numeric statt integer für Dezimalwerte
                 'entry_date' => 'nullable|date',
                 'birth_date' => 'nullable|date',
                 'status' => 'boolean',
@@ -229,6 +267,10 @@ class UserController extends Controller
                 }
             }
 
+            // NEU: Bestimme Urlaubstage basierend auf Rolle (unterstützt Dezimalwerte)
+            $defaultVacationDays = $request->is_apprentice ? 25.0 : 30.0;
+            $vacationDaysPerYear = $request->vacation_days_per_year ?? $defaultVacationDays;
+
             // Erstelle den Benutzer
             $user = new User();
             $user->first_name = $request->first_name;
@@ -240,7 +282,7 @@ class UserController extends Controller
             $user->is_active = $request->status ?? true;
             $user->initials = $request->initials ?? strtoupper(substr($request->first_name, 0, 1) . substr($request->last_name, 0, 1));
             $user->employee_number = $request->employee_number;
-            $user->vacation_days_per_year = $request->vacation_days_per_year ?? ($request->is_apprentice ? 25 : 30);
+            $user->vacation_days_per_year = $vacationDaysPerYear;
             $user->entry_date = $request->entry_date;
             $user->birth_date = $request->birth_date;
 
@@ -296,17 +338,19 @@ class UserController extends Controller
                 }
             }
 
-            // Erstelle einen Urlaubssaldo für den Benutzer
+            // NEU: Erstelle einen Urlaubssaldo für den Benutzer (unterstützt Dezimalwerte)
             $currentYear = Carbon::now()->year;
             VacationBalance::create([
                 'user_id' => $user->id,
                 'year' => $currentYear,
-                'total_days' => $user->vacation_days_per_year,
-                'used_days' => 0
+                'total_days' => (float) $vacationDaysPerYear,
+                'used_days' => 0.0
             ]);
 
+            Log::info("Urlaubssaldo für Benutzer {$user->id} erstellt: {$vacationDaysPerYear} Tage für {$currentYear}");
+
             // Lade den User mit Beziehungen für die Antwort
-            $user->load(['role', 'currentTeam', 'mentor']);
+            $user->load(['role', 'currentTeam', 'mentor', 'vacationBalances']);
 
             return response()->json([
                 'message' => 'Benutzer erfolgreich erstellt',
@@ -345,7 +389,7 @@ class UserController extends Controller
                 'role_id' => 'required|exists:roles,id',
                 'initials' => 'nullable|string|max:5',
                 'employee_number' => 'nullable|string|max:50',
-                'vacation_days_per_year' => 'nullable|integer|min:0|max:50',
+                'vacation_days_per_year' => 'nullable|numeric|min:0|max:50', // NEU: numeric statt integer
                 'entry_date' => 'nullable|date',
                 'birth_date' => 'nullable|date',
                 'status' => 'boolean',
@@ -386,8 +430,10 @@ class UserController extends Controller
             // Speichere das aktuelle Team-ID und die Rolle, um später zu prüfen, ob sie sich geändert haben
             $oldTeamId = $user->current_team_id;
             $oldRoleId = $user->role_id;
+            $oldVacationDays = $user->vacation_days_per_year;
             $newTeamId = $request->current_team_id;
             $newRoleId = $request->role_id;
+            $newVacationDays = $request->vacation_days_per_year ?? 30.0;
 
             // Stelle sicher, dass current_team_id nie null wird
             $newTeamId = $request->current_team_id;
@@ -409,7 +455,7 @@ class UserController extends Controller
             $user->is_active = $request->status ?? $request->is_active ?? true;
             $user->initials = $request->initials ?? strtoupper(substr($request->first_name, 0, 1) . substr($request->last_name, 0, 1));
             $user->employee_number = $request->employee_number;
-            $user->vacation_days_per_year = $request->vacation_days_per_year ?? 30;
+            $user->vacation_days_per_year = (float) $newVacationDays; // NEU: Cast zu float
             $user->entry_date = $request->entry_date;
             $user->birth_date = $request->birth_date;
 
@@ -421,6 +467,33 @@ class UserController extends Controller
             $user->current_team_id = $newTeamId;
 
             $user->save();
+
+            // NEU: Aktualisiere Urlaubssaldo wenn sich die Urlaubstage geändert haben
+            if ($oldVacationDays != $newVacationDays) {
+                $currentYear = Carbon::now()->year;
+                $currentBalance = VacationBalance::where('user_id', $user->id)
+                    ->where('year', $currentYear)
+                    ->first();
+
+                if ($currentBalance) {
+                    // Berechne die Differenz
+                    $difference = (float) $newVacationDays - (float) $oldVacationDays;
+                    $currentBalance->total_days = (float) $newVacationDays;
+                    $currentBalance->save();
+
+                    Log::info("Urlaubssaldo für Benutzer {$user->id} aktualisiert: {$oldVacationDays} -> {$newVacationDays} Tage (Differenz: {$difference})");
+                } else {
+                    // Erstelle einen neuen Urlaubssaldo falls keiner existiert
+                    VacationBalance::create([
+                        'user_id' => $user->id,
+                        'year' => $currentYear,
+                        'total_days' => (float) $newVacationDays,
+                        'used_days' => 0.0
+                    ]);
+
+                    Log::info("Neuer Urlaubssaldo für Benutzer {$user->id} erstellt: {$newVacationDays} Tage für {$currentYear}");
+                }
+            }
 
             // Team-Zuordnung aktualisieren (nur wenn ein Team ausgewählt wurde)
             if ($newTeamId) {
@@ -465,7 +538,7 @@ class UserController extends Controller
             }
 
             // Lade den User mit Beziehungen für die Antwort
-            $user->load(['role', 'currentTeam', 'mentor']);
+            $user->load(['role', 'currentTeam', 'mentor', 'vacationBalances']);
 
             return response()->json([
                 'message' => 'Benutzer erfolgreich aktualisiert',
@@ -576,6 +649,8 @@ class UserController extends Controller
                 return response()->json(['error' => 'Nicht autorisiert'], 403);
             }
 
+            $currentYear = Carbon::now()->year;
+
             $statistics = [
                 'total_users' => User::count(),
                 'active_users' => User::where('is_active', true)->count(),
@@ -583,7 +658,14 @@ class UserController extends Controller
                 'apprentices' => User::where('is_apprentice', true)->where('is_active', true)->count(),
                 'mentors' => User::whereHas('apprentices')->where('is_active', true)->count(),
                 'users_by_role' => [],
-                'users_by_department' => []
+                'users_by_department' => [],
+                // NEU: Urlaubsstatistiken (unterstützt Halbtage)
+                'vacation_statistics' => [
+                    'total_vacation_days' => 0,
+                    'used_vacation_days' => 0,
+                    'remaining_vacation_days' => 0,
+                    'average_usage_percentage' => 0
+                ]
             ];
 
             // Benutzer nach Rollen
@@ -612,9 +694,84 @@ class UserController extends Controller
 
             $statistics['users_by_department'] = $departmentStats;
 
+            // NEU: Urlaubsstatistiken berechnen
+            $vacationBalances = VacationBalance::where('year', $currentYear)->get();
+
+            if ($vacationBalances->count() > 0) {
+                $totalDays = $vacationBalances->sum('total_days');
+                $usedDays = $vacationBalances->sum('used_days');
+                $remainingDays = $totalDays - $usedDays;
+                $averageUsage = $totalDays > 0 ? ($usedDays / $totalDays) * 100 : 0;
+
+                $statistics['vacation_statistics'] = [
+                    'total_vacation_days' => (float) $totalDays,
+                    'used_vacation_days' => (float) $usedDays,
+                    'remaining_vacation_days' => (float) $remainingDays,
+                    'average_usage_percentage' => round($averageUsage, 1)
+                ];
+            }
+
             return response()->json($statistics);
         } catch (\Exception $e) {
             Log::error('Error in UserController::getStatistics: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * NEU: Hole Urlaubssaldo für einen Benutzer
+     */
+    public function getVacationBalance($userId, $year = null)
+    {
+        try {
+            $currentUser = Auth::user();
+            $role = $currentUser->role ? $currentUser->role->name : null;
+
+            // Prüfe Berechtigung (Benutzer kann seinen eigenen Saldo sehen oder HR/Admin können alle sehen)
+            if ($currentUser->id != $userId && !in_array($role, ['HR', 'Admin', 'Personal'])) {
+                return response()->json(['error' => 'Nicht autorisiert'], 403);
+            }
+
+            $year = $year ?? Carbon::now()->year;
+            $user = User::findOrFail($userId);
+
+            $balance = VacationBalance::where('user_id', $userId)
+                ->where('year', $year)
+                ->first();
+
+            if (!$balance) {
+                // Erstelle einen neuen Urlaubssaldo falls keiner existiert
+                $balance = VacationBalance::create([
+                    'user_id' => $userId,
+                    'year' => $year,
+                    'total_days' => (float) $user->vacation_days_per_year,
+                    'used_days' => 0.0
+                ]);
+            }
+
+            return response()->json([
+                'user_id' => $balance->user_id,
+                'year' => $balance->year,
+                'total_days' => (float) $balance->total_days,
+                'used_days' => (float) $balance->used_days,
+                'remaining_days' => (float) $balance->remaining_days,
+                'carry_over_days' => (float) $balance->carry_over_days,
+                'carry_over_used' => (float) $balance->carry_over_used,
+                'carry_over_expires_at' => $balance->carry_over_expires_at ? $balance->carry_over_expires_at->format('Y-m-d') : null,
+                'max_carry_over' => (float) $balance->max_carry_over,
+                'available_carry_over' => (float) $balance->getAvailableCarryOverDays(),
+                'total_available' => (float) $balance->total_available_days,
+                'usage_percentage' => (float) $balance->usage_percentage,
+                'is_fully_used' => $balance->is_fully_used,
+                'description' => $balance->description,
+                'formatted_total' => VacationBalance::formatDays($balance->total_days),
+                'formatted_used' => VacationBalance::formatDays($balance->used_days),
+                'formatted_remaining' => VacationBalance::formatDays($balance->remaining_days),
+                'formatted_carry_over' => VacationBalance::formatDays($balance->carry_over_days),
+                'formatted_available_carry_over' => VacationBalance::formatDays($balance->getAvailableCarryOverDays())
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in UserController::getVacationBalance: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

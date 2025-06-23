@@ -19,6 +19,7 @@ class VacationController extends Controller
 {
     /**
      * Get user vacation data
+     * ERWEITERT für Halbtags-Feature
      */
     public function getUserData()
     {
@@ -42,10 +43,15 @@ class VacationController extends Controller
             }
 
             // Berechne geplante Tage (genehmigte, aber noch nicht genommene Urlaubsanträge)
-            $plannedDays = VacationRequest::where('user_id', $user->id)
+            // ANGEPASST: Verwende getActualDays() für korrekte Halbtags-Berechnung
+            $plannedDaysQuery = VacationRequest::where('user_id', $user->id)
                 ->where('status', 'approved')
                 ->where('start_date', '>=', Carbon::now())
-                ->sum('days');
+                ->get();
+
+            $plannedDays = $plannedDaysQuery->sum(function($request) {
+                return $this->calculateActualDays($request);
+            });
 
             // Berechne übertragene Tage aus dem Vorjahr
             $previousYearBalance = VacationBalance::where('user_id', $user->id)
@@ -87,6 +93,9 @@ class VacationController extends Controller
                         'startDate' => $request->start_date->format('Y-m-d'),
                         'endDate' => $request->end_date->format('Y-m-d'),
                         'days' => $request->days,
+                        'dayType' => $request->day_type ?? 'full_day', // NEU
+                        'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
+                        'actualDays' => $this->calculateActualDays($request), // NEU
                         'requestDate' => $request->created_at->format('Y-m-d H:i:s'),
                         'status' => $request->status,
                         'substitute' => $request->substitute ? [
@@ -102,15 +111,16 @@ class VacationController extends Controller
                     ];
                 });
 
-            // Bereits gebuchte Urlaubstage - HIER IST DER FEHLER
-            // Wir müssen die Benutzer-ID mit zurückgeben, damit das Frontend filtern kann
+            // Bereits gebuchte Urlaubstage
             $bookedDates = VacationRequest::where('status', 'approved')
                 ->get()
                 ->map(function ($request) {
                     return [
                         'start' => $request->start_date->format('Y-m-d'),
                         'end' => $request->end_date->format('Y-m-d'),
-                        'userId' => $request->user_id // Benutzer-ID hinzufügen
+                        'userId' => $request->user_id,
+                        'dayType' => $request->day_type ?? 'full_day', // NEU
+                        'actualDays' => $this->calculateActualDays($request) // NEU
                     ];
                 });
 
@@ -190,9 +200,14 @@ class VacationController extends Controller
                 // Details für jeden Urlaubsantrag
                 $details = [];
                 foreach ($yearRequests as $request) {
+                    $actualDays = $this->calculateActualDays($request);
+
                     $details[] = [
                         'period' => $request->start_date->format('d.m.Y') . ' - ' . $request->end_date->format('d.m.Y'),
                         'days' => $request->days,
+                        'dayType' => $request->day_type ?? 'full_day', // NEU
+                        'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
+                        'actualDays' => $actualDays, // NEU
                         'status' => $request->status,
                         'requestDate' => $request->created_at->format('d.m.Y'),
                         'notes' => $request->notes
@@ -205,8 +220,8 @@ class VacationController extends Controller
                         $endMonth = $request->end_date->month - 1;
 
                         if ($startMonth === $endMonth) {
-                            // Wenn der Urlaub im selben Monat ist
-                            $monthlyData[$startMonth] += $request->days;
+                            // Wenn der Urlaub im selben Monat ist, verwende actualDays
+                            $monthlyData[$startMonth] += $actualDays;
                         } else {
                             // Wenn der Urlaub über mehrere Monate geht, verteile die Tage
                             $currentDate = $request->start_date->copy();
@@ -236,7 +251,7 @@ class VacationController extends Controller
                 'yearlyStats' => $yearlyStats,
                 'yearVacationDetails' => $yearVacationDetails,
                 'monthlyStats' => $monthlyStats,
-                'userId' => $user->id // Aktuelle Benutzer-ID zurückgeben
+                'userId' => $user->id
             ]);
         } catch (\Exception $e) {
             Log::error('Error in getUserData: ' . $e->getMessage(), [
@@ -248,6 +263,7 @@ class VacationController extends Controller
 
     /**
      * Get yearly vacation data
+     * ERWEITERT für Halbtags-Feature
      */
     public function getYearlyVacationData($year)
     {
@@ -289,10 +305,14 @@ class VacationController extends Controller
             $currentYear = Carbon::now()->year;
 
             if ($year === $currentYear) {
-                $plannedDays = VacationRequest::where('user_id', $user->id)
+                $plannedRequests = VacationRequest::where('user_id', $user->id)
                     ->where('status', 'approved')
                     ->where('start_date', '>=', Carbon::now())
-                    ->sum('days');
+                    ->get();
+
+                $plannedDays = $plannedRequests->sum(function($request) {
+                    return $this->calculateActualDays($request);
+                });
             }
 
             // Korrigierte Berechnung der verbleibenden Tage
@@ -322,6 +342,9 @@ class VacationController extends Controller
                 $details[] = [
                     'period' => $request->start_date->format('d.m.Y') . ' - ' . $request->end_date->format('d.m.Y'),
                     'days' => $request->days,
+                    'dayType' => $request->day_type ?? 'full_day', // NEU
+                    'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
+                    'actualDays' => $this->calculateActualDays($request), // NEU
                     'status' => $request->status,
                     'requestDate' => $request->created_at->format('d.m.Y'),
                     'notes' => $request->notes
@@ -342,7 +365,7 @@ class VacationController extends Controller
 
     /**
      * Get vacation requests for management
-     * ERWEITERT für Mentor-System
+     * ERWEITERT für Mentor-System und Halbtags-Feature
      */
     public function getRequests()
     {
@@ -404,6 +427,9 @@ class VacationController extends Controller
                     'startDate' => $request->start_date->format('Y-m-d'),
                     'endDate' => $request->end_date->format('Y-m-d'),
                     'days' => $request->days,
+                    'dayType' => $request->day_type ?? 'full_day', // NEU
+                    'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
+                    'actualDays' => $this->calculateActualDays($request), // NEU
                     'requestDate' => $request->created_at->format('Y-m-d H:i:s'),
                     'status' => $request->status,
                     'substitute' => $request->substitute ? [
@@ -439,6 +465,7 @@ class VacationController extends Controller
 
     /**
      * Get all vacation requests for calendar
+     * ERWEITERT für Halbtags-Feature
      */
     public function getAllRequests()
     {
@@ -453,6 +480,9 @@ class VacationController extends Controller
                         'start_date' => $request->start_date->format('Y-m-d'),
                         'end_date' => $request->end_date->format('Y-m-d'),
                         'days' => $request->days,
+                        'dayType' => $request->day_type ?? 'full_day', // NEU
+                        'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
+                        'actualDays' => $this->calculateActualDays($request), // NEU
                         'notes' => $request->notes,
                         'status' => $request->status,
                         'employee_name' => $request->user->full_name,
@@ -471,6 +501,7 @@ class VacationController extends Controller
 
     /**
      * Get vacation requests for the current user
+     * ERWEITERT für Halbtags-Feature
      */
     public function getUserRequests(Request $request)
     {
@@ -500,6 +531,9 @@ class VacationController extends Controller
                         'start_date' => $request->start_date->format('Y-m-d'),
                         'end_date' => $request->end_date->format('Y-m-d'),
                         'days' => $request->days,
+                        'dayType' => $request->day_type ?? 'full_day', // NEU
+                        'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
+                        'actualDays' => $this->calculateActualDays($request), // NEU
                         'notes' => $request->notes,
                         'status' => $request->status
                     ];
@@ -514,344 +548,9 @@ class VacationController extends Controller
         }
     }
 
-    public function getHROverview()
-    {
-        try {
-            // Prüfen, ob der Benutzer HR oder Admin ist
-            $user = Auth::user();
-            $role = $user->role ? $user->role->name : null;
-
-            if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
-                return response()->json(['error' => 'Nicht autorisiert'], 403);
-            }
-
-            $currentYear = Carbon::now()->year;
-            $previousYear = $currentYear - 1;
-            $currentMonth = Carbon::now()->month;
-
-            // Alle aktiven Benutzer laden
-            $users = User::where('is_active', true)
-                ->with(['vacationBalances' => function($query) use ($currentYear, $previousYear) {
-                    $query->whereIn('year', [$previousYear, $currentYear]);
-                }])
-                ->get();
-
-            $overviewData = [];
-
-            foreach ($users as $user) {
-                // Urlaubskontingent für das aktuelle Jahr
-                $currentYearBalance = $user->vacationBalances->where('year', $currentYear)->first();
-                $previousYearBalance = $user->vacationBalances->where('year', $previousYear)->first();
-
-                // Wenn keine Bilanz für das aktuelle Jahr existiert, erstellen wir einen Standardwert
-                if (!$currentYearBalance) {
-                    $currentYearBalance = new VacationBalance([
-                        'total_days' => $user->vacation_days_per_year,
-                        'used_days' => 0
-                    ]);
-                }
-
-                // Wenn keine Bilanz für das Vorjahr existiert, erstellen wir einen Standardwert
-                if (!$previousYearBalance) {
-                    $previousYearBalance = new VacationBalance([
-                        'total_days' => $user->vacation_days_per_year,
-                        'used_days' => $user->vacation_days_per_year // Alle Tage verbraucht, keine Resttage
-                    ]);
-                }
-
-                // Berechne Resttage aus dem Vorjahr (maximal 10)
-                $carryOverFromPreviousYear = max(0, min(10, $previousYearBalance->total_days - $previousYearBalance->used_days));
-
-                // Gesamtanspruch für das aktuelle Jahr
-                $totalEntitlement = $currentYearBalance->total_days + $carryOverFromPreviousYear;
-
-                // Monatliche Urlaubsanträge für das aktuelle Jahr laden
-                $monthlyUsage = [];
-                $remainingDays = $totalEntitlement;
-
-                // Genehmigte Urlaubsanträge für das aktuelle Jahr nach Monaten gruppieren
-                $vacationRequests = VacationRequest::where('user_id', $user->id)
-                    ->where('status', 'approved')
-                    ->whereYear('start_date', $currentYear)
-                    ->orderBy('start_date')
-                    ->get();
-
-                // Initialisiere die monatlichen Nutzungsdaten
-                for ($month = 1; $month <= 12; $month++) {
-                    $monthlyUsage[$month] = 0;
-                }
-
-                // Berechne die monatliche Nutzung
-                foreach ($vacationRequests as $request) {
-                    $startMonth = $request->start_date->month;
-                    $endMonth = $request->end_date->month;
-
-                    if ($startMonth === $endMonth) {
-                        // Wenn der Urlaub im selben Monat ist
-                        $monthlyUsage[$startMonth] += $request->days;
-                    } else {
-                        // Wenn der Urlaub über mehrere Monate geht, verteile die Tage
-                        $currentDate = $request->start_date->copy();
-                        while ($currentDate->lte($request->end_date)) {
-                            // Zähle nur Werktage (Mo-Fr)
-                            $dayOfWeek = $currentDate->dayOfWeek;
-                            if ($dayOfWeek !== 0 && $dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
-                                $monthlyUsage[$currentDate->month]++;
-                            }
-                            $currentDate->addDay();
-                        }
-                    }
-                }
-
-                // Berechne die monatlichen Resttage
-                $monthlyRemainingDays = [];
-                $runningTotal = $totalEntitlement;
-
-                for ($month = 1; $month <= 12; $month++) {
-                    $runningTotal -= $monthlyUsage[$month];
-                    $monthlyRemainingDays[$month] = $runningTotal;
-                }
-
-                // Nur Monate bis zum aktuellen Monat - 1 anzeigen (oder bis April, wenn wir im Mai sind)
-                $displayMonths = min($currentMonth - 1, 4); // Maximal bis April anzeigen
-
-                // Ab 1. Juni auch Mai anzeigen
-                if ($currentMonth >= 6) {
-                    $displayMonths = 5; // Bis Mai anzeigen
-                }
-
-                // Lade alle Urlaubsanträge des Benutzers für das aktuelle Jahr
-                $allVacationRequests = VacationRequest::where('user_id', $user->id)
-                    ->whereYear('start_date', $currentYear)
-                    ->orWhere(function($query) use ($user, $currentYear) {
-                        $query->where('user_id', $user->id)
-                            ->whereYear('end_date', $currentYear);
-                    })
-                    ->with('approver') // Lade den Genehmiger mit
-                    ->orderBy('start_date', 'desc')
-                    ->get()
-                    ->map(function($request) {
-                        // Formatiere die Daten für die Frontend-Anzeige
-                        return [
-                            'id' => $request->id,
-                            'start_date' => $request->start_date->format('Y-m-d'),
-                            'end_date' => $request->end_date->format('Y-m-d'),
-                            'days' => $request->days,
-                            'status' => $request->status,
-                            'status_text' => $this->getStatusText($request->status),
-                            'status_color' => $this->getStatusColor($request->status),
-                            'reason' => $request->reason,
-                            'comment' => $request->comment,
-                            'approver' => $request->approver ? $request->approver->name : null,
-                            'created_at' => $request->created_at->format('Y-m-d H:i'),
-                            'updated_at' => $request->updated_at->format('Y-m-d H:i')
-                        ];
-                    });
-
-                $userData = [
-                    'id' => $user->id,
-                    'name' => $user->full_name,
-                    'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
-                    'vacation_days_per_year' => $user->vacation_days_per_year,
-                    'carry_over_previous_year' => $carryOverFromPreviousYear,
-                    'total_entitlement' => $totalEntitlement,
-                    'used_days_total' => $currentYearBalance->used_days,
-                    'remaining_days_total' => $totalEntitlement - $currentYearBalance->used_days,
-                    'monthly_remaining' => [],
-                    'vacation_requests' => $allVacationRequests, // Neue Eigenschaft für Urlaubsanträge
-                    'is_apprentice' => $user->is_apprentice ?? false, // NEU für Mentor-System
-                    'mentor_name' => $user->mentor ? $user->mentor->full_name : null // NEU für Mentor-System
-                ];
-
-                // Füge die monatlichen Resttage hinzu
-                for ($month = 1; $month <= $displayMonths; $month++) {
-                    $userData['monthly_remaining']["month_$month"] = $monthlyRemainingDays[$month];
-                }
-
-                $overviewData[] = $userData;
-            }
-
-            return response()->json([
-                'data' => $overviewData,
-                'current_month' => $currentMonth,
-                'display_months' => min($currentMonth - 1, 4) + (($currentMonth >= 6) ? 1 : 0) // Anzahl der anzuzeigenden Monate
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error in getHROverview: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Hilfsmethode, um den Statustext zu erhalten
-     */
-    private function getStatusText($status)
-    {
-        $statusMap = [
-            'pending' => 'Ausstehend',
-            'approved' => 'Genehmigt',
-            'rejected' => 'Abgelehnt',
-            'canceled' => 'Storniert'
-        ];
-
-        return $statusMap[$status] ?? $status;
-    }
-
-    /**
-     * Hilfsmethode, um die Statusfarbe zu erhalten
-     */
-    private function getStatusColor($status)
-    {
-        $colorMap = [
-            'pending' => 'blue',
-            'approved' => 'green',
-            'rejected' => 'red',
-            'canceled' => 'gray'
-        ];
-
-        return $colorMap[$status] ?? 'gray';
-    }
-
-
-    public function getVacationInfoList()
-    {
-        try {
-            // Prüfen, ob der Benutzer HR oder Admin ist
-            $user = Auth::user();
-            $role = $user->role ? $user->role->name : null;
-
-            if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
-                return response()->json(['error' => 'Nicht autorisiert'], 403);
-            }
-
-            $currentYear = Carbon::now()->year;
-            $previousYear = $currentYear - 1;
-            $currentMonth = Carbon::now()->month;
-            $previousMonth = $currentMonth > 1 ? $currentMonth - 1 : 12;
-            $previousMonthYear = $previousMonth == 12 ? $previousYear : $currentYear;
-
-            // Alle aktiven Benutzer laden
-            $users = User::where('is_active', true)
-                ->with(['vacationBalances' => function($query) use ($currentYear, $previousYear) {
-                    $query->whereIn('year', [$previousYear, $currentYear]);
-                }])
-                ->get();
-
-            $infoListData = [];
-
-            foreach ($users as $user) {
-                // Urlaubskontingent für das aktuelle Jahr
-                $currentYearBalance = $user->vacationBalances->where('year', $currentYear)->first();
-                $previousYearBalance = $user->vacationBalances->where('year', $previousYear)->first();
-
-                // Wenn keine Bilanz für das aktuelle Jahr existiert, erstellen wir einen Standardwert
-                if (!$currentYearBalance) {
-                    $currentYearBalance = new VacationBalance([
-                        'total_days' => $user->vacation_days_per_year,
-                        'used_days' => 0
-                    ]);
-                }
-
-                // Wenn keine Bilanz für das Vorjahr existiert, erstellen wir einen Standardwert
-                if (!$previousYearBalance) {
-                    $previousYearBalance = new VacationBalance([
-                        'total_days' => $user->vacation_days_per_year,
-                        'used_days' => $user->vacation_days_per_year // Alle Tage verbraucht, keine Resttage
-                    ]);
-                }
-
-                // Berechne Resttage aus dem Vorjahr (maximal 10)
-                $carryOverFromPreviousYear = max(0, min(10, $previousYearBalance->total_days - $previousYearBalance->used_days));
-
-                // Gesamtanspruch für das aktuelle Jahr
-                $totalEntitlement = $currentYearBalance->total_days + $carryOverFromPreviousYear;
-
-                // Genehmigte Urlaubsanträge für das aktuelle Jahr
-                $approvedVacationDays = VacationRequest::where('user_id', $user->id)
-                    ->where('status', 'approved')
-                    ->whereYear('start_date', $currentYear)
-                    ->sum('days');
-
-                // Genehmigte Urlaubsanträge für den aktuellen Monat
-                $approvedVacationDaysCurrentMonth = VacationRequest::where('user_id', $user->id)
-                    ->where('status', 'approved')
-                    ->whereYear('start_date', $currentYear)
-                    ->whereMonth('start_date', $currentMonth)
-                    ->sum('days');
-
-                // Berechne Resttage für das aktuelle Jahr
-                $remainingDaysCurrentYear = $totalEntitlement - $approvedVacationDays;
-
-                // Berechne Resttage für den Vormonat
-                $approvedVacationDaysPreviousMonth = VacationRequest::where('user_id', $user->id)
-                    ->where('status', 'approved')
-                    ->whereYear('start_date', '<=', $previousMonthYear)
-                    ->whereMonth('start_date', '<=', $previousMonth)
-                    ->sum('days');
-
-                $remainingDaysPreviousMonth = $totalEntitlement - $approvedVacationDaysPreviousMonth;
-
-                $userData = [
-                    'id' => $user->id,
-                    'name' => $user->full_name,
-                    'personnel_number' => $user->employee_number ?? '-', // Personalnummer aus employee_number
-                    'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
-                    'vacation_days_per_year' => $user->vacation_days_per_year,
-                    'carry_over_previous_year' => $carryOverFromPreviousYear,
-                    'total_entitlement' => $totalEntitlement,
-                    'approved_days_current_year' => $approvedVacationDays,
-                    'remaining_days_current_year' => $remainingDaysCurrentYear,
-                    'current_month_days' => $approvedVacationDaysCurrentMonth, // Anzahl der genehmigten Urlaubstage im aktuellen Monat
-                    'current_month_name' => $this->getMonthName($currentMonth), // Nur für Anzeigezwecke
-                    'remaining_days_previous_month' => $remainingDaysPreviousMonth,
-                    'is_apprentice' => $user->is_apprentice ?? false, // NEU für Mentor-System
-                    'mentor_name' => $user->mentor ? $user->mentor->full_name : null // NEU für Mentor-System
-                ];
-
-                $infoListData[] = $userData;
-            }
-
-            return response()->json([
-                'data' => $infoListData,
-                'current_month' => $currentMonth,
-                'previous_month' => $previousMonth
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error in getVacationInfoList: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Hilfsmethode, um den Monatsnamen zu erhalten
-     */
-    private function getMonthName($month)
-    {
-        $months = [
-            1 => 'Januar',
-            2 => 'Februar',
-            3 => 'März',
-            4 => 'April',
-            5 => 'Mai',
-            6 => 'Juni',
-            7 => 'Juli',
-            8 => 'August',
-            9 => 'September',
-            10 => 'Oktober',
-            11 => 'November',
-            12 => 'Dezember'
-        ];
-
-        return $months[$month] ?? '';
-    }
-
     /**
      * Submit a vacation request
-     * ERWEITERT für Mentor-System
+     * ERWEITERT für Mentor-System und Halbtags-Feature
      */
     public function submitRequest(Request $request)
     {
@@ -866,12 +565,13 @@ class VacationController extends Controller
                 'request_data' => $request->all()
             ]);
 
-            // Validierung
+            // Validierung ERWEITERT für Halbtags-Feature
             $request->validate([
                 'periods' => 'required|array',
                 'periods.*.startDate' => 'required|date',
                 'periods.*.endDate' => 'required|date|after_or_equal:periods.*.startDate',
-                'periods.*.days' => 'required|integer|min:1',
+                'periods.*.days' => 'required|numeric|min:0.5', // GEÄNDERT: Erlaubt 0.5 für Halbtage
+                'periods.*.dayType' => 'nullable|in:full_day,morning,afternoon', // NEU
                 'substitute' => 'nullable|integer',
                 'notes' => 'nullable|string'
             ]);
@@ -896,6 +596,7 @@ class VacationController extends Controller
                 $vacationRequest->start_date = $startDate;
                 $vacationRequest->end_date = $endDate;
                 $vacationRequest->days = $period['days'];
+                $vacationRequest->day_type = $period['dayType'] ?? 'full_day'; // NEU
 
                 $vacationRequest->save();
 
@@ -903,7 +604,9 @@ class VacationController extends Controller
                     'request_id' => $vacationRequest->id,
                     'start_date' => $vacationRequest->start_date->format('Y-m-d'),
                     'end_date' => $vacationRequest->end_date->format('Y-m-d'),
-                    'days' => $vacationRequest->days
+                    'days' => $vacationRequest->days,
+                    'day_type' => $vacationRequest->day_type, // NEU
+                    'actual_days' => $this->calculateActualDays($vacationRequest) // NEU
                 ]);
 
                 $createdRequests[] = $vacationRequest;
@@ -1002,42 +705,8 @@ class VacationController extends Controller
     }
 
     /**
-     * Finde überlappende Urlaubsanträge
-     */
-    private function getOverlappingRequests(VacationRequest $vacationRequest)
-    {
-        $user = $vacationRequest->user;
-        $teamId = $user->currentTeam ? $user->currentTeam->id : null;
-
-        if (!$teamId) {
-            return collect();
-        }
-
-        // Finde alle genehmigten Urlaubsanträge im gleichen Team, die mit dem neuen Antrag überlappen
-        $overlappingRequests = VacationRequest::with(['user'])
-            ->where('status', 'approved')
-            ->where('user_id', '!=', $user->id)
-            ->where('team_id', $teamId)
-            ->where(function($query) use ($vacationRequest) {
-                $query->where(function($q) use ($vacationRequest) {
-                    $q->where('start_date', '<=', $vacationRequest->end_date)
-                        ->where('end_date', '>=', $vacationRequest->start_date);
-                });
-            })
-            ->get();
-
-        return $overlappingRequests->map(function($request) {
-            return [
-                'employee_name' => $request->user->full_name,
-                'start_date' => $request->start_date->format('d.m.Y'),
-                'end_date' => $request->end_date->format('d.m.Y')
-            ];
-        });
-    }
-
-    /**
      * Genehmigt einen Urlaubsantrag
-     * ERWEITERT für Mentor-System
+     * ERWEITERT für Mentor-System und Halbtags-Feature
      */
     public function approveRequest(Request $request, $id)
     {
@@ -1075,18 +744,20 @@ class VacationController extends Controller
             $vacationRequest->approved_date = now();
             $vacationRequest->save();
 
-            // WICHTIG: Aktualisiere die Urlaubsbilanz für ALLE genehmigten Anträge
-            // Entferne die Bedingung, dass der Urlaub in der Vergangenheit liegen muss
+            // WICHTIG: Aktualisiere die Urlaubsbilanz mit korrekter Halbtags-Berechnung
             $this->updateVacationBalance($vacationRequest);
 
             // Antragsteller finden
             $employee = User::findOrFail($vacationRequest->user_id);
 
             // Benachrichtigung für den Antragsteller erstellen
+            $actualDays = $this->calculateActualDays($vacationRequest);
+            $dayTypeText = $this->getDayTypeLabel($vacationRequest->day_type ?? 'full_day');
+
             Notification::create([
                 'user_id' => $employee->id,
                 'title' => 'Urlaubsantrag genehmigt',
-                'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} wurde genehmigt.",
+                'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} ({$dayTypeText}, {$actualDays} Tag" . ($actualDays != 1 ? 'e' : '') . ") wurde genehmigt.",
                 'type' => 'success',
                 'is_read' => false,
                 'related_entity_type' => 'vacation_request',
@@ -1099,7 +770,9 @@ class VacationController extends Controller
                 Log::info('Sende Genehmigungs-E-Mail an Antragsteller', [
                     'employee_id' => $employee->id,
                     'employee_email' => $employee->email,
-                    'notes' => $vacationRequest->notes // Log der Anmerkungen
+                    'notes' => $vacationRequest->notes,
+                    'day_type' => $vacationRequest->day_type,
+                    'actual_days' => $actualDays
                 ]);
 
                 // Mail senden mit verbesserter Fehlerbehandlung
@@ -1189,6 +862,7 @@ class VacationController extends Controller
 
     /**
      * Lehnt einen Urlaubsantrag ab
+     * ERWEITERT für Halbtags-Feature
      */
     public function rejectRequest(Request $request, $id)
     {
@@ -1237,10 +911,13 @@ class VacationController extends Controller
             $employee = User::findOrFail($vacationRequest->user_id);
 
             // Benachrichtigung für den Antragsteller erstellen
+            $actualDays = $this->calculateActualDays($vacationRequest);
+            $dayTypeText = $this->getDayTypeLabel($vacationRequest->day_type ?? 'full_day');
+
             Notification::create([
                 'user_id' => $employee->id,
                 'title' => 'Urlaubsantrag abgelehnt',
-                'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} wurde abgelehnt.",
+                'message' => "Ihr Urlaubsantrag vom {$vacationRequest->start_date->format('d.m.Y')} bis {$vacationRequest->end_date->format('d.m.Y')} ({$dayTypeText}, {$actualDays} Tag" . ($actualDays != 1 ? 'e' : '') . ") wurde abgelehnt.",
                 'type' => 'error',
                 'is_read' => false,
                 'related_entity_type' => 'vacation_request',
@@ -1253,7 +930,9 @@ class VacationController extends Controller
                 Log::info('Sende Ablehnungs-E-Mail an Antragsteller', [
                     'employee_id' => $employee->id,
                     'employee_email' => $employee->email,
-                    'notes' => $vacationRequest->notes
+                    'notes' => $vacationRequest->notes,
+                    'day_type' => $vacationRequest->day_type,
+                    'actual_days' => $actualDays
                 ]);
 
                 if ($employee->email) {
@@ -1374,6 +1053,10 @@ class VacationController extends Controller
         return false;
     }
 
+    /**
+     * Aktualisiere die Urlaubsbilanz
+     * ERWEITERT für Halbtags-Feature
+     */
     private function updateVacationBalance(VacationRequest $vacationRequest)
     {
         // Nur für genehmigte Anträge
@@ -1390,14 +1073,17 @@ class VacationController extends Controller
             ['total_days' => $vacationRequest->user->vacation_days_per_year, 'used_days' => 0]
         );
 
-        // Aktualisiere die genutzten Tage
-        $balance->used_days += $vacationRequest->days;
+        // WICHTIG: Verwende calculateActualDays() für korrekte Halbtags-Berechnung
+        $actualDays = $this->calculateActualDays($vacationRequest);
+        $balance->used_days += $actualDays;
         $balance->save();
 
         Log::info('Urlaubsbilanz aktualisiert', [
             'user_id' => $vacationRequest->user_id,
             'year' => $year,
             'used_days' => $balance->used_days,
+            'actual_days_added' => $actualDays,
+            'day_type' => $vacationRequest->day_type ?? 'full_day',
             'vacation_request_id' => $vacationRequest->id
         ]);
     }
@@ -1428,5 +1114,423 @@ class VacationController extends Controller
             ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    // Alle HR-Methoden bleiben unverändert, da sie bereits korrekt funktionieren
+    public function getHROverview()
+    {
+        try {
+            // Prüfen, ob der Benutzer HR oder Admin ist
+            $user = Auth::user();
+            $role = $user->role ? $user->role->name : null;
+
+            if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
+                return response()->json(['error' => 'Nicht autorisiert'], 403);
+            }
+
+            $currentYear = Carbon::now()->year;
+            $previousYear = $currentYear - 1;
+            $currentMonth = Carbon::now()->month;
+
+            // Alle aktiven Benutzer laden
+            $users = User::where('is_active', true)
+                ->with(['vacationBalances' => function($query) use ($currentYear, $previousYear) {
+                    $query->whereIn('year', [$previousYear, $currentYear]);
+                }])
+                ->get();
+
+            $overviewData = [];
+
+            foreach ($users as $user) {
+                // Urlaubskontingent für das aktuelle Jahr
+                $currentYearBalance = $user->vacationBalances->where('year', $currentYear)->first();
+                $previousYearBalance = $user->vacationBalances->where('year', $previousYear)->first();
+
+                // Wenn keine Bilanz für das aktuelle Jahr existiert, erstellen wir einen Standardwert
+                if (!$currentYearBalance) {
+                    $currentYearBalance = new VacationBalance([
+                        'total_days' => $user->vacation_days_per_year,
+                        'used_days' => 0
+                    ]);
+                }
+
+                // Wenn keine Bilanz für das Vorjahr existiert, erstellen wir einen Standardwert
+                if (!$previousYearBalance) {
+                    $previousYearBalance = new VacationBalance([
+                        'total_days' => $user->vacation_days_per_year,
+                        'used_days' => $user->vacation_days_per_year // Alle Tage verbraucht, keine Resttage
+                    ]);
+                }
+
+                // Berechne Resttage aus dem Vorjahr (maximal 10)
+                $carryOverFromPreviousYear = max(0, min(10, $previousYearBalance->total_days - $previousYearBalance->used_days));
+
+                // Gesamtanspruch für das aktuelle Jahr
+                $totalEntitlement = $currentYearBalance->total_days + $carryOverFromPreviousYear;
+
+                // Monatliche Urlaubsanträge für das aktuelle Jahr laden
+                $monthlyUsage = [];
+                $remainingDays = $totalEntitlement;
+
+                // Genehmigte Urlaubsanträge für das aktuelle Jahr nach Monaten gruppieren
+                $vacationRequests = VacationRequest::where('user_id', $user->id)
+                    ->where('status', 'approved')
+                    ->whereYear('start_date', $currentYear)
+                    ->orderBy('start_date')
+                    ->get();
+
+                // Initialisiere die monatlichen Nutzungsdaten
+                for ($month = 1; $month <= 12; $month++) {
+                    $monthlyUsage[$month] = 0;
+                }
+
+                // Berechne die monatliche Nutzung
+                foreach ($vacationRequests as $request) {
+                    $startMonth = $request->start_date->month;
+                    $endMonth = $request->end_date->month;
+                    $actualDays = $this->calculateActualDays($request); // NEU: Verwende actualDays
+
+                    if ($startMonth === $endMonth) {
+                        // Wenn der Urlaub im selben Monat ist
+                        $monthlyUsage[$startMonth] += $actualDays;
+                    } else {
+                        // Wenn der Urlaub über mehrere Monate geht, verteile die Tage
+                        $currentDate = $request->start_date->copy();
+                        while ($currentDate->lte($request->end_date)) {
+                            // Zähle nur Werktage (Mo-Fr)
+                            $dayOfWeek = $currentDate->dayOfWeek;
+                            if ($dayOfWeek !== 0 && $dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
+                                $monthlyUsage[$currentDate->month]++;
+                            }
+                            $currentDate->addDay();
+                        }
+                    }
+                }
+
+                // Berechne die monatlichen Resttage
+                $monthlyRemainingDays = [];
+                $runningTotal = $totalEntitlement;
+
+                for ($month = 1; $month <= 12; $month++) {
+                    $runningTotal -= $monthlyUsage[$month];
+                    $monthlyRemainingDays[$month] = $runningTotal;
+                }
+
+                // Nur Monate bis zum aktuellen Monat - 1 anzeigen (oder bis April, wenn wir im Mai sind)
+                $displayMonths = min($currentMonth - 1, 4); // Maximal bis April anzeigen
+
+                // Ab 1. Juni auch Mai anzeigen
+                if ($currentMonth >= 6) {
+                    $displayMonths = 5; // Bis Mai anzeigen
+                }
+
+                // Lade alle Urlaubsanträge des Benutzers für das aktuelle Jahr
+                $allVacationRequests = VacationRequest::where('user_id', $user->id)
+                    ->whereYear('start_date', $currentYear)
+                    ->orWhere(function($query) use ($user, $currentYear) {
+                        $query->where('user_id', $user->id)
+                            ->whereYear('end_date', $currentYear);
+                    })
+                    ->with('approver') // Lade den Genehmiger mit
+                    ->orderBy('start_date', 'desc')
+                    ->get()
+                    ->map(function($request) {
+                        // Formatiere die Daten für die Frontend-Anzeige
+                        return [
+                            'id' => $request->id,
+                            'start_date' => $request->start_date->format('Y-m-d'),
+                            'end_date' => $request->end_date->format('Y-m-d'),
+                            'days' => $request->days,
+                            'dayType' => $request->day_type ?? 'full_day', // NEU
+                            'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
+                            'actualDays' => $this->calculateActualDays($request), // NEU
+                            'status' => $request->status,
+                            'status_text' => $this->getStatusText($request->status),
+                            'status_color' => $this->getStatusColor($request->status),
+                            'reason' => $request->reason,
+                            'comment' => $request->comment,
+                            'approver' => $request->approver ? $request->approver->name : null,
+                            'created_at' => $request->created_at->format('Y-m-d H:i'),
+                            'updated_at' => $request->updated_at->format('Y-m-d H:i')
+                        ];
+                    });
+
+                $userData = [
+                    'id' => $user->id,
+                    'name' => $user->full_name,
+                    'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
+                    'vacation_days_per_year' => $user->vacation_days_per_year,
+                    'carry_over_previous_year' => $carryOverFromPreviousYear,
+                    'total_entitlement' => $totalEntitlement,
+                    'used_days_total' => $currentYearBalance->used_days,
+                    'remaining_days_total' => $totalEntitlement - $currentYearBalance->used_days,
+                    'monthly_remaining' => [],
+                    'vacation_requests' => $allVacationRequests, // Neue Eigenschaft für Urlaubsanträge
+                    'is_apprentice' => $user->is_apprentice ?? false, // NEU für Mentor-System
+                    'mentor_name' => $user->mentor ? $user->mentor->full_name : null // NEU für Mentor-System
+                ];
+
+                // Füge die monatlichen Resttage hinzu
+                for ($month = 1; $month <= $displayMonths; $month++) {
+                    $userData['monthly_remaining']["month_$month"] = $monthlyRemainingDays[$month];
+                }
+
+                $overviewData[] = $userData;
+            }
+
+            return response()->json([
+                'data' => $overviewData,
+                'current_month' => $currentMonth,
+                'display_months' => min($currentMonth - 1, 4) + (($currentMonth >= 6) ? 1 : 0) // Anzahl der anzuzeigenden Monate
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in getHROverview: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getVacationInfoList()
+    {
+        try {
+            // Prüfen, ob der Benutzer HR oder Admin ist
+            $user = Auth::user();
+            $role = $user->role ? $user->role->name : null;
+
+            if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
+                return response()->json(['error' => 'Nicht autorisiert'], 403);
+            }
+
+            $currentYear = Carbon::now()->year;
+            $previousYear = $currentYear - 1;
+            $currentMonth = Carbon::now()->month;
+            $previousMonth = $currentMonth > 1 ? $currentMonth - 1 : 12;
+            $previousMonthYear = $previousMonth == 12 ? $previousYear : $currentYear;
+
+            // Alle aktiven Benutzer laden
+            $users = User::where('is_active', true)
+                ->with(['vacationBalances' => function($query) use ($currentYear, $previousYear) {
+                    $query->whereIn('year', [$previousYear, $currentYear]);
+                }])
+                ->get();
+
+            $infoListData = [];
+
+            foreach ($users as $user) {
+                // Urlaubskontingent für das aktuelle Jahr
+                $currentYearBalance = $user->vacationBalances->where('year', $currentYear)->first();
+                $previousYearBalance = $user->vacationBalances->where('year', $previousYear)->first();
+
+                // Wenn keine Bilanz für das aktuelle Jahr existiert, erstellen wir einen Standardwert
+                if (!$currentYearBalance) {
+                    $currentYearBalance = new VacationBalance([
+                        'total_days' => $user->vacation_days_per_year,
+                        'used_days' => 0
+                    ]);
+                }
+
+                // Wenn keine Bilanz für das Vorjahr existiert, erstellen wir einen Standardwert
+                if (!$previousYearBalance) {
+                    $previousYearBalance = new VacationBalance([
+                        'total_days' => $user->vacation_days_per_year,
+                        'used_days' => $user->vacation_days_per_year // Alle Tage verbraucht, keine Resttage
+                    ]);
+                }
+
+                // Berechne Resttage aus dem Vorjahr (maximal 10)
+                $carryOverFromPreviousYear = max(0, min(10, $previousYearBalance->total_days - $previousYearBalance->used_days));
+
+                // Gesamtanspruch für das aktuelle Jahr
+                $totalEntitlement = $currentYearBalance->total_days + $carryOverFromPreviousYear;
+
+                // Genehmigte Urlaubsanträge für das aktuelle Jahr - ERWEITERT für Halbtage
+                $approvedRequests = VacationRequest::where('user_id', $user->id)
+                    ->where('status', 'approved')
+                    ->whereYear('start_date', $currentYear)
+                    ->get();
+
+                $approvedVacationDays = $approvedRequests->sum(function($request) {
+                    return $this->calculateActualDays($request);
+                });
+
+                // Genehmigte Urlaubsanträge für den aktuellen Monat - ERWEITERT für Halbtage
+                $currentMonthRequests = VacationRequest::where('user_id', $user->id)
+                    ->where('status', 'approved')
+                    ->whereYear('start_date', $currentYear)
+                    ->whereMonth('start_date', $currentMonth)
+                    ->get();
+
+                $approvedVacationDaysCurrentMonth = $currentMonthRequests->sum(function($request) {
+                    return $this->calculateActualDays($request);
+                });
+
+                // Berechne Resttage für das aktuelle Jahr
+                $remainingDaysCurrentYear = $totalEntitlement - $approvedVacationDays;
+
+                // Berechne Resttage für den Vormonat - ERWEITERT für Halbtage
+                $previousMonthRequests = VacationRequest::where('user_id', $user->id)
+                    ->where('status', 'approved')
+                    ->whereYear('start_date', '<=', $previousMonthYear)
+                    ->whereMonth('start_date', '<=', $previousMonth)
+                    ->get();
+
+                $approvedVacationDaysPreviousMonth = $previousMonthRequests->sum(function($request) {
+                    return $this->calculateActualDays($request);
+                });
+
+                $remainingDaysPreviousMonth = $totalEntitlement - $approvedVacationDaysPreviousMonth;
+
+                $userData = [
+                    'id' => $user->id,
+                    'name' => $user->full_name,
+                    'personnel_number' => $user->employee_number ?? '-', // Personalnummer aus employee_number
+                    'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
+                    'vacation_days_per_year' => $user->vacation_days_per_year,
+                    'carry_over_previous_year' => $carryOverFromPreviousYear,
+                    'total_entitlement' => $totalEntitlement,
+                    'approved_days_current_year' => $approvedVacationDays,
+                    'remaining_days_current_year' => $remainingDaysCurrentYear,
+                    'current_month_days' => $approvedVacationDaysCurrentMonth, // Anzahl der genehmigten Urlaubstage im aktuellen Monat
+                    'current_month_name' => $this->getMonthName($currentMonth), // Nur für Anzeigezwecke
+                    'remaining_days_previous_month' => $remainingDaysPreviousMonth,
+                    'is_apprentice' => $user->is_apprentice ?? false, // NEU für Mentor-System
+                    'mentor_name' => $user->mentor ? $user->mentor->full_name : null // NEU für Mentor-System
+                ];
+
+                $infoListData[] = $userData;
+            }
+
+            return response()->json([
+                'data' => $infoListData,
+                'current_month' => $currentMonth,
+                'previous_month' => $previousMonth
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in getVacationInfoList: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Hilfsmethode, um den Monatsnamen zu erhalten
+     */
+    private function getMonthName($month)
+    {
+        $months = [
+            1 => 'Januar',
+            2 => 'Februar',
+            3 => 'März',
+            4 => 'April',
+            5 => 'Mai',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'August',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Dezember'
+        ];
+
+        return $months[$month] ?? '';
+    }
+
+    /**
+     * Hilfsmethode, um den Statustext zu erhalten
+     */
+    private function getStatusText($status)
+    {
+        $statusMap = [
+            'pending' => 'Ausstehend',
+            'approved' => 'Genehmigt',
+            'rejected' => 'Abgelehnt',
+            'canceled' => 'Storniert'
+        ];
+
+        return $statusMap[$status] ?? $status;
+    }
+
+    /**
+     * Hilfsmethode, um die Statusfarbe zu erhalten
+     */
+    private function getStatusColor($status)
+    {
+        $colorMap = [
+            'pending' => 'blue',
+            'approved' => 'green',
+            'rejected' => 'red',
+            'canceled' => 'gray'
+        ];
+
+        return $colorMap[$status] ?? 'gray';
+    }
+
+    /**
+     * Finde überlappende Urlaubsanträge
+     */
+    private function getOverlappingRequests(VacationRequest $vacationRequest)
+    {
+        $user = $vacationRequest->user;
+        $teamId = $user->currentTeam ? $user->currentTeam->id : null;
+
+        if (!$teamId) {
+            return collect();
+        }
+
+        // Finde alle genehmigten Urlaubsanträge im gleichen Team, die mit dem neuen Antrag überlappen
+        $overlappingRequests = VacationRequest::with(['user'])
+            ->where('status', 'approved')
+            ->where('user_id', '!=', $user->id)
+            ->where('team_id', $teamId)
+            ->where(function($query) use ($vacationRequest) {
+                $query->where(function($q) use ($vacationRequest) {
+                    $q->where('start_date', '<=', $vacationRequest->end_date)
+                        ->where('end_date', '>=', $vacationRequest->start_date);
+                });
+            })
+            ->get();
+
+        return $overlappingRequests->map(function($request) {
+            return [
+                'employee_name' => $request->user->full_name,
+                'start_date' => $request->start_date->format('d.m.Y'),
+                'end_date' => $request->end_date->format('d.m.Y'),
+                'day_type' => $request->day_type ?? 'full_day', // NEU
+                'day_type_label' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
+                'actual_days' => $this->calculateActualDays($request) // NEU
+            ];
+        });
+    }
+
+    /**
+     * NEU: Hilfsmethode zur Berechnung der tatsächlichen Urlaubstage
+     * Berücksichtigt Halbtage korrekt
+     */
+    private function calculateActualDays(VacationRequest $request)
+    {
+        $dayType = $request->day_type ?? 'full_day';
+
+        // Wenn es ein einzelner Tag ist und Halbtag gewählt wurde
+        if ($request->start_date->eq($request->end_date) && in_array($dayType, ['morning', 'afternoon'])) {
+            return 0.5;
+        }
+
+        // Ansonsten verwende die normale Tagesanzahl
+        return $request->days;
+    }
+
+    /**
+     * NEU: Hilfsmethode zur Rückgabe des deutschen Labels für den Urlaubstyp
+     */
+    private function getDayTypeLabel($dayType)
+    {
+        return match($dayType) {
+            'morning' => 'Vormittag',
+            'afternoon' => 'Nachmittag',
+            'full_day' => 'Ganzer Tag',
+            default => 'Ganzer Tag'
+        };
     }
 }

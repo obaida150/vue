@@ -52,7 +52,7 @@
                         </div>
 
                         <div class="grid">
-                            <div class="col-12 md:col-5 field mb-3">
+                            <div class="col-12 md:col-4 field mb-3">
                                 <label :for="'startDate-' + index" class="block text-sm font-medium mb-1">Startdatum</label>
                                 <DatePicker
                                     :id="'startDate-' + index"
@@ -67,7 +67,7 @@
                                 <small v-if="period.errors.startDate" class="p-error">{{ period.errors.startDate }}</small>
                             </div>
 
-                            <div class="col-12 md:col-5 field mb-3">
+                            <div class="col-12 md:col-4 field mb-3">
                                 <label :for="'endDate-' + index" class="block text-sm font-medium mb-1">Enddatum</label>
                                 <DatePicker
                                     :id="'endDate-' + index"
@@ -88,13 +88,39 @@
                                     <InputNumber
                                         :id="'days-' + index"
                                         v-model="period.days"
-                                        :min="1"
+                                        :min="0.5"
                                         :max="remainingVacationDays"
+                                        :minFractionDigits="1"
+                                        :maxFractionDigits="1"
                                         disabled
                                         class="w-full"
                                     />
                                 </div>
                             </div>
+
+                            <div class="col-12 md:col-2 field mb-3">
+                                <label :for="'dayType-' + index" class="block text-sm font-medium mb-1">Art</label>
+                                <Select
+                                    :id="'dayType-' + index"
+                                    v-model="period.dayType"
+                                    :options="dayTypeOptions"
+                                    optionLabel="label"
+                                    optionValue="value"
+                                    placeholder="Wählen..."
+                                    class="w-full"
+                                    @change="updatePeriodDays(index)"
+                                    :disabled="!isSingleDay(period)"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Hinweis für Halbtage -->
+                        <div v-if="isSingleDay(period) && period.dayType !== 'full_day'" class="p-message p-message-info p-2 mt-2">
+                            <i class="pi pi-info-circle mr-2"></i>
+                            <span>
+                                {{ period.dayType === 'morning' ? 'Vormittag (bis 12:00 Uhr)' : 'Nachmittag (ab 12:00 Uhr)' }} -
+                                Wird als 0,5 Urlaubstage berechnet
+                            </span>
                         </div>
                     </div>
 
@@ -144,24 +170,32 @@
 
                     <div class="summary-table mb-4">
                         <div class="grid summary-header font-medium text-sm bg-gray-100 dark:bg-gray-700 p-2">
-                            <div class="col-6">Zeitraum</div>
-                            <div class="col-3">Tage</div>
+                            <div class="col-5">Zeitraum</div>
+                            <div class="col-2">Art</div>
+                            <div class="col-2">Tage</div>
                             <div class="col-3">Status</div>
                         </div>
 
                         <div v-for="(period, index) in vacationPeriods" :key="index" class="grid summary-row p-2 border-bottom-1 border-gray-200 dark:border-gray-700">
-                            <div class="col-6">
+                            <div class="col-5">
                                 {{ formatDate(period.startDate) }} - {{ formatDate(period.endDate) }}
                             </div>
-                            <div class="col-3">{{ period.days }}</div>
+                            <div class="col-2">
+                                <Tag
+                                    :value="getDayTypeLabel(period.dayType)"
+                                    :severity="period.dayType === 'full_day' ? 'primary' : 'info'"
+                                />
+                            </div>
+                            <div class="col-2">{{ period.days }}</div>
                             <div class="col-3">
                                 <Tag value="Neu" severity="info" />
                             </div>
                         </div>
 
                         <div class="grid summary-footer font-medium p-2 bg-gray-50 dark:bg-gray-800">
-                            <div class="col-6">Gesamt</div>
-                            <div class="col-3">{{ totalRequestedDays }}</div>
+                            <div class="col-5">Gesamt</div>
+                            <div class="col-2"></div>
+                            <div class="col-2">{{ totalRequestedDays }}</div>
                             <div class="col-3"></div>
                         </div>
                     </div>
@@ -239,6 +273,13 @@ const primevue = usePrimeVue();
 
 const loading = ref(false)
 
+// Optionen für Urlaubsart
+const dayTypeOptions = ref([
+    { label: 'Ganzer Tag', value: 'full_day' },
+    { label: 'Vormittag', value: 'morning' },
+    { label: 'Nachmittag', value: 'afternoon' }
+])
+
 // Urlaubsantrag Daten
 const vacationRequest = ref({
     substitute: null,
@@ -251,6 +292,7 @@ const vacationPeriods = ref([
         startDate: null,
         endDate: null,
         days: 1,
+        dayType: 'full_day',
         errors: {
             startDate: "",
             endDate: "",
@@ -273,6 +315,18 @@ const holidays = ref([])
 
 // Aktueller Benutzer ID (würde normalerweise vom Server geladen)
 const currentUserId = ref(null)
+
+// Prüft, ob ein Zeitraum ein einzelner Tag ist
+const isSingleDay = (period) => {
+    if (!period.startDate || !period.endDate) return false
+    return dayjs(period.startDate).isSame(dayjs(period.endDate), 'day')
+}
+
+// Gibt das Label für den Urlaubstyp zurück
+const getDayTypeLabel = (dayType) => {
+    const option = dayTypeOptions.value.find(opt => opt.value === dayType)
+    return option ? option.label : 'Ganzer Tag'
+}
 
 // Feiertage laden
 const fetchHolidays = async () => {
@@ -304,14 +358,20 @@ const getHolidayName = (date) => {
     return HolidayService.getHolidayName(dayjs(date), holidays.value)
 }
 
-// Berechnung der Urlaubstage basierend auf Start- und Enddatum
-const calculateVacationDays = (startDate, endDate) => {
+// Berechnung der Urlaubstage basierend auf Start- und Enddatum und Typ
+const calculateVacationDays = (startDate, endDate, dayType = 'full_day') => {
     if (!startDate || !endDate) {
         return 0
     }
 
     const start = dayjs(startDate)
     const end = dayjs(endDate)
+
+    // Wenn es ein einzelner Tag ist und Halbtag gewählt wurde
+    if (start.isSame(end, 'day') && dayType !== 'full_day') {
+        return 0.5
+    }
+
     let days = 0
 
     // Zähle nur Werktage (Mo-Fr) und keine Feiertage
@@ -333,14 +393,20 @@ const calculateVacationDays = (startDate, endDate) => {
 // Aktualisiere die Tage für jeden Zeitraum, wenn sich die Daten ändern
 const updateVacationDays = () => {
     vacationPeriods.value.forEach((period) => {
-        period.days = calculateVacationDays(period.startDate, period.endDate)
+        period.days = calculateVacationDays(period.startDate, period.endDate, period.dayType)
     })
 }
 
 // Aktualisiere die Tage für einen bestimmten Zeitraum
 const updatePeriodDays = (index) => {
     const period = vacationPeriods.value[index]
-    period.days = calculateVacationDays(period.startDate, period.endDate)
+
+    // Wenn es kein einzelner Tag ist, setze dayType auf full_day
+    if (!isSingleDay(period)) {
+        period.dayType = 'full_day'
+    }
+
+    period.days = calculateVacationDays(period.startDate, period.endDate, period.dayType)
 }
 
 // Gesamtzahl der beantragten Urlaubstage
@@ -399,6 +465,7 @@ const addPeriod = () => {
         startDate: null,
         endDate: null,
         days: 1,
+        dayType: 'full_day',
         errors: {
             startDate: "",
             endDate: "",
@@ -413,13 +480,8 @@ const removePeriod = (index) => {
     }
 }
 
-// Bereits gebuchte Urlaubstage (würde normalerweise vom Server geladen)
-const bookedVacationDates = ref([
-    // Beispieldaten - werden später durch API-Daten ersetzt
-    { start: new Date(2025, 2, 10), end: new Date(2025, 2, 15), userId: 1 },
-    { start: new Date(2025, 4, 1), end: new Date(2025, 4, 5), userId: 1 },
-    { start: new Date(2025, 3, 15), end: new Date(2025, 3, 20), userId: 2 }, // Urlaub eines anderen Benutzers
-])
+// Bereits gebuchte Urlaubstage (wird vom Server geladen)
+const bookedVacationDates = ref([])
 
 // Deaktivierte Daten für den Kalender (nur eigene Urlaubstage und Feiertage)
 const disabledDates = ref([])
@@ -450,12 +512,8 @@ const updateDisabledDates = () => {
     disabledDates.value = dates
 }
 
-// Verfügbare Vertretungen (würde normalerweise vom Server geladen)
-const availableSubstitutes = ref([
-    { id: 1, name: "Anna Schmidt", department: "Marketing" },
-    { id: 2, name: "Thomas Müller", department: "Vertrieb" },
-    { id: 3, name: "Julia Weber", department: "Personal" },
-])
+// Verfügbare Vertretungen (wird vom Server geladen)
+const availableSubstitutes = ref([])
 
 // Formularvalidierung
 const isFormValid = computed(() => {
@@ -558,6 +616,7 @@ const submitVacationRequest = async () => {
                 startDate: period.startDate ? dayjs(period.startDate).format("YYYY-MM-DD") : null,
                 endDate: period.endDate ? dayjs(period.endDate).format("YYYY-MM-DD") : null,
                 days: period.days,
+                dayType: period.dayType, // NEU: Urlaubsart hinzufügen
             })),
             substitute: vacationRequest.value.substitute ? vacationRequest.value.substitute.id : null,
             notes: vacationRequest.value.notes,
@@ -585,6 +644,7 @@ const submitVacationRequest = async () => {
                 startDate: null,
                 endDate: null,
                 days: 0,
+                dayType: 'full_day',
                 errors: {
                     startDate: "",
                     endDate: "",

@@ -20,6 +20,7 @@ class VacationRequest extends Model
         'start_date',
         'end_date',
         'days',
+        'day_type', // NEU hinzugefügt
         'substitute_id',
         'notes',
         'status',
@@ -81,5 +82,37 @@ class VacationRequest extends Model
     {
         return $this->belongsTo(User::class, 'rejected_by');
     }
-}
 
+    /**
+     * Get the day type label in German
+     */
+    public function getDayTypeLabel()
+    {
+        return match($this->day_type) {
+            'morning' => 'Vormittag',
+            'afternoon' => 'Nachmittag',
+            'full_day' => 'Ganzer Tag',
+            default => 'Ganzer Tag'
+        };
+    }
+
+    /**
+     * Calculate actual days based on day_type
+     */
+    public function getActualDays()
+    {
+        if ($this->day_type === 'full_day') {
+            return $this->days;
+        }
+
+        // Für Halbtage: Wenn es ein einzelner Tag ist, dann 0.5, sonst normale Berechnung
+        $startDate = $this->start_date;
+        $endDate = $this->end_date;
+
+        if ($startDate->eq($endDate) && in_array($this->day_type, ['morning', 'afternoon'])) {
+            return 0.5;
+        }
+
+        return $this->days;
+    }
+}

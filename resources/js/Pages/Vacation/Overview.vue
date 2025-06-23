@@ -10,18 +10,44 @@
             <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8">
                 <!-- Urlaubskontingent Karte -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-6 mb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
                         <div class="vacation-card">
-                            <div class="vacation-card-title">Gesamtes Urlaubskontingent</div>
-                            <div class="vacation-card-value">{{ vacationStats.total }} Tage</div>
-                            <div v-if="vacationStats.carryOver > 0" class="vacation-card-subtitle text-green-600 dark:text-green-400">
-                                inkl. {{ vacationStats.carryOver }} Resttage aus {{ previousYear }}
+                            <div class="vacation-card-title">Basis-Urlaubstage</div>
+                            <div class="vacation-card-value">{{ vacationStats.baseEntitlement }} Tage</div>
+                            <div class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
+                                Jahresanspruch {{ new Date().getFullYear() }}
+                            </div>
+                        </div>
+
+                        <div class="vacation-card">
+                            <div class="vacation-card-title">Übertrag aus Vorjahr</div>
+                            <div class="vacation-card-value text-green-600 dark:text-green-400">
+                                {{ vacationStats.carryOver }} Tage
+                            </div>
+                            <div v-if="vacationStats.carryOverExpires" class="vacation-card-subtitle text-orange-600 dark:text-orange-400">
+                                verfällt am {{ formatDate(vacationStats.carryOverExpires) }}
+                            </div>
+                            <div v-else class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
+                                kein Übertrag
+                            </div>
+                        </div>
+
+                        <div class="vacation-card">
+                            <div class="vacation-card-title">Gesamt verfügbar</div>
+                            <div class="vacation-card-value text-blue-600 dark:text-blue-400">
+                                {{ vacationStats.totalAvailable }} Tage
+                            </div>
+                            <div class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
+                                Basis + Übertrag
                             </div>
                         </div>
 
                         <div class="vacation-card">
                             <div class="vacation-card-title">Genommen</div>
                             <div class="vacation-card-value">{{ vacationStats.used }} Tage</div>
+                            <div v-if="vacationStats.carryOverUsed > 0" class="vacation-card-subtitle text-orange-600 dark:text-orange-400">
+                                davon {{ vacationStats.carryOverUsed }} aus Übertrag
+                            </div>
                         </div>
 
                         <div class="vacation-card">
@@ -32,13 +58,22 @@
                         <div class="vacation-card">
                             <div class="vacation-card-title">Verbleibend</div>
                             <div class="vacation-card-value">{{ vacationStats.remaining }} Tage</div>
+                            <div class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
+                                Übertragbar: max. {{ Math.min(vacationStats.remaining - vacationStats.planned, 10) }} Tage
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="vacation-card">
-                            <div class="vacation-card-title">Übertragbar ins nächste Jahr</div>
-                            <div class="vacation-card-value">{{ Math.min(vacationStats.remaining - vacationStats.planned, 10) }} Tage</div>
-                            <div class="vacation-card-subtitle text-gray-500 dark:text-gray-400">max. 10 Tage</div>
+                    <!-- NEU: Carry-Over Warnung -->
+                    <div v-if="vacationStats.carryOver > 0 && vacationStats.carryOverExpires"
+                         class="mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                        <div class="flex items-center gap-2 text-orange-700 dark:text-orange-300">
+                            <i class="pi pi-exclamation-triangle"></i>
+                            <span class="font-medium">Achtung: Übertragene Urlaubstage verfallen!</span>
                         </div>
+                        <p class="text-sm text-orange-600 dark:text-orange-400 mt-1">
+                            {{ vacationStats.carryOver - vacationStats.carryOverUsed }} übertragene Tage verfallen am {{ formatDate(vacationStats.carryOverExpires) }}.
+                        </p>
                     </div>
 
                     <div class="mt-6">
@@ -84,8 +119,20 @@
 
                                 <Column field="startDate" header="Zeitraum" :sortable="true">
                                     <template #body="{ data }">
-                                        {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
-                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ data.days }} Tage</div>
+                                        <div class="flex flex-col">
+                                            <div class="font-medium">
+                                                {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
+                                            </div>
+                                            <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
+                                                <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
+                                                <Tag
+                                                    :value="getDayTypeLabel(data.dayType)"
+                                                    :severity="getDayTypeSeverity(data.dayType)"
+                                                    class="text-xs"
+                                                />
+                                                <span>{{ getActualDays(data) }} {{ getActualDays(data) === 1 ? 'Tag' : 'Tage' }}</span>
+                                            </div>
+                                        </div>
                                     </template>
                                 </Column>
 
@@ -192,16 +239,20 @@
                                                     <td class="py-2 px-4 border-b text-right">{{ yearlyStats.baseEntitlement }}</td>
                                                 </tr>
                                                 <tr v-if="yearlyStats.carryOver > 0">
-                                                    <td class="py-2 px-4 border-b">Übertrag aus Vorjahr</td>
-                                                    <td class="py-2 px-4 border-b text-right">+ {{ yearlyStats.carryOver }}</td>
+                                                    <td class="py-2 px-4 border-b text-green-600 dark:text-green-400">Übertrag aus Vorjahr</td>
+                                                    <td class="py-2 px-4 border-b text-right text-green-600 dark:text-green-400">+ {{ yearlyStats.carryOver }}</td>
                                                 </tr>
                                                 <tr>
                                                     <td class="py-2 px-4 border-b font-semibold">Gesamtanspruch</td>
                                                     <td class="py-2 px-4 border-b text-right font-semibold">{{ yearlyStats.totalEntitlement }}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="py-2 px-4 border-b">Genommen</td>
-                                                    <td class="py-2 px-4 border-b text-right">- {{ yearlyStats.used }}</td>
+                                                    <td class="py-2 px-4 border-b">Genommen (regulär)</td>
+                                                    <td class="py-2 px-4 border-b text-right">- {{ yearlyStats.used - (yearlyStats.carryOverUsed || 0) }}</td>
+                                                </tr>
+                                                <tr v-if="yearlyStats.carryOverUsed > 0">
+                                                    <td class="py-2 px-4 border-b text-orange-600 dark:text-orange-400">Genommen (aus Übertrag)</td>
+                                                    <td class="py-2 px-4 border-b text-right text-orange-600 dark:text-orange-400">- {{ yearlyStats.carryOverUsed }}</td>
                                                 </tr>
                                                 <tr>
                                                     <td class="py-2 px-4 border-b">Geplant</td>
@@ -264,7 +315,20 @@
                                     <DataTable :value="yearVacationDetails" stripedRows class="p-datatable-sm" responsiveLayout="scroll"
                                                :paginator="yearVacationDetails.length > 10" :rows="10">
                                         <Column field="period" header="Zeitraum" :sortable="true"></Column>
-                                        <Column field="days" header="Tage" :sortable="true"></Column>
+                                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
+                                        <Column field="dayTypeLabel" header="Art" :sortable="true">
+                                            <template #body="slotProps">
+                                                <Tag
+                                                    :value="slotProps.data.dayTypeLabel || 'Ganzer Tag'"
+                                                    :severity="getDayTypeSeverity(slotProps.data.dayType || 'full_day')"
+                                                />
+                                            </template>
+                                        </Column>
+                                        <Column field="actualDays" header="Tatsächliche Tage" :sortable="true">
+                                            <template #body="slotProps">
+                                                {{ slotProps.data.actualDays || slotProps.data.days }} Tage
+                                            </template>
+                                        </Column>
                                         <Column field="status" header="Status" :sortable="true">
                                             <template #body="slotProps">
                                                 <Tag :value="getStatusLabel(slotProps.data.status)" :severity="getStatusSeverity(slotProps.data.status)" />
@@ -300,7 +364,7 @@
         <Dialog
             v-model:visible="showRequestDetails"
             :header="'Urlaubsantrag Details'"
-            :style="{ width: '500px' }"
+            :style="{ width: '600px' }"
             :modal="true"
         >
             <div v-if="selectedRequest" class="request-details">
@@ -309,22 +373,23 @@
                         <div class="detail-label">Zeitraum:</div>
                         <div class="detail-value">{{ formatDate(selectedRequest.startDate) }} - {{ formatDate(selectedRequest.endDate) }}</div>
                     </div>
+                    <!-- NEU: Zeige Urlaubstyp -->
                     <div class="col-12 md:col-6">
-                        <div class="detail-label">Anzahl Tage:</div>
-                        <div class="detail-value">{{ selectedRequest.days }} Tage</div>
+                        <div class="detail-label">Art:</div>
+                        <div class="detail-value">
+                            <Tag
+                                :value="getDayTypeLabel(selectedRequest.dayType)"
+                                :severity="getDayTypeSeverity(selectedRequest.dayType)"
+                            />
+                        </div>
+                    </div>
+                    <div class="col-12 md:col-6">
+                        <div class="detail-label">Tatsächliche Tage:</div>
+                        <div class="detail-value">{{ getActualDays(selectedRequest) }} Tage</div>
                     </div>
                     <div class="col-12 md:col-6">
                         <div class="detail-label">Beantragt am:</div>
                         <div class="detail-value">{{ formatDate(selectedRequest.requestDate) }}</div>
-                    </div>
-                    <div class="col-12 md:col-6">
-                        <div class="detail-label">Status:</div>
-                        <div class="detail-value">
-                            <Tag
-                                :severity="getStatusSeverity(selectedRequest.status)"
-                                :value="getStatusLabel(selectedRequest.status)"
-                            />
-                        </div>
                     </div>
                     <div class="col-12 md:col-6" v-if="selectedRequest.substitute">
                         <div class="detail-label">Vertretung:</div>
@@ -434,7 +499,7 @@ const chartOptions = ref({
         y: {
             beginAtZero: true,
             ticks: {
-                stepSize: 1,
+                stepSize: 0.5, // NEU: Erlaubt halbe Schritte für Halbtage
             },
         },
     },
@@ -447,6 +512,10 @@ const vacationStats = ref({
     planned: 0,
     remaining: 0,
     carryOver: 0,
+    carryOverUsed: 0,
+    carryOverExpires: null,
+    baseEntitlement: 0, // NEU: Basis-Urlaubstage ohne Übertrag
+    totalAvailable: 0   // NEU: Gesamt verfügbare Tage (inkl. Übertrag)
 })
 
 // Berechneter Prozentsatz der verbrauchten Urlaubstage
@@ -463,6 +532,50 @@ const myVacationRequests = ref([])
 
 // Feiertage für das aktuelle Jahr
 const holidays = ref([]);
+
+// NEU: Hilfsfunktionen für Halbtags-Anzeige
+const getDayTypeLabel = (dayType) => {
+    switch (dayType) {
+        case 'morning':
+            return 'Vormittag'
+        case 'afternoon':
+            return 'Nachmittag'
+        case 'full_day':
+        default:
+            return 'Ganzer Tag'
+    }
+}
+
+const getDayTypeSeverity = (dayType) => {
+    switch (dayType) {
+        case 'morning':
+            return 'info'
+        case 'afternoon':
+            return 'warning'
+        case 'full_day':
+        default:
+            return 'primary'
+    }
+}
+
+const getActualDays = (request) => {
+    // Verwende actualDays falls vorhanden, sonst berechne basierend auf dayType
+    if (request.actualDays !== undefined) {
+        return request.actualDays
+    }
+
+    // Fallback-Berechnung
+    if (request.dayType && request.dayType !== 'full_day') {
+        // Prüfe ob es ein einzelner Tag ist
+        const startDate = dayjs(request.startDate)
+        const endDate = dayjs(request.endDate)
+        if (startDate.isSame(endDate, 'day')) {
+            return 0.5
+        }
+    }
+
+    return request.days || 0
+}
 
 // Feiertage laden
 const fetchHolidays = async (year) => {
@@ -552,10 +665,11 @@ const cancelRequest = async (request) => {
             myVacationRequests.value.splice(index, 1);
         }
 
-        // Urlaubsstatistik aktualisieren
+        // Urlaubsstatistik aktualisieren - NEU: Verwende actualDays
         if (request.status === "approved") {
-            vacationStats.value.planned -= request.days;
-            vacationStats.value.remaining += request.days;
+            const actualDays = getActualDays(request)
+            vacationStats.value.planned -= actualDays;
+            vacationStats.value.remaining += actualDays;
         }
 
         // Kalender aktualisieren
@@ -609,9 +723,15 @@ const updateCalendarEvents = () => {
                 break // Blue
         }
 
+        // NEU: Zeige Urlaubstyp im Titel
+        let title = getStatusLabel(request.status)
+        if (request.dayType && request.dayType !== 'full_day') {
+            title += ` (${getDayTypeLabel(request.dayType)})`
+        }
+
         events.push({
             id: request.id.toString(),
-            title: getStatusLabel(request.status),
+            title: title,
             start: request.startDate,
             end: dayjs(request.endDate).add(1, "day").toDate(), // FullCalendar ist exklusiv für Enddatum
             allDay: true,
@@ -619,6 +739,8 @@ const updateCalendarEvents = () => {
             borderColor: color,
             extendedProps: {
                 status: request.status,
+                dayType: request.dayType,
+                actualDays: getActualDays(request)
             },
         });
     });
@@ -657,31 +779,32 @@ const fetchVacationData = async () => {
 
         // Aktualisiere die Urlaubsstatistik mit den übertragenen Tagen
         vacationStats.value = {
+            baseEntitlement: response.data.stats.baseEntitlement || 30,
+            carryOver: response.data.stats.carryOver || 0,
+            carryOverUsed: response.data.stats.carryOverUsed || 0,
+            carryOverExpires: response.data.stats.carryOverExpires || null,
+            totalAvailable: response.data.stats.totalAvailable || response.data.stats.total,
             total: response.data.stats.total,
             used: response.data.stats.used,
             planned: response.data.stats.planned,
-            remaining: response.data.stats.remaining,
-            carryOver: response.data.stats.carryOver || 0, // Übertragene Tage aus dem Vorjahr
+            remaining: response.data.stats.remaining
         }
 
+        // Rest der Funktion bleibt gleich...
         myVacationRequests.value = response.data.requests
 
-        // Urlaubshistorie laden
         if (response.data.history) {
             vacationHistory.value = response.data.history
         }
 
-        // Aktualisiere die Daten für das aktuelle Jahr in der Statistik
         if (response.data.yearlyStats) {
             yearlyStats.value = response.data.yearlyStats[selectedStatYear.value] || yearlyStats.value
         }
 
-        // Aktualisiere die Urlaubsdetails für das ausgewählte Jahr
         if (response.data.yearVacationDetails) {
             yearVacationDetails.value = response.data.yearVacationDetails[selectedStatYear.value] || yearVacationDetails.value
         }
 
-        // Aktualisiere die Daten für das Balkendiagramm
         if (response.data.monthlyStats) {
             const monthlyData = response.data.monthlyStats[selectedStatYear.value] || Array(12).fill(0)
             monthlyChartData.value.datasets[0].data = monthlyData
@@ -712,7 +835,7 @@ const updateYearlyStats = async () => {
         // Aktualisiere die Daten für das Balkendiagramm
         // Hier müssten wir eigentlich die Daten vom Server laden, aber wir verwenden die vorhandenen Daten
         if (monthlyChartData.value && monthlyChartData.value.datasets && monthlyChartData.value.datasets.length > 0) {
-            // Berechne die monatlichen Urlaubstage aus den Urlaubsdetails
+            // Berechne die monatlichen Urlaubstage aus den Urlaubsdetails - NEU: Verwende actualDays
             const monthlyData = Array(12).fill(0)
 
             yearVacationDetails.value.forEach((detail) => {
@@ -723,7 +846,9 @@ const updateYearlyStats = async () => {
                         const startDateParts = periodParts[0].split(".")
                         if (startDateParts.length === 3) {
                             const month = parseInt(startDateParts[1]) - 1 // 0-basierter Index
-                            monthlyData[month] += detail.days
+                            // NEU: Verwende actualDays falls vorhanden
+                            const daysToAdd = detail.actualDays || detail.days
+                            monthlyData[month] += daysToAdd
                         }
                     }
                 }
@@ -780,7 +905,6 @@ watch(selectedStatYear, (newYear) => {
     updateYearlyStats()
     fetchHolidays(newYear);
 })
-
 
 </script>
 
