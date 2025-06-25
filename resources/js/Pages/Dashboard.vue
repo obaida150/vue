@@ -4,6 +4,7 @@ import { useToast } from 'primevue/usetoast';
 import axios from 'axios';
 import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import dayjs from 'dayjs'; // Import dayjs
 
 // PrimeVue Komponenten explizit importieren
 import ToggleSwitch from 'primevue/toggleswitch';
@@ -169,6 +170,26 @@ function getStatusSeverity(status) {
     }
 }
 
+// NEU: Hilfsfunktion für Halbtags-Anzeige
+const getActualDays = (request) => {
+    // Verwende actualDays falls vorhanden, sonst berechne basierend auf dayType
+    if (request.actualDays !== undefined) {
+        return request.actualDays
+    }
+
+    // Fallback-Berechnung
+    if (request.dayType && request.dayType !== 'full_day') {
+        // Prüfe ob es ein einzelner Tag ist
+        const startDate = dayjs(request.start_date) // Use start_date from dashboard data
+        const endDate = dayjs(request.end_date) // Use end_date from dashboard data
+        if (startDate.isSame(endDate, 'day')) {
+            return 0.5
+        }
+    }
+
+    return request.days || 0
+}
+
 // Verbessere die loadTeamVacationOverview-Funktion, um die Abteilungszuweisung zu korrigieren
 async function loadTeamVacationOverview() {
     try {
@@ -238,9 +259,8 @@ async function loadTeamVacationOverview() {
             const usedDays = employeeRequests
                 .filter(req => req.status === 'approved')
                 .reduce((sum, req) => {
-                    // Prüfe, ob days eine Zahl ist
-                    const days = typeof req.days === 'number' ? req.days : parseInt(req.days, 10);
-                    return sum + (isNaN(days) ? 0 : days);
+                    // Verwende getActualDays für die Berechnung
+                    return sum + getActualDays(req);
                 }, 0);
 
             // Standard-Urlaubsanspruch (kann angepasst werden)
@@ -553,9 +573,8 @@ async function loadVacationData() {
             const usedDays = employeeRequests
                 .filter(req => req.status === 'approved')
                 .reduce((sum, req) => {
-                    // Prüfe, ob days eine Zahl ist
-                    const days = typeof req.days === 'number' ? req.days : parseInt(req.days, 10);
-                    return sum + (isNaN(days) ? 0 : days);
+                    // Verwende getActualDays für die Berechnung
+                    return sum + getActualDays(req);
                 }, 0);
 
             // Aktualisiere die Urlaubsstatistik
@@ -568,7 +587,8 @@ async function loadVacationData() {
                 end_date: req.end_date,
                 days: req.days,
                 status: req.status,
-                notes: req.notes || ''
+                notes: req.notes || '',
+                dayType: req.day_type // Hinzugefügt: day_type vom Backend
             }));
 
             return; // Wir haben die Daten bereits verarbeitet
@@ -592,7 +612,8 @@ async function loadVacationData() {
             end_date: req.endDate,
             days: req.days,
             status: req.status,
-            notes: req.notes || ''
+            notes: req.notes || '',
+            dayType: req.dayType // Hinzugefügt: dayType vom Backend
         }));
     } catch (error) {
         console.error('Fehler beim Laden der Urlaubsdaten:', error);
@@ -1068,7 +1089,11 @@ onMounted(() => {
                                             {{ formatDate(slotProps.data.end_date) }}
                                         </template>
                                     </Column>
-                                    <Column field="days" header="Tage" :sortable="true"></Column>
+                                    <Column field="days" header="Tage" :sortable="true">
+                                        <template #body="slotProps">
+                                            {{ getActualDays(slotProps.data) }}
+                                        </template>
+                                    </Column>
                                     <Column field="status" header="Status" :sortable="true">
                                         <template #body="slotProps">
                                             <Tag
