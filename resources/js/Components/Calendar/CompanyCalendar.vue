@@ -383,7 +383,7 @@
                     <div
                         v-for="dayNum in daysInMonth"
                         :key="dayNum"
-                        class="w-[30px] min-w-[30px] py-2 text-center text-sm font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
+                        class="w-[50px] min-w-[30px] py-2 text-center text-sm font-bold border-l border-gray-200 dark:border-gray-700 transition-colors"
                         :class="{
                             'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
                             'bg-red-50 dark:bg-red-900/20': isHolidayInMonth(dayNum),
@@ -392,7 +392,7 @@
                         }"
                     >
                         <div :class="{ 'text-red-500': isHolidayInMonth(dayNum) }">{{ dayNum }}</div>
-                        <div v-if="isHolidayInMonth(dayNum)" class="absolute w-2 h-2 bg-red-500 rounded-full top-0 right-0 m-1" :title="getHolidayNameInMonth(dayNum)"></div>
+                        <div v-if="isHolidayInMonth(dayNum)" class="" :title="getHolidayNameInMonth(dayNum)"></div>
                     </div>
                 </div>
 
@@ -415,7 +415,7 @@
                         <div
                             v-for="dayNum in daysInMonth"
                             :key="dayNum"
-                            class="w-[30px] min-w-[30px] h-[30px] flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors relative"
+                            class="w-[50px] min-w-[30px] h-[30px] flex items-center justify-center border-l border-gray-200 dark:border-gray-700 transition-colors relative"
                             :class="{
                                 'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
                                 'bg-red-50 dark:bg-red-900/20': isHolidayInMonth(dayNum),

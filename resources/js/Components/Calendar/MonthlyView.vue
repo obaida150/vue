@@ -97,9 +97,6 @@
                 <div v-if="hasVacationsForDay(day.date)" class="vacation-blocked">
                     <div class="text-xs text-purple-600 dark:text-purple-400 mb-1">
                         Urlaub
-<!--                        <span v-if="getVacationDetailsForDay(day.date)" class="ml-1 text-xs">-->
-<!--                            ({{ getVacationDetailsForDay(day.date).days }} Tage)-->
-<!--                        </span>-->
                     </div>
                     <div class="flex flex-col items-center justify-center mt-2 p-2 bg-purple-50/80 dark:bg-purple-900/30 rounded">
                         <i class="pi pi-ban text-purple-500 dark:text-purple-400 text-lg mb-1"></i>
