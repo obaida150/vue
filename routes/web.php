@@ -197,6 +197,7 @@ Route::middleware([
     Route::get('/vacation-wishes/team/{year?}', [VacationWishController::class, 'getTeamWishes'])->name('api.vacation-wishes.team');
     Route::post('/vacation-wishes', [VacationWishController::class, 'store'])->name('api.vacation-wishes.store');
     Route::delete('/vacation-wishes/{id}', [VacationWishController::class, 'destroy'])->name('api.vacation-wishes.destroy');
+    Route::post('/vacation/cancel-approved/{id}', [VacationController::class, 'cancelApprovedRequest'])->name('api.vacation.cancel-approved');
 
     // Debug route für alle Urlaubswünsche - nur für Entwicklung
     Route::get('/vacation-wishes/all', [VacationWishController::class, 'getAllWishes'])->name('api.vacation-wishes.all');

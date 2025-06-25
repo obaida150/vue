@@ -13,7 +13,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
                         <div class="vacation-card">
                             <div class="vacation-card-title">Basis-Urlaubstage</div>
-                            <div class="vacation-card-value">{{ vacationStats.baseEntitlement }} Tage</div>
+                            <div class="vacation-card-value">{{ vacationStats.baseEntitlement || 0 }} Tage</div>
                             <div class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
                                 Jahresanspruch {{ new Date().getFullYear() }}
                             </div>
@@ -22,9 +22,12 @@
                         <div class="vacation-card">
                             <div class="vacation-card-title">Übertrag aus Vorjahr</div>
                             <div class="vacation-card-value text-green-600 dark:text-green-400">
-                                {{ vacationStats.carryOver }} Tage
+                                {{ vacationStats.carryOver || 0 }} Tage
                             </div>
-                            <div v-if="vacationStats.carryOverExpires" class="vacation-card-subtitle text-orange-600 dark:text-orange-400">
+                            <div v-if="vacationStats.carryOverUsed > 0" class="vacation-card-subtitle text-orange-600 dark:text-orange-400">
+                                {{ vacationStats.carryOverUsed }} bereits verwendet
+                            </div>
+                            <div v-else-if="vacationStats.carryOverExpires" class="vacation-card-subtitle text-orange-600 dark:text-orange-400">
                                 verfällt am {{ formatDate(vacationStats.carryOverExpires) }}
                             </div>
                             <div v-else class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
@@ -35,7 +38,7 @@
                         <div class="vacation-card">
                             <div class="vacation-card-title">Gesamt verfügbar</div>
                             <div class="vacation-card-value text-blue-600 dark:text-blue-400">
-                                {{ vacationStats.totalAvailable }} Tage
+                                {{ vacationStats.totalAvailable || vacationStats.total || 0 }} Tage
                             </div>
                             <div class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
                                 Basis + Übertrag
@@ -44,27 +47,37 @@
 
                         <div class="vacation-card">
                             <div class="vacation-card-title">Genommen</div>
-                            <div class="vacation-card-value">{{ vacationStats.used }} Tage</div>
-                            <div v-if="vacationStats.carryOverUsed > 0" class="vacation-card-subtitle text-orange-600 dark:text-orange-400">
-                                davon {{ vacationStats.carryOverUsed }} aus Übertrag
+                            <div class="vacation-card-value">{{ vacationStats.used || 0 }} Tage</div>
+                            <!-- NEU: Detaillierte Aufschlüsselung -->
+                            <div v-if="vacationStats.usedCarryOver > 0" class="vacation-card-subtitle">
+                                <div class="text-orange-600 dark:text-orange-400">{{ vacationStats.usedCarryOver }} aus Übertrag</div>
+                                <div class="text-gray-500 dark:text-gray-400">{{ vacationStats.usedRegular }} regulär</div>
+                            </div>
+                            <div v-else class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
+                                alle aus regulärem Kontingent
                             </div>
                         </div>
 
                         <div class="vacation-card">
                             <div class="vacation-card-title">Geplant</div>
-                            <div class="vacation-card-value">{{ vacationStats.planned }} Tage</div>
+                            <div class="vacation-card-value">{{ vacationStats.planned || 0 }} Tage</div>
                         </div>
 
                         <div class="vacation-card">
                             <div class="vacation-card-title">Verbleibend</div>
-                            <div class="vacation-card-value">{{ vacationStats.remaining }} Tage</div>
-                            <div class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
-                                Übertragbar: max. {{ Math.min(vacationStats.remaining - vacationStats.planned, 10) }} Tage
+                            <div class="vacation-card-value">{{ vacationStats.remaining || 0 }} Tage</div>
+                            <!-- NEU: Aufschlüsselung der verbleibenden Tage -->
+                            <div v-if="vacationStats.remainingCarryOver > 0" class="vacation-card-subtitle">
+                                <div class="text-orange-600 dark:text-orange-400">{{ vacationStats.remainingCarryOver }} aus Übertrag</div>
+                                <div class="text-gray-500 dark:text-gray-400">{{ vacationStats.remainingRegular }} regulär</div>
+                            </div>
+                            <div v-else class="vacation-card-subtitle text-gray-500 dark:text-gray-400">
+                                Übertragbar: max. {{ Math.min(Math.max(vacationStats.remaining - vacationStats.planned, 0), 10) }} Tage
                             </div>
                         </div>
                     </div>
 
-                    <!-- NEU: Carry-Over Warnung -->
+                    <!-- ERWEITERTE Carry-Over Warnung mit FIFO-Hinweis -->
                     <div v-if="vacationStats.carryOver > 0 && vacationStats.carryOverExpires"
                          class="mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
                         <div class="flex items-center gap-2 text-orange-700 dark:text-orange-300">
@@ -72,7 +85,24 @@
                             <span class="font-medium">Achtung: Übertragene Urlaubstage verfallen!</span>
                         </div>
                         <p class="text-sm text-orange-600 dark:text-orange-400 mt-1">
-                            {{ vacationStats.carryOver - vacationStats.carryOverUsed }} übertragene Tage verfallen am {{ formatDate(vacationStats.carryOverExpires) }}.
+                            {{ Math.max(vacationStats.carryOver - (vacationStats.carryOverUsed || 0), 0) }} übertragene Tage verfallen am {{ formatDate(vacationStats.carryOverExpires) }}.
+                        </p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                            <i class="pi pi-info-circle mr-1"></i>
+                            Übertragene Tage werden automatisch zuerst verbraucht.
+                        </p>
+                    </div>
+
+                    <!-- NEU: FIFO-Informationsbox -->
+                    <div v-if="vacationStats.carryOver > 0"
+                         class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div class="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                            <i class="pi pi-info-circle"></i>
+                            <span class="font-medium">Reihenfolge der Urlaubstage-Verwendung</span>
+                        </div>
+                        <p class="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                            Bei neuen Urlaubsanträgen werden zuerst die übertragenen Tage ({{ vacationStats.remainingCarryOver || 0 }} verbleibend)
+                            und dann die regulären Tage ({{ vacationStats.remainingRegular || 0 }} verbleibend) verwendet.
                         </p>
                     </div>
 
@@ -218,7 +248,7 @@
                                 <h3 class="text-xl font-bold mb-4">Urlaubsstatistik</h3>
 
                                 <div class="mb-6">
-                                    <Select v-model="selectedStatYear" :options="availableYears" optionLabel="name" optionValue="value" placeholder="Jahr auswählen" class="w-full sm:w-auto" @change="updateYearlyStats" />
+                                    <Select v-model="selectedStatYear" :options="availableYears" optionLabel="name" optionValue="value" placeholder="Jahr auswählen" class="w-full sm:w-auto" />
                                 </div>
 
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -777,21 +807,26 @@ const fetchVacationData = async () => {
     try {
         const response = await VacationService.getUserVacationData()
 
-        // Aktualisiere die Urlaubsstatistik mit den übertragenen Tagen
+        // ERWEITERT: Verwende die neuen detaillierten Felder vom Backend
         vacationStats.value = {
             baseEntitlement: response.data.stats.baseEntitlement || 30,
             carryOver: response.data.stats.carryOver || 0,
             carryOverUsed: response.data.stats.carryOverUsed || 0,
+            carryOverRemaining: response.data.stats.carryOverRemaining || 0,
             carryOverExpires: response.data.stats.carryOverExpires || null,
-            totalAvailable: response.data.stats.totalAvailable || response.data.stats.total,
-            total: response.data.stats.total,
-            used: response.data.stats.used,
-            planned: response.data.stats.planned,
-            remaining: response.data.stats.remaining
+            totalAvailable: response.data.stats.totalAvailable || response.data.stats.total || 0,
+            total: response.data.stats.total || 0, // Für Rückwärtskompatibilität
+            used: response.data.stats.used || 0, // Gesamte verwendete Tage
+            usedRegular: response.data.stats.usedRegular || 0, // Nur reguläre Tage
+            usedCarryOver: response.data.stats.usedCarryOver || 0, // Nur Übertragstage
+            planned: response.data.stats.planned || 0,
+            remaining: response.data.stats.remaining || 0,
+            remainingRegular: response.data.stats.remainingRegular || 0,
+            remainingCarryOver: response.data.stats.remainingCarryOver || 0
         }
 
         // Rest der Funktion bleibt gleich...
-        myVacationRequests.value = response.data.requests
+        myVacationRequests.value = response.data.requests || []
 
         if (response.data.history) {
             vacationHistory.value = response.data.history
@@ -905,7 +940,6 @@ watch(selectedStatYear, (newYear) => {
     updateYearlyStats()
     fetchHolidays(newYear);
 })
-
 </script>
 
 <style scoped>

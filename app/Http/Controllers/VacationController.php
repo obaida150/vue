@@ -19,7 +19,7 @@ class VacationController extends Controller
 {
     /**
      * Get user vacation data
-     * ERWEITERT für Halbtags-Feature
+     * KORRIGIERT für neue Übertrag-Felder
      */
     public function getUserData()
     {
@@ -38,12 +38,20 @@ class VacationController extends Controller
                     'user_id' => $user->id,
                     'year' => $currentYear,
                     'total_days' => $user->vacation_days_per_year,
-                    'used_days' => 0
+                    'used_days' => 0,
+                    'carry_over_days' => 0,
+                    'carry_over_used' => 0,
+                    'carry_over_expires_at' => Carbon::create($currentYear, 7, 31), // 31. Juli
+                    'max_carry_over' => 10
                 ]);
             }
 
+            // Verwende die neuen Datenbankfelder für Übertragstage
+            $carryOver = $vacationBalance->carry_over_days ?? 0;
+            $carryOverUsed = $vacationBalance->carry_over_used ?? 0;
+            $carryOverExpires = $vacationBalance->carry_over_expires_at;
+
             // Berechne geplante Tage (genehmigte, aber noch nicht genommene Urlaubsanträge)
-            // ANGEPASST: Verwende getActualDays() für korrekte Halbtags-Berechnung
             $plannedDaysQuery = VacationRequest::where('user_id', $user->id)
                 ->where('status', 'approved')
                 ->where('start_date', '>=', Carbon::now())
@@ -53,36 +61,38 @@ class VacationController extends Controller
                 return $this->calculateActualDays($request);
             });
 
-            // Berechne übertragene Tage aus dem Vorjahr
-            $previousYearBalance = VacationBalance::where('user_id', $user->id)
-                ->where('year', $currentYear - 1)
-                ->first();
-
-            $carryOver = 0;
-            if ($previousYearBalance) {
-                // Maximal 10 Tage können übertragen werden
-                $carryOver = min(10, $previousYearBalance->total_days - $previousYearBalance->used_days);
-            }
-
             // Korrigierte Berechnung der verbleibenden Tage
-            // Gesamtkontingent = Basis + Übertrag
-            $totalEntitlement = $vacationBalance->total_days + $carryOver;
+            $baseEntitlement = $vacationBalance->total_days;
+            $totalEntitlement = $baseEntitlement + $carryOver;
 
             // Verbleibende Tage = Gesamtkontingent - Bereits genommene Tage
-            $remainingDays = $totalEntitlement - $vacationBalance->used_days;
-
-            // Stellen sicher, dass verbleibende Tage nicht negativ werden
+            $totalUsedDays = $vacationBalance->used_days + $carryOverUsed;
+            $remainingDays = $totalEntitlement - $totalUsedDays;
             $remainingDays = max(0, $remainingDays);
 
+            // NEU: Detaillierte Aufschlüsselung der verbleibenden Tage
+            $remainingCarryOver = max(0, $carryOver - $carryOverUsed);
+            $remainingRegular = max(0, $baseEntitlement - $vacationBalance->used_days);
+
+            // ERWEITERTE Statistik mit Übertrag-Details
             $stats = [
-                'total' => $totalEntitlement,
-                'used' => $vacationBalance->used_days,
+                'baseEntitlement' => $baseEntitlement,
+                'carryOver' => $carryOver,
+                'carryOverUsed' => $carryOverUsed,
+                'carryOverRemaining' => $remainingCarryOver, // NEU
+                'carryOverExpires' => $carryOverExpires ? $carryOverExpires->format('Y-m-d') : null,
+                'totalAvailable' => $totalEntitlement,
+                'total' => $totalEntitlement, // Für Rückwärtskompatibilität
+                'used' => $totalUsedDays, // NEU: Gesamte verwendete Tage (regulär + Übertrag)
+                'usedRegular' => $vacationBalance->used_days, // NEU: Nur reguläre verwendete Tage
+                'usedCarryOver' => $carryOverUsed, // NEU: Nur verwendete Übertragstage
                 'planned' => $plannedDays,
                 'remaining' => $remainingDays,
-                'carryOver' => $carryOver
+                'remainingRegular' => $remainingRegular, // NEU: Verbleibende reguläre Tage
+                'remainingCarryOver' => $remainingCarryOver // NEU: Verbleibende Übertragstage
             ];
 
-            // Urlaubsanträge des Benutzers
+            // Rest der Methode bleibt gleich...
             $requests = VacationRequest::where('user_id', $user->id)
                 ->with(['substitute', 'approver', 'rejector'])
                 ->orderBy('created_at', 'desc')
@@ -93,9 +103,9 @@ class VacationController extends Controller
                         'startDate' => $request->start_date->format('Y-m-d'),
                         'endDate' => $request->end_date->format('Y-m-d'),
                         'days' => $request->days,
-                        'dayType' => $request->day_type ?? 'full_day', // NEU
-                        'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
-                        'actualDays' => $this->calculateActualDays($request), // NEU
+                        'dayType' => $request->day_type ?? 'full_day',
+                        'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'),
+                        'actualDays' => $this->calculateActualDays($request),
                         'requestDate' => $request->created_at->format('Y-m-d H:i:s'),
                         'status' => $request->status,
                         'substitute' => $request->substitute ? [
@@ -119,8 +129,8 @@ class VacationController extends Controller
                         'start' => $request->start_date->format('Y-m-d'),
                         'end' => $request->end_date->format('Y-m-d'),
                         'userId' => $request->user_id,
-                        'dayType' => $request->day_type ?? 'full_day', // NEU
-                        'actualDays' => $this->calculateActualDays($request) // NEU
+                        'dayType' => $request->day_type ?? 'full_day',
+                        'actualDays' => $this->calculateActualDays($request)
                     ];
                 });
 
@@ -141,7 +151,7 @@ class VacationController extends Controller
                     });
             }
 
-            // Urlaubshistorie für die letzten Jahre
+            // Urlaubshistorie für die letzten Jahre - KORRIGIERT
             $history = [];
             $startYear = $currentYear - 5;
 
@@ -151,35 +161,33 @@ class VacationController extends Controller
                     ->first();
 
                 if ($balance) {
-                    $prevYearBalance = VacationBalance::where('user_id', $user->id)
-                        ->where('year', $year - 1)
-                        ->first();
-
-                    $carryOverFromPrevYear = 0;
-                    if ($prevYearBalance) {
-                        $carryOverFromPrevYear = min(10, $prevYearBalance->total_days - $prevYearBalance->used_days);
-                    }
+                    $yearCarryOver = $balance->carry_over_days ?? 0;
+                    $yearCarryOverUsed = $balance->carry_over_used ?? 0;
 
                     $carryOverToNextYear = 0;
                     if ($year < $currentYear) {
-                        $carryOverToNextYear = min(10, $balance->total_days - $balance->used_days);
+                        $totalYearUsed = $balance->used_days + $yearCarryOverUsed;
+                        $carryOverToNextYear = min(10, $balance->total_days + $yearCarryOver - $totalYearUsed);
                     } else {
-                        $carryOverToNextYear = min(10, $stats['remaining']);
+                        $carryOverToNextYear = min(10, $remainingDays);
                     }
 
                     $history[] = [
                         'year' => $year,
                         'baseEntitlement' => $balance->total_days,
-                        'carryOver' => $carryOverFromPrevYear,
-                        'totalEntitlement' => $balance->total_days + $carryOverFromPrevYear,
-                        'used' => $balance->used_days,
-                        'remaining' => $balance->total_days + $carryOverFromPrevYear - $balance->used_days,
+                        'carryOver' => $yearCarryOver,
+                        'carryOverUsed' => $yearCarryOverUsed,
+                        'totalEntitlement' => $balance->total_days + $yearCarryOver,
+                        'used' => $balance->used_days + $yearCarryOverUsed, // Gesamte verwendete Tage
+                        'usedRegular' => $balance->used_days, // Nur reguläre Tage
+                        'usedCarryOver' => $yearCarryOverUsed, // Nur Übertragstage
+                        'remaining' => $balance->total_days + $yearCarryOver - ($balance->used_days + $yearCarryOverUsed),
                         'carryOverToNextYear' => $carryOverToNextYear
                     ];
                 }
             }
 
-            // Jahresstatistik für jedes Jahr
+            // Rest der Methode bleibt unverändert...
             $yearlyStats = [];
             $yearVacationDetails = [];
             $monthlyStats = [];
@@ -187,17 +195,14 @@ class VacationController extends Controller
             foreach ($history as $yearData) {
                 $year = $yearData['year'];
 
-                // Urlaubsanträge für dieses Jahr
                 $yearRequests = VacationRequest::where('user_id', $user->id)
                     ->whereYear('start_date', $year)
                     ->with(['substitute', 'approver', 'rejector'])
                     ->orderBy('start_date')
                     ->get();
 
-                // Monatsstatistik initialisieren
                 $monthlyData = array_fill(0, 12, 0);
 
-                // Details für jeden Urlaubsantrag
                 $details = [];
                 foreach ($yearRequests as $request) {
                     $actualDays = $this->calculateActualDays($request);
@@ -205,30 +210,25 @@ class VacationController extends Controller
                     $details[] = [
                         'period' => $request->start_date->format('d.m.Y') . ' - ' . $request->end_date->format('d.m.Y'),
                         'days' => $request->days,
-                        'dayType' => $request->day_type ?? 'full_day', // NEU
-                        'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
-                        'actualDays' => $actualDays, // NEU
+                        'dayType' => $request->day_type ?? 'full_day',
+                        'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'),
+                        'actualDays' => $actualDays,
                         'status' => $request->status,
                         'requestDate' => $request->created_at->format('d.m.Y'),
                         'notes' => $request->notes
                     ];
 
-                    // Nur genehmigte Anträge für die Monatsstatistik zählen
                     if ($request->status === 'approved') {
-                        // Verteile die Tage auf die entsprechenden Monate
-                        $startMonth = $request->start_date->month - 1; // 0-basierter Index
+                        $startMonth = $request->start_date->month - 1;
                         $endMonth = $request->end_date->month - 1;
 
                         if ($startMonth === $endMonth) {
-                            // Wenn der Urlaub im selben Monat ist, verwende actualDays
                             $monthlyData[$startMonth] += $actualDays;
                         } else {
-                            // Wenn der Urlaub über mehrere Monate geht, verteile die Tage
                             $currentDate = $request->start_date->copy();
                             while ($currentDate->lte($request->end_date)) {
-                                // Zähle nur Werktage (Mo-Fr)
                                 $dayOfWeek = $currentDate->dayOfWeek;
-                                if ($dayOfWeek !== 0 && $dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
+                                if ($dayOfWeek !== 0 && $dayOfWeek !== 6) {
                                     $monthlyData[$currentDate->month - 1]++;
                                 }
                                 $currentDate->addDay();
@@ -263,14 +263,13 @@ class VacationController extends Controller
 
     /**
      * Get yearly vacation data
-     * ERWEITERT für Halbtags-Feature
+     * KORRIGIERT für neue Übertrag-Felder
      */
     public function getYearlyVacationData($year)
     {
         try {
             $user = Auth::user();
 
-            // Urlaubsstatistik für das angegebene Jahr
             $vacationBalance = VacationBalance::where('user_id', $user->id)
                 ->where('year', $year)
                 ->first();
@@ -280,6 +279,7 @@ class VacationController extends Controller
                     'stats' => [
                         'baseEntitlement' => $user->vacation_days_per_year,
                         'carryOver' => 0,
+                        'carryOverUsed' => 0,
                         'totalEntitlement' => $user->vacation_days_per_year,
                         'used' => 0,
                         'planned' => 0,
@@ -289,16 +289,9 @@ class VacationController extends Controller
                 ]);
             }
 
-            // Berechne übertragene Tage aus dem Vorjahr
-            $previousYearBalance = VacationBalance::where('user_id', $user->id)
-                ->where('year', $year - 1)
-                ->first();
-
-            $carryOver = 0;
-            if ($previousYearBalance) {
-                // Maximal 10 Tage können übertragen werden
-                $carryOver = min(10, $previousYearBalance->total_days - $previousYearBalance->used_days);
-            }
+            // KORRIGIERT: Verwende die neuen Datenbankfelder
+            $carryOver = $vacationBalance->carry_over_days ?? 0;
+            $carryOverUsed = $vacationBalance->carry_over_used ?? 0;
 
             // Berechne geplante Tage für das angegebene Jahr
             $plannedDays = 0;
@@ -315,7 +308,6 @@ class VacationController extends Controller
                 });
             }
 
-            // Korrigierte Berechnung der verbleibenden Tage
             $totalEntitlement = $vacationBalance->total_days + $carryOver;
             $remainingDays = $totalEntitlement - $vacationBalance->used_days;
             $remainingDays = max(0, $remainingDays);
@@ -323,28 +315,28 @@ class VacationController extends Controller
             $stats = [
                 'baseEntitlement' => $vacationBalance->total_days,
                 'carryOver' => $carryOver,
+                'carryOverUsed' => $carryOverUsed,
                 'totalEntitlement' => $totalEntitlement,
                 'used' => $vacationBalance->used_days,
                 'planned' => $plannedDays,
                 'remaining' => $remainingDays
             ];
 
-            // Urlaubsanträge für das angegebene Jahr
+            // Rest der Methode bleibt gleich...
             $yearRequests = VacationRequest::where('user_id', $user->id)
                 ->whereYear('start_date', $year)
                 ->with(['substitute', 'approver', 'rejector'])
                 ->orderBy('start_date')
                 ->get();
 
-            // Details für jeden Urlaubsantrag
             $details = [];
             foreach ($yearRequests as $request) {
                 $details[] = [
                     'period' => $request->start_date->format('d.m.Y') . ' - ' . $request->end_date->format('d.m.Y'),
                     'days' => $request->days,
-                    'dayType' => $request->day_type ?? 'full_day', // NEU
-                    'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'), // NEU
-                    'actualDays' => $this->calculateActualDays($request), // NEU
+                    'dayType' => $request->day_type ?? 'full_day',
+                    'dayTypeLabel' => $this->getDayTypeLabel($request->day_type ?? 'full_day'),
+                    'actualDays' => $this->calculateActualDays($request),
                     'status' => $request->status,
                     'requestDate' => $request->created_at->format('d.m.Y'),
                     'notes' => $request->notes
@@ -486,7 +478,7 @@ class VacationController extends Controller
                         'notes' => $request->notes,
                         'status' => $request->status,
                         'employee_name' => $request->user->full_name,
-                        'department' => $request->user->currentTeam ? $request->user->currentTeam->name : 'Keine Abteilung'
+                        'department' => $request->user->currentTeam ? $request->currentTeam->name : 'Keine Abteilung'
                     ];
                 });
 
@@ -1070,24 +1062,166 @@ class VacationController extends Controller
         // Finde oder erstelle die Urlaubsbilanz für dieses Jahr
         $balance = VacationBalance::firstOrCreate(
             ['user_id' => $vacationRequest->user_id, 'year' => $year],
-            ['total_days' => $vacationRequest->user->vacation_days_per_year, 'used_days' => 0]
+            [
+                'total_days' => $vacationRequest->user->vacation_days_per_year,
+                'used_days' => 0,
+                'carry_over_days' => 0,
+                'carry_over_used' => 0,
+                'carry_over_expires_at' => Carbon::create($year, 7, 31), // 31. juli
+                'max_carry_over' => 10
+            ]
         );
 
         // WICHTIG: Verwende calculateActualDays() für korrekte Halbtags-Berechnung
         $actualDays = $this->calculateActualDays($vacationRequest);
-        $balance->used_days += $actualDays;
+
+        // NEUE LOGIK: Übertragstage zuerst verbrauchen (FIFO)
+        $remainingDaysToDeduct = $actualDays;
+
+        // 1. Zuerst übertragene Tage verbrauchen
+        $availableCarryOverDays = $balance->carry_over_days - $balance->carry_over_used;
+
+        if ($availableCarryOverDays > 0 && $remainingDaysToDeduct > 0) {
+            $carryOverToUse = min($availableCarryOverDays, $remainingDaysToDeduct);
+            $balance->carry_over_used += $carryOverToUse;
+            $remainingDaysToDeduct -= $carryOverToUse;
+
+            Log::info('Übertragstage verwendet', [
+                'user_id' => $vacationRequest->user_id,
+                'year' => $year,
+                'carry_over_used' => $carryOverToUse,
+                'total_carry_over_used' => $balance->carry_over_used,
+                'remaining_carry_over' => $balance->carry_over_days - $balance->carry_over_used,
+                'vacation_request_id' => $vacationRequest->id
+            ]);
+        }
+
+        // 2. Dann reguläre Urlaubstage des aktuellen Jahres verbrauchen
+        if ($remainingDaysToDeduct > 0) {
+            $balance->used_days += $remainingDaysToDeduct;
+
+            Log::info('Reguläre Urlaubstage verwendet', [
+                'user_id' => $vacationRequest->user_id,
+                'year' => $year,
+                'regular_days_used' => $remainingDaysToDeduct,
+                'total_used_days' => $balance->used_days,
+                'vacation_request_id' => $vacationRequest->id
+            ]);
+        }
+
         $balance->save();
 
-        Log::info('Urlaubsbilanz aktualisiert', [
+        Log::info('Urlaubsbilanz aktualisiert mit FIFO-Logik', [
             'user_id' => $vacationRequest->user_id,
             'year' => $year,
-            'used_days' => $balance->used_days,
-            'actual_days_added' => $actualDays,
+            'actual_days_total' => $actualDays,
+            'carry_over_used_this_request' => min($availableCarryOverDays, $actualDays),
+            'regular_days_used_this_request' => max(0, $actualDays - $availableCarryOverDays),
+            'total_carry_over_used' => $balance->carry_over_used,
+            'total_used_days' => $balance->used_days,
             'day_type' => $vacationRequest->day_type ?? 'full_day',
             'vacation_request_id' => $vacationRequest->id
         ]);
     }
 
+    public function cancelApprovedRequest($id)
+    {
+        try {
+            $user = Auth::user();
+
+            // Urlaubsantrag laden - nur genehmigte Anträge können storniert werden
+            $vacationRequest = VacationRequest::where('user_id', $user->id)
+                ->where('id', $id)
+                ->where('status', 'approved')
+                ->firstOrFail();
+
+            // Prüfen, ob der Urlaub bereits begonnen hat
+            if ($vacationRequest->start_date <= Carbon::now()) {
+                return response()->json([
+                    'error' => 'Urlaubsanträge, die bereits begonnen haben, können nicht mehr storniert werden.'
+                ], 400);
+            }
+
+            // Urlaubstage zurückgeben (umgekehrte FIFO-Logik)
+            $this->refundVacationDays($vacationRequest);
+
+            // Status auf storniert setzen (anstatt zu löschen)
+            $vacationRequest->status = 'cancelled';
+            $vacationRequest->save();
+
+            return response()->json([
+                'message' => 'Urlaubsantrag erfolgreich storniert und Urlaubstage zurückgegeben'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in cancelApprovedRequest: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    private function refundVacationDays(VacationRequest $vacationRequest)
+    {
+        $year = $vacationRequest->start_date->year;
+
+        $balance = VacationBalance::where('user_id', $vacationRequest->user_id)
+            ->where('year', $year)
+            ->first();
+
+        if (!$balance) {
+            Log::warning('Keine Urlaubsbilanz gefunden für Rückerstattung', [
+                'user_id' => $vacationRequest->user_id,
+                'year' => $year,
+                'vacation_request_id' => $vacationRequest->id
+            ]);
+            return;
+        }
+
+        $actualDays = $this->calculateActualDays($vacationRequest);
+        $remainingDaysToRefund = $actualDays;
+
+        // LIFO-Logik: Zuletzt verwendete Tage zuerst zurückgeben
+        // 1. Zuerst reguläre Tage zurückgeben (falls welche verwendet wurden)
+        if ($balance->used_days > 0 && $remainingDaysToRefund > 0) {
+            $regularDaysToRefund = min($balance->used_days, $remainingDaysToRefund);
+            $balance->used_days -= $regularDaysToRefund;
+            $remainingDaysToRefund -= $regularDaysToRefund;
+
+            Log::info('Reguläre Urlaubstage zurückgegeben', [
+                'user_id' => $vacationRequest->user_id,
+                'year' => $year,
+                'regular_days_refunded' => $regularDaysToRefund,
+                'total_used_days' => $balance->used_days,
+                'vacation_request_id' => $vacationRequest->id
+            ]);
+        }
+
+        // 2. Dann übertragene Tage zurückgeben (falls welche verwendet wurden)
+        if ($balance->carry_over_used > 0 && $remainingDaysToRefund > 0) {
+            $carryOverToRefund = min($balance->carry_over_used, $remainingDaysToRefund);
+            $balance->carry_over_used -= $carryOverToRefund;
+            $remainingDaysToRefund -= $carryOverToRefund;
+
+            Log::info('Übertragstage zurückgegeben', [
+                'user_id' => $vacationRequest->user_id,
+                'year' => $year,
+                'carry_over_refunded' => $carryOverToRefund,
+                'total_carry_over_used' => $balance->carry_over_used,
+                'vacation_request_id' => $vacationRequest->id
+            ]);
+        }
+
+        $balance->save();
+
+        Log::info('Urlaubstage erfolgreich zurückgegeben', [
+            'user_id' => $vacationRequest->user_id,
+            'year' => $year,
+            'total_days_refunded' => $actualDays,
+            'final_used_days' => $balance->used_days,
+            'final_carry_over_used' => $balance->carry_over_used,
+            'vacation_request_id' => $vacationRequest->id
+        ]);
+    }
     /**
      * Cancel a vacation request
      */
