@@ -199,11 +199,13 @@ Route::middleware([
     Route::delete('/vacation-wishes/{id}', [VacationWishController::class, 'destroy'])->name('api.vacation-wishes.destroy');
     Route::post('/vacation/cancel-approved/{id}', [VacationController::class, 'cancelApprovedRequest'])->name('api.vacation.cancel-approved');
 
+
     // Debug route für alle Urlaubswünsche - nur für Entwicklung
     Route::get('/vacation-wishes/all', [VacationWishController::class, 'getAllWishes'])->name('api.vacation-wishes.all');
 
     // Urlaubskontingent API
     Route::get('/vacation/balance/{year?}', [VacationWishController::class, 'getVacationBalance'])->name('api.vacation.balance');
+    Route::get('/vacation/all-requests', [CalendarController::class, 'getAllVacationRequests']);
 
     // Kalender API
     Route::get('/calendar/company', [CalendarController::class, 'getCompanyData'])->name('api.calendar.company');

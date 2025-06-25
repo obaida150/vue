@@ -52,6 +52,7 @@
                         <div
                             v-if="hasVacations(day.date)"
                             class="absolute inset-0 opacity-80 z-0 rounded-full bg-purple-600"
+                            :title="`Urlaub am ${dayjs(day.date).format('DD.MM.YYYY')}`"
                         ></div>
                     </div>
                 </div>
@@ -125,24 +126,54 @@ defineEmits(['month-click', 'week-plan']);
 const getEventColorForDay = (date) => {
     if (!date) return null;
     const dateStr = dayjs(date).format('YYYY-MM-DD');
+
     const event = props.events.find(event => {
-        const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
-        const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
-        // Nur eigene Ereignisse berücksichtigen (vergleiche mit currentUserId)
-        return dateStr >= eventStartDate && dateStr <= eventEndDate && event.user_id === props.currentUserId;
+        let eventStartDate, eventEndDate;
+
+        if (event.startDate) {
+            eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+            eventEndDate = dayjs(event.endDate || event.startDate).format('YYYY-MM-DD');
+        } else if (event.start_date) {
+            eventStartDate = dayjs(event.start_date).format('YYYY-MM-DD');
+            eventEndDate = dayjs(event.end_date || event.start_date).format('YYYY-MM-DD');
+        } else if (event.date) {
+            eventStartDate = eventEndDate = dayjs(event.date).format('YYYY-MM-DD');
+        } else {
+            return false;
+        }
+
+        // Nur eigene Ereignisse berücksichtigen
+        return dateStr >= eventStartDate && dateStr <= eventEndDate &&
+            event.user_id === props.currentUserId;
     });
-    return event ? event.color : null;
+
+    return event ? (event.color || event.type?.color) : null;
 };
 
 // Prüft, ob ein Tag Ereignisse hat (nur eigene Ereignisse)
 const hasEvents = (date) => {
     if (!date) return false;
     const dateStr = dayjs(date).format('YYYY-MM-DD');
+
     return props.events.some(event => {
-        const eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
-        const eventEndDate = dayjs(event.endDate).format('YYYY-MM-DD');
+        // Prüfe verschiedene Datumsformate
+        let eventStartDate, eventEndDate;
+
+        if (event.startDate) {
+            eventStartDate = dayjs(event.startDate).format('YYYY-MM-DD');
+            eventEndDate = dayjs(event.endDate || event.startDate).format('YYYY-MM-DD');
+        } else if (event.start_date) {
+            eventStartDate = dayjs(event.start_date).format('YYYY-MM-DD');
+            eventEndDate = dayjs(event.end_date || event.start_date).format('YYYY-MM-DD');
+        } else if (event.date) {
+            eventStartDate = eventEndDate = dayjs(event.date).format('YYYY-MM-DD');
+        } else {
+            return false;
+        }
+
         // Nur eigene Ereignisse berücksichtigen
-        return dateStr >= eventStartDate && dateStr <= eventEndDate && event.user_id === props.currentUserId;
+        return dateStr >= eventStartDate && dateStr <= eventEndDate &&
+            event.user_id === props.currentUserId;
     });
 };
 

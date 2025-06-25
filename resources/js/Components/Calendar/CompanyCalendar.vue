@@ -1002,13 +1002,19 @@ const fetchCalendarData = async () => {
         const vacationEvents = vacationResponse.value.data
             .filter(vacation => vacation.status === 'approved') // Nur genehmigte Urlaubsanträge
             .map(vacation => {
+                let vacationName = 'Urlaub';
+                if (vacation.day_type === 'morning') {
+                    vacationName = 'Urlaub Vormittag';
+                } else if (vacation.day_type === 'afternoon') {
+                    vacationName = 'Urlaub Nachmittag';
+                }
                 return {
                     user_id: vacation.user_id,
                     date: vacation.start_date,
                     start_date: vacation.start_date,
                     end_date: vacation.end_date,
                     type: {
-                        name: 'Urlaub',
+                        name: vacationName,
                         value: 'vacation',
                         color: '#9C27B0'
                     },

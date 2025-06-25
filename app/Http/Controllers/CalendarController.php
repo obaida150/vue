@@ -192,12 +192,18 @@ class CalendarController extends Controller
                     $employee = $mappedEmployees->firstWhere('id', $request['user_id']);
                     if ($employee) {
                         foreach ($request['work_days'] as $workDay) {
+                            $vacationName = 'Urlaub';
+                            if (isset($request['day_type']) && $request['day_type'] === 'morning') {
+                                $vacationName = 'Vormittag';
+                            } elseif (isset($request['day_type']) && $request['day_type'] === 'afternoon') {
+                                $vacationName = 'Nachmittag';
+                            }
                             $employee['events'][] = [
                                 'date' => $workDay,
                                 'start_date' => $workDay,
                                 'end_date' => $workDay,
                                 'type' => [
-                                    'name' => 'Urlaub',
+                                    'name' => $vacationName,
                                     'value' => 'vacation',
                                     'color' => '#9C27B0'
                                 ],
@@ -338,6 +344,92 @@ class CalendarController extends Controller
             return response()->json($employees);
         } catch (\Exception $e) {
             Log::error('Fehler beim Abrufen der Mitarbeiterliste: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get all vacation requests for calendar display
+     */
+    public function getAllVacationRequests()
+    {
+        try {
+            Log::info('CalendarController::getAllVacationRequests wurde aufgerufen');
+
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json(['error' => 'User not authenticated'], 401);
+            }
+
+            // Prüfen, ob der Benutzer die HR-Rolle hat oder ein Abteilungsleiter ist
+            $isHR = $user->role_id === 2;
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+            }
+
+            if (!$isHR && !$isTeamManager) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            // Urlaubsanträge laden basierend auf der Rolle
+            $query = VacationRequest::with(['user', 'user.currentTeam'])
+                ->where('status', 'approved');
+
+            // Wenn der Benutzer ein Abteilungsleiter ist, nur Anträge aus seinem Team laden
+            if ($isTeamManager && !$isHR) {
+                $query->whereHas('user', function($q) use ($teamId) {
+                    $q->whereHas('teams', function($teamQuery) use ($teamId) {
+                        $teamQuery->where('teams.id', $teamId);
+                    });
+                });
+            }
+
+            $vacationRequests = $query->get()->map(function ($request) {
+                // Berechne die tatsächlichen Arbeitstage (Mo-Fr) im Urlaubszeitraum
+                $startDate = Carbon::parse($request->start_date);
+                $endDate = Carbon::parse($request->end_date);
+                $workDays = [];
+
+                $currentDate = $startDate->copy();
+                while ($currentDate->lte($endDate)) {
+                    // Nur Werktage (Mo-Fr) hinzufügen
+                    $dayOfWeek = $currentDate->dayOfWeek;
+                    if ($dayOfWeek !== 0 && $dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
+                        $workDays[] = $currentDate->format('Y-m-d');
+                    }
+                    $currentDate->addDay();
+                }
+
+                return [
+                    'id' => $request->id,
+                    'user_id' => $request->user_id,
+                    'start_date' => $request->start_date->format('Y-m-d'),
+                    'end_date' => $request->end_date->format('Y-m-d'),
+                    'work_days' => $workDays,
+                    'days' => $request->days,
+                    'day_type' => $request->day_type ?? 'full_day', //
+                    'notes' => $request->notes,
+                    'status' => $request->status,
+                    'employee_name' => $request->user ? $request->user->full_name : 'Unbekannt',
+                    'department' => $request->user && $request->user->currentTeam ? $request->user->currentTeam->name : 'Keine Abteilung'
+                ];
+            });
+
+            Log::info('Urlaubsanträge geladen: ' . $vacationRequests->count());
+
+            return response()->json($vacationRequests);
+
+        } catch (\Exception $e) {
+            Log::error('Fehler beim Laden der Urlaubsanträge: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

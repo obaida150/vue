@@ -93,10 +93,13 @@
                     </div>
                 </div>
 
-                <!-- Urlaubsanzeige mit Sperrsymbol -->
+                <!-- Ersetzen Sie den bestehenden Urlaubsanzeige-Block mit: -->
                 <div v-if="hasVacationsForDay(day.date)" class="vacation-blocked">
                     <div class="text-xs text-purple-600 dark:text-purple-400 mb-1">
                         Urlaub
+<!--                        <span v-if="getVacationDetailsForDay(day.date)" class="ml-1 text-xs">-->
+<!--                            ({{ getVacationDetailsForDay(day.date).days }} Tage)-->
+<!--                        </span>-->
                     </div>
                     <div class="flex flex-col items-center justify-center mt-2 p-2 bg-purple-50/80 dark:bg-purple-900/30 rounded">
                         <i class="pi pi-ban text-purple-500 dark:text-purple-400 text-lg mb-1"></i>
@@ -359,14 +362,41 @@ const selectedDayDate = ref(null);
 const eventSearchQuery = ref('');
 const selectedEventTypes = ref([]);
 
-// Lokale Funktion für Urlaubsprüfung
+// Ersetzen Sie die bestehende hasVacationsForDay Funktion mit:
 const hasVacationsForDay = (date) => {
     if (!date || !props.currentUserId) {
         return false;
     }
 
-    // Verwende die übergebene hasVacations Funktion
-    return props.hasVacations(date);
+    // Prüfe sowohl reguläre Urlaubsanträge als auch Übertragstage
+    const dateStr = dayjs(date).format('YYYY-MM-DD');
+
+    // Verwende die übergebene hasVacations Funktion, die jetzt auch Übertragstage berücksichtigt
+    return props.hasVacations(date) || props.vacations.some(vacation => {
+        if (vacation.user_id !== props.currentUserId) return false;
+
+        const startDate = dayjs(vacation.start_date).format('YYYY-MM-DD');
+        const endDate = dayjs(vacation.end_date).format('YYYY-MM-DD');
+
+        return dateStr >= startDate && dateStr <= endDate && vacation.status === 'approved';
+    });
+};
+
+// Neue Funktion für Urlaubsdetails
+const getVacationDetailsForDay = (date) => {
+    if (!date || !props.currentUserId) return null;
+
+    const dateStr = dayjs(date).format('YYYY-MM-DD');
+    const vacation = props.vacations.find(vacation => {
+        if (vacation.user_id !== props.currentUserId) return false;
+
+        const startDate = dayjs(vacation.start_date).format('YYYY-MM-DD');
+        const endDate = dayjs(vacation.end_date).format('YYYY-MM-DD');
+
+        return dateStr >= startDate && dateStr <= endDate && vacation.status === 'approved';
+    });
+
+    return vacation;
 };
 
 // Berechne den Header für den Dialog
