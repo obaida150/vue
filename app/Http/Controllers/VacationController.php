@@ -373,39 +373,39 @@ class VacationController extends Controller
                 'apprentices_count' => $user->apprentices->count()
             ]);
 
-            // Verwende die neue Methode für zu genehmigende Anträge
-            $requestsToApprove = $user->vacation_requests_to_approve;
+            $query = VacationRequest::with(['user', 'user.currentTeam', 'substitute']);
 
-            Log::info('Requests to approve from attribute', [
-                'count' => $requestsToApprove->count()
-            ]);
-
-            // Wenn der User keine Anträge zu genehmigen hat und kein HR/Admin ist
-            if ($requestsToApprove->isEmpty() && !in_array($role, ['HR', 'Admin', 'Personal'])) {
-                // Zeige Anträge, bei denen er als Vertreter eingetragen ist
-                $requestsToApprove = VacationRequest::where('substitute_id', $user->id)
-                    ->where('status', 'pending')
-                    ->with(['user', 'user.currentTeam', 'substitute'])
-                    ->get();
-
-                Log::info('Substitute requests found', [
-                    'count' => $requestsToApprove->count()
-                ]);
-            }
-
-            // Für HR und Admin: Alle Anträge anzeigen
             if (in_array($role, ['HR', 'Admin', 'Personal'])) {
-                $allRequests = VacationRequest::with(['user', 'user.currentTeam', 'substitute'])
-                    ->orderBy('created_at', 'desc')
-                    ->get();
+                // HR, Admin, Personal sehen alle Anträge
+                // Keine zusätzlichen Where-Klauseln für die Basisabfrage erforderlich
+                Log::info('HR/Admin/Personal - showing all requests');
+            } elseif ($role === 'Abteilungsleiter') {
+                // Abteilungsleiter sehen ihre eigenen Anträge und die Anträge ihrer Teammitglieder
+                $departmentId = $user->current_team_id;
 
-                Log::info('HR/Admin - showing all requests', [
-                    'count' => $allRequests->count()
+                $query->where(function($q) use ($user, $departmentId) {
+                    $q->where('user_id', $user->id) // Eigene Anträge
+                    ->orWhere('team_id', $departmentId); // Anträge des Teams
+                });
+                Log::info('Abteilungsleiter - showing own and team requests', [
+                    'user_id' => $user->id,
+                    'department_id' => $departmentId
                 ]);
             } else {
-                // Für andere: Nur relevante Anträge
-                $allRequests = $requestsToApprove;
+                // Für alle anderen Benutzer (einschließlich Vertreter, die nicht HR/Admin/Abteilungsleiter sind)
+                // Sie sehen nur ausstehende Anträge, bei denen sie als Vertreter eingetragen sind
+                $query->where('substitute_id', $user->id)
+                    ->where('status', 'pending');
+                Log::info('Other user/Substitute - showing only pending substitute requests', [
+                    'user_id' => $user->id
+                ]);
             }
+
+            $allRequests = $query->orderBy('created_at', 'desc')->get();
+
+            Log::info('Total requests fetched after role-based filtering', [
+                'count' => $allRequests->count()
+            ]);
 
             $formattedRequests = $allRequests->map(function ($request) {
                 return [
@@ -478,7 +478,7 @@ class VacationController extends Controller
                         'notes' => $request->notes,
                         'status' => $request->status,
                         'employee_name' => $request->user->full_name,
-                        'department' => $request->user->currentTeam ? $request->currentTeam->name : 'Keine Abteilung'
+                        'department' => $request->user->currentTeam ? $request->user->currentTeam->name : 'Keine Abteilung'
                     ];
                 });
 
@@ -1392,6 +1392,7 @@ class VacationController extends Controller
                 $userData = [
                     'id' => $user->id,
                     'name' => $user->full_name,
+                    'personnel_number' => $user->employee_number ?? '-', // Personalnummer aus employee_number
                     'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
                     'vacation_days_per_year' => $user->vacation_days_per_year,
                     'carry_over_previous_year' => $carryOverFromPreviousYear,

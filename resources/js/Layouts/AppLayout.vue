@@ -51,7 +51,7 @@
                                 <NavLink href="/vacation" :active="$page.component === 'Vacation'">
                                     Mein Urlaub
                                 </NavLink>
-                                <NavLink href="/vacation/management" :active="$page.component === 'VacationManagement'">
+                                <NavLink v-if="user && (user.role_id === 1 || user.role_id === 2 || user.role_id === 3)" href="/vacation/management" :active="$page.component === 'VacationManagement'">
                                     Urlaubsverwaltung
                                 </NavLink>
                                 <NavLink href="/parking" :active="$page.component === 'Parking/Index'">
@@ -59,7 +59,7 @@
                                 </NavLink>
 
                                 <!-- Berichtsheft Dropdown -->
-                                <div class="hidden sm:flex sm:items-center sm:ml-6">
+                                <div class="hidden sm:flex sm:items-center sm:ml-6" v-if="user && (user.role_id === 1 || user.role_id === 5)">
                                     <div class="ml-3 relative">
                                         <Dropdown align="left" width="48">
                                             <template #trigger>
@@ -89,7 +89,7 @@
 
 
                                 <!-- Admin Dropdown -->
-                                <div class="hidden sm:flex sm:items-center sm:ml-6">
+                                <div class="hidden sm:flex sm:items-center sm:ml-6" v-if="user && (user.role_id === 1 || user.role_id === 2)">
                                     <div class="ml-3 relative">
                                         <Dropdown align="left" width="48">
                                             <template #trigger>
@@ -125,7 +125,7 @@
                         <div class="hidden sm:flex sm:items-center sm:ml-6">
                             <div class="ml-3 relative">
                                 <!-- Teams Dropdown (temporär deaktiviert) -->
-                                <!--
+
                                 <Dropdown v-if="$page.props.jetstream.hasTeamFeatures" align="right" width="60">
                                     <template #trigger>
                                         <span class="inline-flex rounded-md">
@@ -150,15 +150,15 @@
                                                     Team Settings
                                                 </DropdownLink>
 
-                                                <DropdownLink v-if="$page.props.jetstream.canCreateTeams" href="/teams/create">
-                                                    Create New Team
-                                                </DropdownLink>
+<!--                                                <DropdownLink v-if="$page.props.jetstream.canCreateTeams" href="/teams/create">-->
+<!--                                                    Create New Team-->
+<!--                                                </DropdownLink>-->
 
-                                                <div class="border-t border-gray-200 dark:border-gray-600" />
+<!--                                                <div class="border-t border-gray-200 dark:border-gray-600" />-->
 
-                                                <div class="block px-4 py-2 text-xs text-gray-400">
-                                                    Switch Teams
-                                                </div>
+<!--                                                <div class="block px-4 py-2 text-xs text-gray-400">-->
+<!--                                                    Switch Teams-->
+<!--                                                </div>-->
 
                                                 <template v-for="team in $page.props.auth.user.all_teams" :key="team.id">
                                                     <form @submit.prevent="switchToTeam(team)">
@@ -177,7 +177,6 @@
                                         </div>
                                     </template>
                                 </Dropdown>
-                                -->
                             </div>
 
                             <!-- Settings Dropdown -->
@@ -455,6 +454,9 @@ export default defineComponent({
         },
     },
     computed: {
+        user() {
+            return this.$page.props.auth.user;
+        },
         isAdminPageActive() {
             return ['VacationHrOverview', 'VacationInfoList', 'Users/Index', 'Admin/Parking/Index'].includes(this.$page.component);
         },
