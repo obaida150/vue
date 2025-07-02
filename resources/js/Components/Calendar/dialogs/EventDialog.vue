@@ -10,11 +10,6 @@
     >
         <div class="flex flex-col gap-3 sm:gap-4">
             <div>
-                <label for="event-title" class="block mb-1 sm:mb-2 font-medium">Titel</label>
-                <InputText id="event-title" v-model="event.title" class="w-full" required autofocus />
-            </div>
-
-            <div>
                 <label for="event-type" class="block mb-1 sm:mb-2 font-medium">Ereignistyp</label>
                 <Select
                     id="event-type"
@@ -27,8 +22,14 @@
                 />
             </div>
 
+            <div>
+                <label for="event-title" class="block mb-1 sm:mb-2 font-medium">Titel</label>
+                <InputText id="event-title" v-model="event.title" class="w-full" required autofocus />
+            </div>
+
+
             <!-- Mitarbeiterauswahl für HR bei Krankheit -->
-            <div v-if="isHr && event.type" class="mb-3 sm:mb-4">
+            <div v-if="isHr && event.type && event.type.name === 'Krankheit'" class="mb-3 sm:mb-4">
                 <label for="employee" class="block mb-1 sm:mb-2 font-medium">Mitarbeiter</label>
                 <Select
                     id="employee"
@@ -199,6 +200,13 @@ watch(() => props.event, (newEvent) => {
         selectedEmployee.value = null;
     }
 }, { immediate: true, deep: true });
+
+// NEU: Titel automatisch setzen, wenn Ereignistyp ausgewählt wird und es ein neues Ereignis ist
+watch(() => props.event.type, (newType) => {
+    if (newType && !isEditMode.value) {
+        props.event.title = newType.name;
+    }
+});
 
 // Dialog schließen
 const onClose = () => {
