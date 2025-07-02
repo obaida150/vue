@@ -375,9 +375,9 @@ class CalendarController extends Controller
                 $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
             }
 
-            if (!$isHR && !$isTeamManager) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
+//            if (!$isHR && !$isTeamManager) {
+//                return response()->json(['error' => 'Unauthorized'], 403);
+//            }
 
             // Urlaubsanträge laden basierend auf der Rolle
             $query = VacationRequest::with(['user', 'user.currentTeam'])

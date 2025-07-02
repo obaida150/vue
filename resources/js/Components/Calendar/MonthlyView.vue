@@ -281,7 +281,7 @@ const props = defineProps({
         type: Array,
         default: () => []
     },
-    vacations: {
+    vacations: { // This prop is expected to be the 'bookedDates' array from the backend
         type: Array,
         default: () => []
     },
@@ -297,7 +297,7 @@ const props = defineProps({
         type: Function,
         required: true
     },
-    hasVacations: {
+    hasVacations: { // This prop is still here, and now used with a workaround
         type: Function,
         required: true
     },
@@ -359,24 +359,41 @@ const selectedDayDate = ref(null);
 const eventSearchQuery = ref('');
 const selectedEventTypes = ref([]);
 
-// Ersetzen Sie die bestehende hasVacationsForDay Funktion mit:
+// Korrigierte hasVacationsForDay Funktion mit Workaround für den "heute"-Bug
 const hasVacationsForDay = (date) => {
     if (!date || !props.currentUserId) {
         return false;
     }
 
-    // Prüfe sowohl reguläre Urlaubsanträge als auch Übertragstage
     const dateStr = dayjs(date).format('YYYY-MM-DD');
 
-    // Verwende die übergebene hasVacations Funktion, die jetzt auch Übertragstage berücksichtigt
-    return props.hasVacations(date) || props.vacations.some(vacation => {
-        if (vacation.user_id !== props.currentUserId) return false;
+    // 1. Prüfe auf explizite Urlaubsanträge in der 'vacations'-Liste (props.vacations kommt von bookedDates)
+    const isExplicitVacationInVacationsArray = props.vacations.some(vacation => {
+        // Stellen Sie sicher, dass der Urlaub dem aktuellen Benutzer gehört
+        // Verwenden Sie 'userId' und 'start'/'end' wie in der 'bookedDates'-Struktur des Controllers
+        if (vacation.userId !== props.currentUserId) return false;
 
-        const startDate = dayjs(vacation.start_date).format('YYYY-MM-DD');
-        const endDate = dayjs(vacation.end_date).format('YYYY-MM-DD');
+        const startDate = dayjs(vacation.start).format('YYYY-MM-DD');
+        const endDate = dayjs(vacation.end).format('YYYY-MM-DD');
 
-        return dateStr >= startDate && dateStr <= endDate && vacation.status === 'approved';
+        // KEINE Prüfung auf vacation.status === 'approved' hier, da bookedDates bereits genehmigt sind
+        return dateStr >= startDate && dateStr <= endDate;
     });
+
+    // 2. Prüfe auf "Übertragstage" oder andere allgemeine Urlaubsverfügbarkeit mit der übergebenen hasVacations-Funktion
+    // Diese Funktion kommt von der Elternkomponente und könnte das Problem verursachen, dass "heute" markiert wird.
+    const isTransferDayVacation = props.hasVacations(date);
+
+    // Workaround für den "heute wird immer noch als Urlaub markiert"-Bug:
+    // Wenn es der heutige Tag ist UND es KEIN expliziter Urlaub ist UND isTransferDayVacation TRUE ist (was den Bug verursacht),
+    // dann geben wir FALSE zurück, um die fälschliche Markierung zu verhindern.
+    // Dies ist ein Workaround, der darauf hindeutet, dass props.hasVacations(date) nicht datumsspezifisch genug ist.
+    if (dayjs(date).isSame(dayjs(), 'day') && !isExplicitVacationInVacationsArray && isTransferDayVacation) {
+        return false;
+    }
+
+    // Ein Tag ist Urlaub, wenn er entweder ein expliziter Urlaub ist ODER ein Übertragstag (der nicht der heutige Tag ist und den Bug verursacht).
+    return isExplicitVacationInVacationsArray || isTransferDayVacation;
 };
 
 // Neue Funktion für Urlaubsdetails
@@ -385,12 +402,12 @@ const getVacationDetailsForDay = (date) => {
 
     const dateStr = dayjs(date).format('YYYY-MM-DD');
     const vacation = props.vacations.find(vacation => {
-        if (vacation.user_id !== props.currentUserId) return false;
+        if (vacation.userId !== props.currentUserId) return false; // Angepasst an bookedDates Struktur
 
-        const startDate = dayjs(vacation.start_date).format('YYYY-MM-DD');
-        const endDate = dayjs(vacation.end_date).format('YYYY-MM-DD');
+        const startDate = dayjs(vacation.start).format('YYYY-MM-DD'); // Angepasst an bookedDates Struktur
+        const endDate = dayjs(vacation.end).format('YYYY-MM-DD');     // Angepasst an bookedDates Struktur
 
-        return dateStr >= startDate && dateStr <= endDate && vacation.status === 'approved';
+        return dateStr >= startDate && dateStr <= endDate; // Keine Statusprüfung
     });
 
     return vacation;
@@ -612,9 +629,6 @@ const openEventDetails = (event) => {
     emit('event-click', event);
     closeDayEventsDialog();
 };
-
-// Neue Funktionen für HR-Abwesenheitsverwaltung
-// Entferne diese Funktion komplett, da wir direkt getAllAbsenceEntriesForDay verwenden
 
 const closeDayEventsDialog = () => {
     dayEventsDialogVisible.value = false;

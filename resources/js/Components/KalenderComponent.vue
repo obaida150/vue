@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, defineProps, defineEmits } from "vue";
+import { ref, computed } from "vue";
 import dayjs from "dayjs";
 import weekday from "dayjs/plugin/weekday";
 import isoWeek from "dayjs/plugin/isoWeek";
