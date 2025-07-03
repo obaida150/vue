@@ -15,22 +15,7 @@
                 <Button icon="pi pi pi-chevron-right" @click="nextPeriod" class="p-button-rounded p-button-text" />
             </div>
             <div class="flex items-center gap-4 w-full md:w-auto">
-                <div class="mr-2">
-                    <Button
-                        icon="pi pi-sun"
-                        v-if="isDarkMode"
-                        @click="toggleDarkMode"
-                        class="p-button-rounded p-button-text"
-                        aria-label="Light Mode"
-                    />
-                    <Button
-                        icon="pi pi-moon"
-                        v-else
-                        @click="toggleDarkMode"
-                        class="p-button-rounded p-button-text"
-                        aria-label="Dark Mode"
-                    />
-                </div>
+
                 <div class="flex gap-1">
                     <Button
                         :class="{ 'p-button-primary': calendarView === 'day', 'p-button-outlined': calendarView !== 'day' }"

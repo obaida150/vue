@@ -140,10 +140,10 @@
                                 <template #header>
                                     <div class="flex justify-content-between items-center">
                                         <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">Meine Urlaubsanträge</h3>
-                                        <span class="p-input-icon-left">
-                    <i class="pi pi-search" />
-                    <InputText v-model="filters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
-                  </span>
+                                        <span class="p-input-icon-left ml-auto">
+                                            <i class="pi pi-search" />
+                                            <InputText v-model="filters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
+                                        </span>
                                     </div>
                                 </template>
 

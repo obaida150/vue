@@ -74,17 +74,19 @@
                                             </span>
                                             </div>
                                             <div class="filter-field">
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Abteilung</label>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Abteilungs</label>
+                                                <span class="p-input-icon-left w-full">
                                                 <Select
                                                     v-model="filters['department'].value"
                                                     :options="departmentOptions"
                                                     optionLabel="label"
                                                     optionValue="value"
                                                     placeholder="Alle Abteilungen"
-                                                    class="w-full p-inputtext-sm"
+                                                    class="w-full p-inputtext-sm p-6"
                                                     :showClear="true"
                                                     @change="onDepartmentFilterChange"
                                                 />
+                                            </span>
                                             </div>
                                             <div class="filter-field">
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zeitraum</label>
@@ -92,7 +94,7 @@
                                                     v-model="dateRangeFilter"
                                                     dateFormat="dd.mm.yy"
                                                     placeholder="Datumsbereich wählen"
-                                                    class="w-full p-inputtext-sm"
+                                                    class="w-full"
                                                     selectionMode="range"
                                                     :showIcon="true"
                                                     @date-select="onDateRangeFilterChange"
@@ -104,7 +106,7 @@
                                                 <Button
                                                     label="Filter zurücksetzen"
                                                     icon="pi pi-filter-slash"
-                                                    class="p-button-outlined p-button-sm w-full"
+                                                    class="w-full"
                                                     @click="clearAllFilters"
                                                 />
                                             </div>
@@ -204,7 +206,7 @@
                                             </template>
                                         </Column>
 
-                                        <Column field="notes" header="Anmerkungen">
+                                        <Column field="notes" header="Anmerkungen" StyleClass="t">
                                             <template #body="{ data }">
                                                 <div v-if="data.notes" class="max-w-xs truncate" :title="data.notes">
                                                     <i class="pi pi-comment text-gray-500 dark:text-gray-400 mr-2"></i>
@@ -280,7 +282,7 @@
                                                     v-model="approvedDateRangeFilter"
                                                     dateFormat="dd.mm.yy"
                                                     placeholder="Datumsbereich wählen"
-                                                    class="w-full p-inputtext-sm"
+                                                    class="w-full"
                                                     selectionMode="range"
                                                     :showIcon="true"
                                                     @date-select="onApprovedDateRangeFilterChange"
@@ -292,7 +294,7 @@
                                                 <Button
                                                     label="Filter zurücksetzen"
                                                     icon="pi pi-filter-slash"
-                                                    class="p-button-outlined p-button-sm w-full"
+                                                    class="w-full"
                                                     @click="clearApprovedFilters"
                                                 />
                                             </div>
@@ -443,7 +445,7 @@
                                                     v-model="rejectedDateRangeFilter"
                                                     dateFormat="dd.mm.yy"
                                                     placeholder="Datumsbereich wählen"
-                                                    class="w-full p-inputtext-sm"
+                                                    class="w-full"
                                                     selectionMode="range"
                                                     :showIcon="true"
                                                     @date-select="onRejectedDateRangeFilterChange"
@@ -455,7 +457,7 @@
                                                 <Button
                                                     label="Filter zurücksetzen"
                                                     icon="pi pi-filter-slash"
-                                                    class="p-button-outlined p-button-sm w-full"
+                                                    class="w-full"
                                                     @click="clearRejectedFilters"
                                                 />
                                             </div>
@@ -1675,13 +1677,6 @@ onMounted(() => {
     min-width: 0;
 }
 
-:deep(.p-dropdown),
-:deep(.p-calendar),
-:deep(.p-inputtext) {
-    width: 100%;
-    box-sizing: border-box;
-    height: 38px;
-}
 
 :deep(.p-calendar .p-inputtext) {
     width: 100%;
@@ -1804,11 +1799,18 @@ onMounted(() => {
     background-color: rgba(255, 255, 255, 0.05);
 }
 
-input{
-    padding: 1.5rem;
+.p-select {
+    height: 60%;
+    padding: 0px;
 }
-button{
-    padding: 0.75rem;
+.p-inputtext {
+    height: 60%;
+    padding: 10px;
+}
+
+p.button{
+    height: 60%;
+    padding: 10px;
 }
 
 /* Verbesserte Filter-Leiste */

@@ -121,8 +121,23 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="hidden sm:flex sm:items-center sm:ml-6">
+                            <div class="flex items-center h-10">
+                                <Button
+                                    icon="pi pi-sun"
+                                    v-if="isDarkMode"
+                                    @click="toggleDarkMode"
+                                    class="p-button-rounded p-button-text h-full"
+                                    aria-label="Light Mode"
+                                />
+                                <Button
+                                    icon="pi pi-moon"
+                                    v-else
+                                    @click="toggleDarkMode"
+                                    class="p-button-rounded p-button-text h-full"
+                                    aria-label="Dark Mode"
+                                />
+                            </div>
                             <div class="ml-3 relative">
                                 <!-- Teams Dropdown (temporär deaktiviert) -->
 
@@ -416,6 +431,7 @@ import NavLink from '@/Components/NavLink.vue'
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue'
 import ApplicationMark from '@/Components/ApplicationMark.vue'
 import BirthdayNotification from '@/Components/Notifications/BirthdayNotification.vue'
+import Button from "primevue/button";
 
 export default defineComponent({
     props: {
@@ -423,6 +439,7 @@ export default defineComponent({
     },
 
     components: {
+        Button,
         BirthdayNotification,
         Head,
         Link,
@@ -437,9 +454,16 @@ export default defineComponent({
     data() {
         return {
             showingNavigationDropdown: false,
+            isDarkMode: false, // Startwert
         }
     },
-
+    mounted() {
+        const storedDarkMode = localStorage.getItem('darkMode');
+        if (storedDarkMode === 'true') {
+            this.isDarkMode = true;
+            document.documentElement.classList.add('dark');
+        }
+    },
     methods: {
         switchToTeam(team) {
             this.$inertia.put('/current-team/update', {
@@ -451,6 +475,11 @@ export default defineComponent({
 
         logout() {
             this.$inertia.post('/logout');
+        },
+        toggleDarkMode() {
+            this.isDarkMode = !this.isDarkMode;
+            localStorage.setItem('darkMode', this.isDarkMode);
+            document.documentElement.classList.toggle('dark', this.isDarkMode);
         },
     },
     computed: {
