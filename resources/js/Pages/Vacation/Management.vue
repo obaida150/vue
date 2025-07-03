@@ -55,10 +55,10 @@
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl rounded-lg">
-                    <div class="p-6">
+                    <div class="p-6 dark:text-gray-100">
                         <Tabs>
                             <TabPanel header="Offene Anträge">
-                                <div class="card">
+                                <div class="card mb-4 bg-white">
                                     <!-- Filter-Leiste -->
                                     <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -68,7 +68,7 @@
                                                 <InputText
                                                     v-model="filters['global'].value"
                                                     placeholder="Alle Felder durchsuchen..."
-                                                    class="w-full p-inputtext-sm"
+                                                    class="w-full p-inputtext-sm "
                                                     @input="onGlobalFilterChange"
                                                 />
                                             </span>
@@ -139,19 +139,20 @@
                                         <template #empty>
                                             <div class="text-center p-6">
                                                 <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                                                <p class="text-gray-500 dark:text-gray-400">
+                                                <p class="text-gray-500 dark:text-gray-800">
                                                     {{ filters['global'].value || hasActiveFilters ? 'Keine Anträge entsprechen den Filterkriterien' : 'Keine offenen Urlaubsanträge vorhanden' }}
                                                 </p>
                                             </div>
                                         </template>
+                                    <div class="text-red-800">
 
                                         <Column field="employee.name" header="Mitarbeiter" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-3">
                                                     <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
                                                     <div>
-                                                        <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.employee.name }}</div>
-                                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ data.department }}</div>
+                                                        <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.employee.name }}</div>
+                                                        <div class="text-sm text-gray-500 dark:text-gray-800">{{ data.department }}</div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -168,10 +169,10 @@
                                         <Column field="startDate" header="Zeitraum" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-100">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-800">
                                                         {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
                                                     </div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
+                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-2 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
                                                         <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                                                         <Tag
@@ -191,7 +192,7 @@
                                                     <Avatar :label="getInitials(data.substitute.name)" shape="circle" size="small" :style="{ backgroundColor: getInitialsColor(data.substitute.name) }" />
                                                     <span>{{ data.substitute.name }}</span>
                                                 </div>
-                                                <div v-else class="text-gray-500 dark:text-gray-400 italic">
+                                                <div v-else class="text-gray-500 dark:text-gray-800">
                                                     Keine Vertretung
                                                 </div>
                                             </template>
@@ -200,7 +201,7 @@
                                         <Column field="requestDate" header="Beantragt am" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-2">
-                                                    <i class="pi pi-clock text-gray-500 dark:text-gray-400"></i>
+                                                    <i class="pi pi-clock text-gray-500 dark:text-gray-800"></i>
                                                     <span>{{ formatDateTime(data.requestDate) }}</span>
                                                 </div>
                                             </template>
@@ -209,10 +210,10 @@
                                         <Column field="notes" header="Anmerkungen" StyleClass="t">
                                             <template #body="{ data }">
                                                 <div v-if="data.notes" class="max-w-xs truncate" :title="data.notes">
-                                                    <i class="pi pi-comment text-gray-500 dark:text-gray-400 mr-2"></i>
+                                                    <i class="pi pi-comment text-gray-500 dark:text-gray-800 mr-2"></i>
                                                     {{ data.notes }}
                                                 </div>
-                                                <div v-else class="text-gray-400 dark:text-gray-500 italic">
+                                                <div v-else class="text-gray-400 dark:text-gray-800">
                                                     Keine Anmerkungen
                                                 </div>
                                             </template>
@@ -242,12 +243,13 @@
                                                 </div>
                                             </template>
                                         </Column>
+                                    </div>
                                     </DataTable>
                                 </div>
                             </TabPanel>
 
                             <TabPanel header="Genehmigte Anträge">
-                                <div class="card">
+                                <div class="card mb-4">
                                     <!-- Filter-Leiste für genehmigte Anträge -->
                                     <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -324,7 +326,7 @@
                                         <template #empty>
                                             <div class="text-center p-6">
                                                 <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                                                <p class="text-gray-500 dark:text-gray-400">
+                                                <p class="text-gray-500 dark:text-gray-800">
                                                     {{ approvedFilters['global'].value || hasActiveApprovedFilters ? 'Keine Anträge entsprechen den Filterkriterien' : 'Keine genehmigten Urlaubsanträge vorhanden' }}
                                                 </p>
                                             </div>
@@ -336,8 +338,8 @@
                                                 <div class="flex items-center gap-3">
                                                     <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
                                                     <div>
-                                                        <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.employee.name }}</div>
-                                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ data.department }}</div>
+                                                        <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.employee.name }}</div>
+                                                        <div class="text-sm text-gray-500 dark:text-gray-800">{{ data.department }}</div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -354,10 +356,10 @@
                                         <Column field="startDate" header="Zeitraum" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-100">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-800">
                                                         {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
                                                     </div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
+                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-2 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
                                                         <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                                                         <Tag
@@ -374,8 +376,8 @@
                                         <Column field="approvedBy" header="Genehmigt von" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.approvedBy }}</div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.approvedBy }}</div>
+                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-1 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
                                                         <span>{{ formatDate(data.approvedDate) }}</span>
                                                     </div>
@@ -386,10 +388,10 @@
                                         <Column field="notes" header="Anmerkungen">
                                             <template #body="{ data }">
                                                 <div v-if="data.notes" class="max-w-xs truncate" :title="data.notes">
-                                                    <i class="pi pi-comment text-gray-500 dark:text-gray-400 mr-2"></i>
+                                                    <i class="pi pi-comment text-gray-500 dark:text-gray-800 mr-2"></i>
                                                     {{ data.notes }}
                                                 </div>
-                                                <div v-else class="text-gray-400 dark:text-gray-500 italic">
+                                                <div v-else class="text-gray-400 dark:text-gray-800">
                                                     Keine Anmerkungen
                                                 </div>
                                             </template>
@@ -410,7 +412,7 @@
                             </TabPanel>
 
                             <TabPanel header="Abgelehnte Anträge">
-                                <div class="card">
+                                <div class="card mb-4">
                                     <!-- Filter-Leiste für abgelehnte Anträge -->
                                     <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -487,7 +489,7 @@
                                         <template #empty>
                                             <div class="text-center p-6">
                                                 <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                                                <p class="text-gray-500 dark:text-gray-400">
+                                                <p class="text-gray-500 dark:text-gray-800">
                                                     {{ rejectedFilters['global'].value || hasActiveRejectedFilters ? 'Keine Anträge entsprechen den Filterkriterien' : 'Keine abgelehnten Urlaubsanträge vorhanden' }}
                                                 </p>
                                             </div>
@@ -498,8 +500,8 @@
                                                 <div class="flex items-center gap-3">
                                                     <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
                                                     <div>
-                                                        <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.employee.name }}</div>
-                                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ data.department }}</div>
+                                                        <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.employee.name }}</div>
+                                                        <div class="text-sm text-gray-500 dark:text-gray-800">{{ data.department }}</div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -516,10 +518,10 @@
                                         <Column field="startDate" header="Zeitraum" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-100">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-800">
                                                         {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
                                                     </div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
+                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-2 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
                                                         <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                                                         <Tag
@@ -536,8 +538,8 @@
                                         <Column field="rejectedBy" header="Abgelehnt von" :sortable="true">
                                             <template #body="{ data }">
                                                 <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.rejectedBy }}</div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.rejectedBy }}</div>
+                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-1 mt-1">
                                                         <i class="pi pi-calendar text-xs"></i>
                                                         <span>{{ formatDate(data.rejectedDate) }}</span>
                                                     </div>
@@ -551,7 +553,7 @@
                                                     <i class="pi pi-exclamation-circle mr-2"></i>
                                                     {{ data.rejectionReason }}
                                                 </div>
-                                                <div v-else class="text-gray-400 dark:text-gray-500 italic">
+                                                <div v-else class="text-gray-400 dark:text-gray-800">
                                                     Kein Grund angegeben
                                                 </div>
                                             </template>
@@ -597,17 +599,17 @@
                 </div>
 
                 <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
-                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Antragsdetails</h4>
+                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-800 uppercase mb-3">Antragsdetails</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Zeitraum</div>
                             <div class="font-medium">
                                 {{ selectedRequest ? formatDate(selectedRequest.startDate) : '' }} - {{ selectedRequest ? formatDate(selectedRequest.endDate) : '' }}
                             </div>
                         </div>
                         <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Art</div>
                             <div class="font-medium">
                                 <Tag
                                     v-if="selectedRequest"
@@ -617,15 +619,15 @@
                             </div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Tatsächliche Tage</div>
                             <div class="font-medium">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Abteilung</div>
                             <div class="font-medium">{{ selectedRequest?.department }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Beantragt am</div>
                             <div class="font-medium">{{ selectedRequest ? formatDate(selectedRequest.requestDate) : '' }}</div>
                         </div>
                     </div>
@@ -644,7 +646,7 @@
                 </div>
             </div>
             <template #footer>
-                <div class="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex justify-end gap-2 pt-4 border-gray-200 dark:border-gray-700">
                     <Button
                         label="Abbrechen"
                         icon="pi pi-times"
@@ -683,17 +685,17 @@
                 </div>
 
                 <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
-                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Antragsdetails</h4>
+                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-800 uppercase mb-3">Antragsdetails</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Zeitraum</div>
                             <div class="font-medium">
                                 {{ selectedRequest ? formatDate(selectedRequest.startDate) : '' }} - {{ selectedRequest ? formatDate(selectedRequest.endDate) : '' }}
                             </div>
                         </div>
                         <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Art</div>
                             <div class="font-medium">
                                 <Tag
                                     v-if="selectedRequest"
@@ -703,15 +705,15 @@
                             </div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Tatsächliche Tage</div>
                             <div class="font-medium">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Abteilung</div>
                             <div class="font-medium">{{ selectedRequest?.department }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-800">Beantragt am</div>
                             <div class="font-medium">{{ selectedRequest ? formatDate(selectedRequest.requestDate) : '' }}</div>
                         </div>
                     </div>
@@ -727,7 +729,7 @@
                         class="w-full p-inputtext-sm"
                         placeholder="Bitte geben Sie einen Grund für die Ablehnung an..."
                     />
-                    <small class="text-gray-500 dark:text-gray-400 mt-1 block">Diese Information wird dem Mitarbeiter angezeigt.</small>
+                    <small class="text-gray-500 dark:text-gray-800 mt-1 block">Diese Information wird dem Mitarbeiter angezeigt.</small>
                 </div>
             </div>
             <template #footer>
@@ -757,29 +759,29 @@
             :style="{ width: '600px' }"
             :modal="true"
             :closable="true"
-            class="modern-dialog"
+            class="modern-dialog dark:text-gray-100 dark:bg-gray-800"
         >
             <div v-if="selectedRequest" class="p-4">
                 <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
                     <div class="flex items-center gap-3 mb-4">
                         <Avatar :label="getInitials(selectedRequest.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(selectedRequest.employee.name) }" />
                         <div>
-                            <h3 class="text-xl font-bold">{{ selectedRequest.employee.name }}</h3>
-                            <p class="text-gray-500">{{ selectedRequest.department }}</p>
+                            <h3 class="text-xl font-bold dark:text-gray-100">{{ selectedRequest.employee.name }}</h3>
+                            <p class="text-gray-500 dark:text-gray-100">{{ selectedRequest.department }}</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
-                            <div class="font-medium">
+                            <div class="text-sm text-gray-500 dark:text-gray-100">Zeitraum</div>
+                            <div class="font-medium dark:text-gray-100">
                                 {{ formatDate(selectedRequest.startDate) }} - {{ formatDate(selectedRequest.endDate) }}
                             </div>
                         </div>
                         <!-- NEU: Zeige Urlaubstyp -->
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
-                            <div class="font-medium">
+                            <div class="text-sm text-gray-500 dark:text-gray-100">Art</div>
+                            <div class="font-medium dark:text-gray-100">
                                 <Tag
                                     :value="getDayTypeLabel(selectedRequest.dayType)"
                                     :severity="getDayTypeSeverity(selectedRequest.dayType)"
@@ -787,21 +789,21 @@
                             </div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
-                            <div class="font-medium">{{ getActualDays(selectedRequest) }} {{ getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-100">Tatsächliche Tage</div>
+                            <div class="font-medium dark:text-gray-100">{{ getActualDays(selectedRequest) }} {{ getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
-                            <div class="font-medium">{{ formatDateTime(selectedRequest.requestDate) }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-100">Beantragt am</div>
+                            <div class="font-medium dark:text-gray-100">{{ formatDateTime(selectedRequest.requestDate) }}</div>
                         </div>
                         <div v-if="selectedRequest.substitute">
-                            <div class="text-sm text-gray-500 dark:text-gray-400">Vertretung</div>
-                            <div class="font-medium">{{ selectedRequest.substitute.name }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-100">Vertretung</div>
+                            <div class="font-medium dark:text-gray-100">{{ selectedRequest.substitute.name }}</div>
                         </div>
                     </div>
 
                     <div v-if="selectedRequest.notes" class="mb-4">
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Anmerkungen</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-800">Anmerkungen</div>
                         <div class="font-medium p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
                             {{ selectedRequest.notes }}
                         </div>
@@ -835,11 +837,11 @@
                 </div>
             </div>
             <template #footer>
-                <div class="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex justify-end gap-2 pt-4 border-gray-200 dark:border-gray-700">
                     <Button
                         label="Schließen"
                         icon="pi pi-times"
-                        class="p-button-text"
+                        class="p-button-text items-left"
                         @click="detailsDialogVisible = false"
                     />
                     <Button
@@ -1818,6 +1820,7 @@ p.button{
     background: linear-gradient(135deg, var(--surface-50) 0%, var(--surface-100) 100%);
     border: 1px solid var(--surface-border);
 }
+
 
 :deep(.dark .filter-bar) {
     background: linear-gradient(135deg, var(--surface-800) 0%, var(--surface-900) 100%);
