@@ -585,9 +585,9 @@
             :style="{ width: '500px' }"
             :modal="true"
             :closable="true"
-            class="modern-dialog"
+            class="dark:text-gray-100 dark:bg-gray-800"
         >
-            <div class="confirmation-content p-4">
+            <div class="confirmation-content p-4 dark:text-gray-100 dark:bg-gray-800">
                 <div class="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg mb-6 flex items-start">
                     <i class="pi pi-check-circle text-green-500 dark:text-green-400 text-2xl mr-4 mt-1"></i>
                     <div>
@@ -599,17 +599,17 @@
                 </div>
 
                 <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
-                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-800 uppercase mb-3">Antragsdetails</h4>
+                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-100 uppercase mb-3">Antragsdetails</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Zeitraum</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
                             <div class="font-medium">
                                 {{ selectedRequest ? formatDate(selectedRequest.startDate) : '' }} - {{ selectedRequest ? formatDate(selectedRequest.endDate) : '' }}
                             </div>
                         </div>
                         <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Art</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
                             <div class="font-medium">
                                 <Tag
                                     v-if="selectedRequest"
@@ -619,15 +619,15 @@
                             </div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Tatsächliche Tage</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
                             <div class="font-medium">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Abteilung</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
                             <div class="font-medium">{{ selectedRequest?.department }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Beantragt am</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
                             <div class="font-medium">{{ selectedRequest ? formatDate(selectedRequest.requestDate) : '' }}</div>
                         </div>
                     </div>
@@ -671,7 +671,7 @@
             :style="{ width: '500px' }"
             :modal="true"
             :closable="true"
-            class="modern-dialog"
+            class="dark:text-gray-100 dark:bg-gray-800"
         >
             <div class="confirmation-content p-4">
                 <div class="bg-red-50 dark:bg-red-900/30 p-4 rounded-lg mb-6 flex items-start">
@@ -685,17 +685,17 @@
                 </div>
 
                 <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
-                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-800 uppercase mb-3">Antragsdetails</h4>
+                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-100 uppercase mb-3">Antragsdetails</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Zeitraum</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
                             <div class="font-medium">
                                 {{ selectedRequest ? formatDate(selectedRequest.startDate) : '' }} - {{ selectedRequest ? formatDate(selectedRequest.endDate) : '' }}
                             </div>
                         </div>
                         <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Art</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
                             <div class="font-medium">
                                 <Tag
                                     v-if="selectedRequest"
@@ -705,15 +705,15 @@
                             </div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Tatsächliche Tage</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
                             <div class="font-medium">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Abteilung</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
                             <div class="font-medium">{{ selectedRequest?.department }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-800">Beantragt am</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
                             <div class="font-medium">{{ selectedRequest ? formatDate(selectedRequest.requestDate) : '' }}</div>
                         </div>
                     </div>
@@ -733,7 +733,7 @@
                 </div>
             </div>
             <template #footer>
-                <div class="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex justify-end gap-2 pt-4 border-gray-200 dark:border-gray-700">
                     <Button
                         label="Abbrechen"
                         icon="pi pi-times"
@@ -743,7 +743,7 @@
                     <Button
                         label="Ablehnen"
                         icon="pi pi-times"
-                        class="p-button-danger"
+                        class="p-button-danger hover:bg-red-950 dark:hover:bg-red-800"
                         @click="confirmReject"
                         :loading="processingRequest"
                         :disabled="!rejectionReason"
@@ -1643,8 +1643,9 @@ onMounted(() => {
 
 :deep(.modern-dialog .p-dialog-header) {
     padding: 1.5rem;
-    background-color: var(--surface-card);
+    background-color: var(--surface-section);
     border-bottom: 1px solid var(--surface-border);
+
 }
 
 :deep(.modern-dialog .p-dialog-title) {
@@ -1822,7 +1823,5 @@ p.button{
 }
 
 
-:deep(.dark .filter-bar) {
-    background: linear-gradient(135deg, var(--surface-800) 0%, var(--surface-900) 100%);
-}
+
 </style>
