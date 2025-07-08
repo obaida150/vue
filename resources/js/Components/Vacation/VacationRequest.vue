@@ -7,29 +7,29 @@
                 <div class="grid">
                     <div class="col-12 md:col-4">
                         <div class="flex flex-column align-items-center">
-                            <div class="text-4xl font-bold text-primary mb-2">{{ totalVacationDays }}</div>
+                            <div class="text-4xl font-bold text-primary mb-2">{{ displayTotalVacationDays }}</div>
                             <div class="text-sm text-gray-600 dark:text-gray-400">Gesamtes Kontingent</div>
                         </div>
                     </div>
                     <div class="col-12 md:col-4">
                         <div class="flex flex-column align-items-center">
-                            <div class="text-4xl font-bold text-orange-500 mb-2">{{ usedVacationDays }}</div>
+                            <div class="text-4xl font-bold text-orange-500 mb-2">{{ displayUsedVacationDays }}</div>
                             <div class="text-sm text-gray-600 dark:text-gray-400">Bereits genommen</div>
                         </div>
                     </div>
                     <div class="col-12 md:col-4">
                         <div class="flex flex-column align-items-center">
-                            <div class="text-4xl font-bold text-green-500 mb-2">{{ remainingVacationDays }}</div>
+                            <div class="text-4xl font-bold text-green-500 mb-2">{{ displayRemainingVacationDays }}</div>
                             <div class="text-sm text-gray-600 dark:text-gray-400">Verbleibend</div>
                         </div>
                     </div>
                 </div>
 
                 <div class="mt-4">
-                    <ProgressBar :value="usagePercentage" :showValue="false" class="mb-2" />
+                    <ProgressBar :value="displayUsagePercentage" :showValue="false" class="mb-2" />
                     <div class="flex justify-content-between text-sm text-gray-600 dark:text-gray-400">
-                        <span>{{ usagePercentage }}% verbraucht</span>
-                        <span>{{ 100 - usagePercentage }}% verfügbar</span>
+                        <span>{{ displayUsagePercentage }}% verbraucht</span>
+                        <span>{{ 100 - displayUsagePercentage }}% verfügbar</span>
                     </div>
                 </div>
             </div>
@@ -89,7 +89,7 @@
                                         :id="'days-' + index"
                                         v-model="period.days"
                                         :min="0.5"
-                                        :max="remainingVacationDays"
+                                        :max="displayRemainingVacationDays"
                                         :minFractionDigits="1"
                                         :maxFractionDigits="1"
                                         disabled
@@ -212,9 +212,9 @@
                         </span>
                     </div>
 
-                    <div v-if="totalRequestedDays > remainingVacationDays" class="p-message p-message-error p-3 mb-4">
+                    <div v-if="totalRequestedDays > displayRemainingVacationDays" class="p-message p-message-error p-3 mb-4">
                         <i class="pi pi-exclamation-triangle mr-2"></i>
-                        <span>Sie haben nicht genügend Urlaubstage übrig. Sie benötigen {{ totalRequestedDays }} Tage, aber haben nur {{ remainingVacationDays }} verfügbar.</span>
+                        <span>Sie haben nicht genügend Urlaubstage übrig. Sie benötigen {{ totalRequestedDays }} Tage, aber haben nur {{ displayRemainingVacationDays }} verfügbar.</span>
                     </div>
                 </div>
 
@@ -273,6 +273,13 @@ const primevue = usePrimeVue();
 
 const loading = ref(false)
 
+// Props von der übergeordneten Komponente
+const props = defineProps({
+    vacationStats: Object,
+    myVacationRequests: Array,
+    holidays: Array,
+});
+
 // Optionen für Urlaubsart
 const dayTypeOptions = ref([
     { label: 'Ganzer Tag', value: 'full_day' },
@@ -291,7 +298,7 @@ const vacationPeriods = ref([
     {
         startDate: null,
         endDate: null,
-        days: 1,
+        days: 0, // Initial auf 0 setzen
         dayType: 'full_day',
         errors: {
             startDate: "",
@@ -300,21 +307,24 @@ const vacationPeriods = ref([
     },
 ])
 
-// Urlaubskontingent (wird vom Server geladen)
-const totalVacationDays = ref(0)
-const usedVacationDays = ref(0)
-const remainingVacationDays = ref(0)
+// Dynamische Anzeige des Urlaubskontingents basierend auf Props und aktuellem Antrag
+const displayTotalVacationDays = computed(() => props.vacationStats?.totalAvailable || 0);
+const displayUsedVacationDays = computed(() => {
+    // Bereits genommene Tage aus den Props + die Tage des aktuellen Antrags
+    return (props.vacationStats?.used || 0) + totalRequestedDays.value;
+});
+const displayRemainingVacationDays = computed(() => {
+    // Verbleibende Tage aus den Props - die Tage des aktuellen Antrags
+    return (props.vacationStats?.remaining || 0) - totalRequestedDays.value;
+});
 
-// Berechnung des Prozentsatzes der verbrauchten Urlaubstage
-const usagePercentage = computed(() => {
-    return Math.round((usedVacationDays.value / totalVacationDays.value) * 100)
-})
-
-// Feiertage
-const holidays = ref([])
-
-// Aktueller Benutzer ID (würde normalerweise vom Server geladen)
-const currentUserId = ref(null)
+// Berechnung des Prozentsatzes der verbrauchten Urlaubstage für die Anzeige im Dialog
+const displayUsagePercentage = computed(() => {
+    const used = displayUsedVacationDays.value;
+    const total = displayTotalVacationDays.value;
+    if (total <= 0) return 0;
+    return Math.min(Math.round((used / total) * 100), 100);
+});
 
 // Prüft, ob ein Zeitraum ein einzelner Tag ist
 const isSingleDay = (period) => {
@@ -328,91 +338,150 @@ const getDayTypeLabel = (dayType) => {
     return option ? option.label : 'Ganzer Tag'
 }
 
-// Feiertage laden
-const fetchHolidays = async () => {
-    try {
-        const currentYear = new Date().getFullYear()
-        const nextYear = currentYear + 1
-
-        const [currentYearHolidays, nextYearHolidays] = await Promise.all([
-            HolidayService.getHolidays(currentYear),
-            HolidayService.getHolidays(nextYear)
-        ])
-
-        holidays.value = [...currentYearHolidays, ...nextYearHolidays]
-        updateDisabledDates()
-    } catch (error) {
-        console.error("Fehler beim Laden der Feiertage:", error)
-    }
-}
-
 // Prüft, ob ein Datum ein Feiertag ist
 const isHoliday = (date) => {
-    if (!date) return false
-    return HolidayService.isHoliday(dayjs(date), holidays.value)
+    if (!date) return false;
+    const djsDate = dayjs(date);
+    if (!djsDate.isValid()) return false;
+    // Sicherstellen, dass props.holidays immer ein Array ist
+    const safeHolidays = props.holidays || [];
+    return HolidayService.isHoliday(djsDate, safeHolidays.map(h => ({ date: h.date, name: h.name })));
 }
 
 // Gibt den Namen eines Feiertags zurück
 const getHolidayName = (date) => {
-    if (!date) return null
-    return HolidayService.getHolidayName(dayjs(date), holidays.value)
+    if (!date) return null;
+    const djsDate = dayjs(date);
+    if (!djsDate.isValid()) return null;
+    // Sicherstellen, dass props.holidays immer ein Array ist
+    const safeHolidays = props.holidays || [];
+    return HolidayService.getHolidayName(djsDate, safeHolidays.map(h => ({ date: h.date, name: h.name })));
 }
 
-// Berechnung der Urlaubstage basierend auf Start- und Enddatum und Typ
-const calculateVacationDays = (startDate, endDate, dayType = 'full_day') => {
+/**
+ * Berechnet die Anzahl der einzigartigen Arbeitstage in einem Zeitraum,
+ * unter Berücksichtigung von Wochenenden, Feiertagen und bereits gebuchten/ausstehenden Urlaubstagen.
+ *
+ * @param {Date} startDate - Das Startdatum des Zeitraums.
+ * @param {Date} endDate - Das Enddatum des Zeitraums.
+ * @param {Array} currentFormPeriods - Alle Zeiträume, die aktuell im Formular ausgewählt sind (um interne Überschneidungen zu vermeiden).
+ * @param {Array} existingRequests - Alle bereits genehmigten oder ausstehenden Urlaubsanträge des Benutzers.
+ * @param {Array} holidays - Eine Liste von Feiertagen.
+ * @param {string} dayType - Der Typ des Tages ('full_day', 'morning', 'afternoon').
+ * @returns {number} Die Anzahl der einzigartigen Arbeitstage.
+ */
+const getUniqueWorkDays = (startDate, endDate, currentFormPeriods, existingRequests, holidays, dayType = 'full_day') => {
     if (!startDate || !endDate) {
-        return 0
+        return 0;
     }
 
-    const start = dayjs(startDate)
-    const end = dayjs(endDate)
+    const start = dayjs(startDate);
+    const end = dayjs(endDate);
+
+    if (!start.isValid() || !end.isValid()) {
+        return 0;
+    }
+
+    // Sicherstellen, dass existingRequests und holidays immer Arrays sind
+    const safeExistingRequests = existingRequests || [];
+    const safeHolidays = holidays || [];
 
     // Wenn es ein einzelner Tag ist und Halbtag gewählt wurde
     if (start.isSame(end, 'day') && dayType !== 'full_day') {
-        return 0.5
-    }
-
-    let days = 0
-
-    // Zähle nur Werktage (Mo-Fr) und keine Feiertage
-    let current = start
-    while (current.isSameOrBefore(end, "day")) {
-        const dayOfWeek = current.day()
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
-            // Prüfe, ob es ein Feiertag ist
-            if (!isHoliday(current)) {
-                days++
+        const dayOfWeek = start.day();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoliday(start)) {
+            const dateString = start.format('YYYY-MM-DD');
+            const isCoveredByExisting = safeExistingRequests.some(req => {
+                const reqStart = dayjs(req.startDate);
+                const reqEnd = dayjs(req.endDate);
+                return (
+                    (req.status === 'approved' || req.status === 'pending') &&
+                    reqStart.isValid() && reqEnd.isValid() &&
+                    start.isSameOrAfter(reqStart, 'day') &&
+                    start.isSameOrBefore(reqEnd, 'day') &&
+                    (req.dayType === 'full_day' || req.dayType === dayType)
+                );
+            });
+            if (!isCoveredByExisting) {
+                return 0.5;
             }
         }
-        current = current.add(1, "day")
+        return 0;
     }
 
-    return days
-}
+    const uniqueDaysSet = new Set();
 
-// Aktualisiere die Tage für jeden Zeitraum, wenn sich die Daten ändern
-const updateVacationDays = () => {
-    vacationPeriods.value.forEach((period) => {
-        period.days = calculateVacationDays(period.startDate, period.endDate, period.dayType)
-    })
-}
+    // Sammle alle Tage aus den bestehenden genehmigten und ausstehenden Anträgen
+    safeExistingRequests.forEach(req => {
+        if (req.status === 'approved' || req.status === 'pending') {
+            let d = dayjs(req.startDate);
+            const reqEnd = dayjs(req.endDate);
+            if (!d.isValid() || !reqEnd.isValid()) return;
+            while (d.isSameOrBefore(reqEnd, 'day')) {
+                uniqueDaysSet.add(d.format('YYYY-MM-DD'));
+                d = d.add(1, 'day');
+            }
+        }
+    });
+
+    // Sammle alle Tage aus den ANDEREN Zeiträumen im aktuellen Formular
+    currentFormPeriods.forEach(period => {
+        if (period.startDate && period.endDate) {
+            let d = dayjs(period.startDate);
+            const pEnd = dayjs(period.endDate);
+            if (!d.isValid() || !pEnd.isValid()) return;
+            while (d.isSameOrBefore(pEnd, 'day')) {
+                uniqueDaysSet.add(d.format('YYYY-MM-DD'));
+                d = d.add(1, 'day');
+            }
+        }
+    });
+
+    let currentPeriodWorkDays = 0;
+    let current = start;
+    while (current.isSameOrBefore(end, 'day')) {
+        const dayOfWeek = current.day();
+        const dateString = current.format('YYYY-MM-DD');
+
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoliday(current)) {
+            if (!uniqueDaysSet.has(dateString)) {
+                currentPeriodWorkDays += 1;
+            }
+        }
+        current = current.add(1, 'day');
+    }
+
+    return currentPeriodWorkDays;
+};
+
 
 // Aktualisiere die Tage für einen bestimmten Zeitraum
 const updatePeriodDays = (index) => {
-    const period = vacationPeriods.value[index]
+    const period = vacationPeriods.value[index];
 
     // Wenn es kein einzelner Tag ist, setze dayType auf full_day
     if (!isSingleDay(period)) {
-        period.dayType = 'full_day'
+        period.dayType = 'full_day';
     }
 
-    period.days = calculateVacationDays(period.startDate, period.endDate, period.dayType)
-}
+    // Berechne die Tage für den aktuellen Zeitraum unter Berücksichtigung aller anderen Faktoren
+    period.days = getUniqueWorkDays(
+        period.startDate,
+        period.endDate,
+        vacationPeriods.value.filter((_, i) => i !== index), // Alle anderen Perioden im Formular
+        props.myVacationRequests, // Wird als existingRequests übergeben
+        props.holidays, // Wird als holidays übergeben
+        period.dayType
+    );
+};
 
-// Gesamtzahl der beantragten Urlaubstage
+// Gesamtzahl der beantragten Urlaubstage (für den aktuellen Antrag)
 const totalRequestedDays = computed(() => {
-    return vacationPeriods.value.reduce((total, period) => total + period.days, 0)
-})
+    // Summiere die berechneten Tage jeder Periode
+    let sumOfPeriodDays = vacationPeriods.value.reduce((total, period) => total + period.days, 0);
+    return sumOfPeriodDays;
+});
+
 
 // Feiertage in den ausgewählten Zeiträumen
 const holidaysInPeriods = computed(() => {
@@ -422,6 +491,8 @@ const holidaysInPeriods = computed(() => {
         if (period.startDate && period.endDate) {
             let current = dayjs(period.startDate)
             const end = dayjs(period.endDate)
+
+            if (!current.isValid() || !end.isValid()) return;
 
             while (current.isSameOrBefore(end, "day")) {
                 if (isHoliday(current)) {
@@ -453,8 +524,8 @@ const holidaysInPeriods = computed(() => {
 const canAddMorePeriods = computed(() => {
     return (
         vacationPeriods.value.length < 5 && // Maximal 5 Zeiträume
-        vacationPeriods.value.every((period) => period.startDate && period.endDate)
-    ) // Alle vorhandenen Zeiträume müssen vollständig sein
+        vacationPeriods.value.every((period) => period.startDate && period.endDate && period.days >= 0) // Alle vorhandenen Zeiträume müssen vollständig sein
+    )
 })
 
 // Hinzufügen eines neuen Zeitraums
@@ -464,7 +535,7 @@ const addPeriod = () => {
     vacationPeriods.value.push({
         startDate: null,
         endDate: null,
-        days: 1,
+        days: 0,
         dayType: 'full_day',
         errors: {
             startDate: "",
@@ -477,95 +548,89 @@ const addPeriod = () => {
 const removePeriod = (index) => {
     if (vacationPeriods.value.length > 1) {
         vacationPeriods.value.splice(index, 1)
+        // Nach dem Entfernen eines Zeitraums müssen alle Tage neu berechnet werden,
+        // da sich die Überschneidungen ändern könnten.
+        vacationPeriods.value.forEach((_, i) => updatePeriodDays(i));
     }
 }
 
-// Bereits gebuchte Urlaubstage (wird vom Server geladen)
-const bookedVacationDates = ref([])
-
-// Deaktivierte Daten für den Kalender (nur eigene Urlaubstage und Feiertage)
-const disabledDates = ref([])
-
-// Aktualisiere die deaktivierten Daten
-const updateDisabledDates = () => {
-    const dates = []
-
-    // Füge nur die eigenen bereits gebuchten Urlaubstage hinzu
-    bookedVacationDates.value.forEach((vacation) => {
-        // Prüfe, ob der Urlaub dem aktuellen Benutzer gehört
-        if (vacation.userId === currentUserId.value) {
-            let current = dayjs(vacation.start)
-            const end = dayjs(vacation.end)
-
-            while (current.isSameOrBefore(end, "day")) {
-                dates.push(new Date(current.year(), current.month(), current.date()))
-                current = current.add(1, "day")
-            }
-        }
-    })
+// Deaktivierte Daten für den Kalender (eigene Urlaubstage und Feiertage)
+const disabledDates = computed(() => {
+    const dates = new Set();
 
     // Füge Feiertage hinzu
-    holidays.value.forEach(holiday => {
-        dates.push(holiday.date.toDate())
-    })
+    // Sicherstellen, dass props.holidays immer ein Array ist
+    const safeHolidays = props.holidays || [];
+    safeHolidays.forEach(holiday => {
+        const djsHolidayDate = dayjs(holiday.date);
+        if (djsHolidayDate.isValid()) {
+            dates.add(djsHolidayDate.format('YYYY-MM-DD'));
+        }
+    });
 
-    disabledDates.value = dates
-}
+    // Füge bereits genehmigte oder ausstehende Urlaubstage hinzu
+    // Sicherstellen, dass props.myVacationRequests immer ein Array ist
+    const safeMyVacationRequests = props.myVacationRequests || [];
+    safeMyVacationRequests.forEach(request => {
+        if (request.status === 'approved' || request.status === 'pending') {
+            let current = dayjs(request.startDate);
+            const end = dayjs(request.endDate);
+            if (!current.isValid() || !end.isValid()) return;
+
+            while (current.isSameOrBefore(end, 'day')) {
+                dates.add(current.format('YYYY-MM-DD'));
+                current = current.add(1, 'day');
+            }
+        }
+    });
+
+    // Konvertiere das Set von Strings in ein Array von Date-Objekten
+    return Array.from(dates).map(dateString => dayjs(dateString).toDate());
+});
+
 
 // Verfügbare Vertretungen (wird vom Server geladen)
 const availableSubstitutes = ref([])
 
 // Formularvalidierung
 const isFormValid = computed(() => {
-    // Prüfe, ob alle Zeiträume gültig sind
-    const allPeriodsValid = vacationPeriods.value.every((period) => period.startDate && period.endDate && period.days > 0)
+    // Prüfe, ob alle Zeiträume gültig sind (Start- und Enddatum gesetzt, Tage > 0)
+    const allPeriodsValid = vacationPeriods.value.every((period) =>
+        period.startDate && period.endDate && period.days >= 0
+    );
 
     // Prüfe, ob genügend Urlaubstage verfügbar sind
-    const enoughDaysAvailable = totalRequestedDays.value <= remainingVacationDays.value
+    const enoughDaysAvailable = totalRequestedDays.value <= displayRemainingVacationDays.value;
 
-    return allPeriodsValid && enoughDaysAvailable
+    // Prüfe, ob mindestens ein Tag beantragt wurde
+    const atLeastOneDayRequested = totalRequestedDays.value > 0;
+
+    return allPeriodsValid && enoughDaysAvailable && atLeastOneDayRequested;
 })
 
 // Formatierungsfunktion für Datum
 const formatDate = (date) => {
     if (!date) return "-"
-    return dayjs(date).format("DD.MM.YYYY")
+    const djsDate = dayjs(date);
+    if (!djsDate.isValid()) return "-";
+    return djsDate.format("DD.MM.YYYY")
 }
 
 const toast = useToast()
 
-// Daten vom Server laden
-const fetchVacationData = async () => {
+// Daten vom Server laden (nur noch Vertretungen)
+const fetchSubstitutes = async () => {
     try {
-        const response = await VacationService.getUserVacationData()
-        totalVacationDays.value = response.data.stats.total
-        usedVacationDays.value = response.data.stats.used
-        remainingVacationDays.value = response.data.stats.remaining
-
-        // Speichere die Benutzer-ID
-        currentUserId.value = response.data.userId || 1 // Fallback auf 1, falls keine ID vorhanden
-
-        // Speichere die gebuchten Urlaubstage mit Benutzer-ID
-        bookedVacationDates.value = response.data.bookedDates.map(date => ({
-            ...date,
-            userId: date.userId || currentUserId.value // Stelle sicher, dass jeder Eintrag eine userId hat
-        }))
-
+        const response = await VacationService.getUserVacationData() // Diese API liefert auch Vertretungen
         availableSubstitutes.value = response.data.substitutes
-
-        updateDisabledDates()
     } catch (error) {
-        console.error("Fehler beim Laden der Urlaubsdaten:", error)
+        console.error("Fehler beim Laden der Vertretungen:", error)
         toast.add({
             severity: "error",
             summary: "Fehler",
-            detail: "Die Urlaubsdaten konnten nicht geladen werden.",
+            detail: "Die Vertretungsdaten konnten nicht geladen werden.",
             life: 3000,
         })
-
-        // Setze eine Standard-Benutzer-ID für Testzwecke
-        currentUserId.value = 1
-        updateDisabledDates()
     }
 }
 
@@ -593,15 +658,31 @@ const submitVacationRequest = async () => {
     })
 
     if (!isValid) {
-        return
-    }
-
-    if (totalRequestedDays.value > remainingVacationDays.value) {
         toast.add({
             severity: "error",
             summary: "Fehler",
-            detail: "Sie haben nicht genügend Urlaubstage übrig.",
+            detail: "Bitte füllen Sie alle erforderlichen Felder aus.",
             life: 3000,
+        });
+        return
+    }
+
+    if (totalRequestedDays.value <= 0) {
+        toast.add({
+            severity: "error",
+            summary: "Fehler",
+            detail: "Bitte wählen Sie mindestens einen Urlaubstag aus.",
+            life: 3000,
+        });
+        return;
+    }
+
+    if (totalRequestedDays.value > displayRemainingVacationDays.value) {
+        toast.add({
+            severity: "error",
+            summary: "Fehler",
+            detail: "Sie haben nicht genügend Urlaubstage übrig. Sie benötigen " + totalRequestedDays.value + " Tage, aber haben nur " + displayRemainingVacationDays.value + " verfügbar.",
+            life: 5000,
         })
         return
     }
@@ -616,7 +697,7 @@ const submitVacationRequest = async () => {
                 startDate: period.startDate ? dayjs(period.startDate).format("YYYY-MM-DD") : null,
                 endDate: period.endDate ? dayjs(period.endDate).format("YYYY-MM-DD") : null,
                 days: period.days,
-                dayType: period.dayType, // NEU: Urlaubsart hinzufügen
+                dayType: period.dayType,
             })),
             substitute: vacationRequest.value.substitute ? vacationRequest.value.substitute.id : null,
             notes: vacationRequest.value.notes,
@@ -655,11 +736,16 @@ const submitVacationRequest = async () => {
         // Event emittieren, um die übergeordnete Komponente zu informieren
         emit("submitted")
     } catch (error) {
+        console.error("Fehler beim Senden des Urlaubsantrags:", error);
+        let errorMessage = "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.";
+        if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+        }
         toast.add({
             severity: "error",
             summary: "Fehler",
-            detail: "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.",
-            life: 3000,
+            detail: errorMessage,
+            life: 5000,
         })
     } finally {
         loading.value = false
@@ -669,11 +755,12 @@ const submitVacationRequest = async () => {
 // Emits
 const emit = defineEmits(["cancel", "submitted"])
 
-// Beobachte Änderungen an den Zeiträumen
+// Beobachte Änderungen an den Zeiträumen, um die Tage neu zu berechnen
 watch(
     vacationPeriods,
     () => {
-        updateVacationDays()
+        // Trigger update for all periods when any period changes
+        vacationPeriods.value.forEach((_, i) => updatePeriodDays(i));
     },
     { deep: true },
 )
@@ -683,8 +770,12 @@ onMounted(() => {
     // Setze die globale PrimeVue-Lokalisierung
     primevue.config.locale = de;
 
-    fetchVacationData()
-    fetchHolidays()
+    fetchSubstitutes(); // Nur noch Vertretungen laden
+
+    // Hinzugefügt für Debugging: Überprüfen Sie die empfangenen Props
+    console.log("VacationRequest received vacationStats:", props.vacationStats);
+    console.log("VacationRequest received myVacationRequests:", props.myVacationRequests);
+    console.log("VacationRequest received holidays:", props.holidays);
 })
 
 </script>
