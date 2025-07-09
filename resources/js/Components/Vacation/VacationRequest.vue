@@ -45,7 +45,7 @@
                             <Button
                                 v-if="vacationPeriods.length > 1"
                                 icon="pi pi-trash"
-                                class="p-button-rounded p-button-danger p-button-text p-button-sm"
+                                class="p-button-rounded p-button-primary p-button-text p-button-sm"
                                 @click="removePeriod(index)"
                                 type="button"
                             />
@@ -129,7 +129,7 @@
                             type="button"
                             label="Weiteren Zeitraum hinzufügen"
                             icon="pi pi-plus"
-                            class="p-button-outlined p-button-secondary"
+                            class="p-button-primary"
                             @click="addPeriod"
                             :disabled="!canAddMorePeriods"
                         />
@@ -219,7 +219,7 @@
                 </div>
 
                 <div class="flex justify-content-end">
-                    <Button type="button" label="Abbrechen" icon="pi pi-times" class="p-button-outlined p-button-secondary mr-2" @click="$emit('cancel')" />
+                    <Button type="button" label="Abbrechen" icon="pi pi-times" class="p-button-primary p-button-outlined mr-2" @click="$emit('cancel')" />
                     <Button type="submit" label="Urlaubsantrag senden" icon="pi pi-send" :loading="loading" :disabled="!isFormValid || loading" />
                 </div>
             </form>

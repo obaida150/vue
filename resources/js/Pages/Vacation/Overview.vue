@@ -278,13 +278,13 @@
                                                 <Button
                                                     v-if="data.status === 'pending'"
                                                     icon="pi pi-times"
-                                                    class="p-button-danger p-button-sm p-button-rounded transition-all duration-200 hover:scale-105"
+                                                    class="p-button-primary p-button-sm p-button-rounded transition-all duration-200 hover:scale-105"
                                                     @click="cancelRequest(data)"
                                                     v-tooltip="'Antrag zurückziehen'"
                                                 />
                                                 <Button
                                                     icon="pi pi-eye"
-                                                    class="p-button-secondary p-button-sm p-button-rounded transition-all duration-200 hover:scale-105"
+                                                    class="p-button-primary p-button-sm p-button-rounded transition-all duration-200 hover:scale-105"
                                                     @click="viewRequestDetails(data)"
                                                     v-tooltip="'Details anzeigen'"
                                                 />
@@ -622,9 +622,9 @@ const calendarOptions = ref({
     contentHeight: 600,
     aspectRatio: 1.35,
     headerToolbar: {
-        left: "prev,next today",
+        left: "prev next today",
         center: "title",
-        right: "dayGridMonth,timeGridWeek",
+        right: "dayGridMonth timeGridWeek",
     },
     locale: deLocale,
     events: [],
@@ -670,7 +670,7 @@ const cancelRequest = async (request) => {
             vacationStats.value.remaining += actualDays;
         }
 
-        updateCalendarEvents();
+        // updateCalendarEvents(); // Wird jetzt durch den Watcher ausgelöst
 
         toast.add({
             severity: "success",
@@ -698,6 +698,15 @@ const handleVacationRequestSubmitted = () => {
 
 // Kalender-Funktionen
 const updateCalendarEvents = () => {
+    const calendarApi = calendarRef.value?.getApi();
+    if (!calendarApi) {
+        console.warn("FullCalendar API not available yet.");
+        return;
+    }
+
+    // Explicitly remove all existing events before adding new ones
+    calendarApi.removeAllEvents();
+
     const events = [];
 
     // Füge Urlaubsanträge hinzu
@@ -733,8 +742,10 @@ const updateCalendarEvents = () => {
     // Füge Feiertage hinzu
     holidays.value.forEach(holiday => {
         events.push({
+            // Verwende eine eindeutige ID für Feiertage, um Konflikte mit Urlaubsanträgen zu vermeiden
+            id: `holiday-${dayjs(holiday.date).format('YYYY-MM-DD')}-${holiday.name}`,
             title: holiday.name,
-            start: dayjs(holiday.date).format('YYYY-MM-DD'), // Ensure dayjs object is formatted
+            start: dayjs(holiday.date).format('YYYY-MM-DD'),
             allDay: true,
             backgroundColor: '#FF0000',
             borderColor: '#FF0000',
@@ -743,9 +754,8 @@ const updateCalendarEvents = () => {
         });
     });
 
-    if (calendarOptions.value) {
-        calendarOptions.value.events = events;
-    }
+    // Setzt die Events über die FullCalendar API
+    calendarApi.setOption('events', events);
 };
 
 // Bereinige Ressourcen vor dem Unmount
@@ -774,7 +784,7 @@ const fetchVacationData = async () => {
             planned: response.data.stats.planned || 0,
             remaining: response.data.stats.remaining || 0,
             remainingRegular: response.data.stats.remainingRegular || 0,
-            remainingCarryOver: response.data.stats.remainingCarryOver || 0
+            remainingCarryOver: 0
         }
 
         myVacationRequests.value = response.data.requests || []
@@ -792,7 +802,7 @@ const fetchVacationData = async () => {
             monthlyChartData.value.datasets[0].data = monthlyData
         }
 
-        updateCalendarEvents()
+        // updateCalendarEvents(); // Wird jetzt durch den Watcher ausgelöst
     } catch (error) {
         console.error("Fehler beim Laden der Urlaubsdaten:", error)
         toast.add({
@@ -879,6 +889,11 @@ onMounted(() => {
     }
     selectedStatYear.value = currentYear
 })
+
+// Watch for changes in vacation requests or holidays to update the calendar
+watch([myVacationRequests, holidays], () => {
+    updateCalendarEvents();
+}, { deep: true }); // Deep watch for array content changes
 
 watch(selectedStatYear, (newYear) => {
     updateYearlyStats()
@@ -1072,15 +1087,34 @@ watch(selectedStatYear, (newYear) => {
 }
 
 :deep(.fc-button-primary) {
-    @apply bg-blue-600 dark:bg-blue-700 border-blue-600 dark:border-blue-700;
+    @apply bg-[#34d399] dark:bg-[#34d399] border-[#34d399] dark:border-[#34d399];
 }
 
 :deep(.fc-button-primary:hover) {
-    @apply bg-blue-700 dark:bg-blue-600 border-blue-700 dark:border-blue-600;
+    @apply bg-[#34d399] dark:bg-[#34d399] border-[#34d375] dark:border-[#34d375];
 }
-
 /* Smooth transitions for all elements */
 * {
     @apply transition-colors duration-300;
+}
+/* FullCalendar Header Button Colors */
+:deep(.fc-prev-button),
+:deep(.fc-next-button),
+:deep(.fc-today-button) {
+    background-color: #34d399 !important;
+    border-color: #34d399 !important;
+    color: #fff !important;
+}
+:deep(.fc-prev-button:hover),
+:deep(.fc-next-button:hover),
+:deep(.fc-today-button:hover) {
+    background-color: #34d399 !important;
+    border-color: #34d399 !important;
+}
+:deep(.fc-dayGridMonth-button),
+:deep(.fc-timeGridWeek-button) {
+    background-color: #34d399 !important;
+    border-color: #34d399 !important;
+    color: #fff !important;
 }
 </style>
