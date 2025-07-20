@@ -14,6 +14,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VacationWishController;
 use App\Http\Controllers\ParkingController;
+use App\Http\Controllers\OutlookController;
 use App\Models\VacationRequest;
 use App\Models\User;
 use App\Models\Team;
@@ -180,6 +181,12 @@ Route::middleware([
 ])->prefix('api')->group(function () {
 
     // Urlaubsverwaltung API
+//    Route::get('/user/outlook-status', function () {
+//        $user = \Illuminate\Support\Facades\Auth::user();
+//        return response()->json([
+//            'is_connected' => (bool) $user->outlook_access_token
+//        ]);
+//    })->name('api.user.outlook-status');
     Route::get('/vacation/user', [VacationController::class, 'getUserData'])->name('api.vacation.user');
     Route::get('/vacation/yearly/{year}', [VacationController::class, 'getYearlyVacationData'])->name('api.vacation.yearly');
     Route::get('/vacation/requests', [VacationController::class, 'getRequests'])->name('api.vacation.requests');
@@ -371,6 +378,9 @@ Route::middleware([
     Route::get('/subjects', function () {
         return Inertia::render('Subjects/Index');
     })->name('subjects.index');
+
+//    Route::get('/outlook/connect', [OutlookController::class, 'redirectToOutlook'])->name('outlook.connect');
+//    Route::get('/outlook/callback', [OutlookController::class, 'handleOutlookCallback'])->name('outlook.callback');
 
     // Parkplatzverwaltung Routen
     Route::get('/parking', [ParkingController::class, 'index'])->name('parking.index');

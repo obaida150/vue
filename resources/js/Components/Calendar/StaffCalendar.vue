@@ -1,5 +1,5 @@
 <template>
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p:6 w-full overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 w-full overflow-hidden">
         <Toast />
         <!-- Header mit Navigation -->
         <CalendarHeader
@@ -76,8 +76,9 @@
             :saving="saving"
             :is-hr="isHrUser"
             :employees="employees"
-            @close="closeEventDialog"
-            @save="saveEvent"
+            :is-team-manager="isTeamManager"
+        @close="closeEventDialog"
+        @save="saveEvent"
         />
 
         <EventDetailsDialog
@@ -158,6 +159,7 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isToday from 'dayjs/plugin/isToday';
 import { usePrimeVue } from 'primevue/config';
+import { useToast } from 'primevue/usetoast';
 import Toast from 'primevue/toast';
 import axios from 'axios';
 
@@ -311,7 +313,7 @@ const {
     weekPlanShowOnlyOwnEvents,
     openEventDialog,
     closeEventDialog,
-    saveEvent,
+    saveEvent: saveEventFn, // Umbenannt, um Konflikt zu vermeiden
     openEventDetailsDialog,
     closeEventDetailsDialog,
     editEvent: editEventFn,
@@ -320,7 +322,7 @@ const {
     navigateToVacationManagement,
     confirmDeleteEvent,
     cancelDeleteEvent,
-    deleteEvent: deleteEventFn,
+    deleteEvent: deleteEventFn, // Umbenannt, um Konflikt zu vermeiden
     openWeekPlanDialog: openWeekPlanDialogFn,
     closeWeekPlanDialog,
     toggleWeekPlanFilter: toggleWeekPlanFilterFn,
@@ -352,6 +354,9 @@ const {
 
 // Direkt vom Server geladene Urlaubsanträge
 const vacationRequests = ref([]);
+
+// Ändern Sie die Deklaration der toast Variable von `const toast = ref(null);` zu:
+const toast = useToast();
 
 // Verarbeite Ereignisse, um sicherzustellen, dass Farben korrekt gesetzt sind
 const processedEvents = computed(() => {
@@ -679,6 +684,31 @@ const editEvent = () => {
     editEventFn(findEventType);
 };
 
+// NEU: saveEvent Funktion, die das Event vom Dialog empfängt
+const saveEvent = async (eventData) => {
+    saving.value = true;
+    try {
+        if (eventData.id) {
+            // Update existing event
+            await axios.put(`/api/events/${eventData.id}`, eventData);
+            // Wenn das Event erfolgreich aktualisiert wurde, aktualisieren Sie auch das selectedEvent
+            selectedEvent.value = { ...selectedEvent.value, ...eventData };
+            toast.add({ severity: 'success', summary: 'Erfolgreich', detail: 'Ereignis aktualisiert', life: 3000 });
+        } else {
+            // Create new event
+            await axios.post('/api/events', eventData);
+            toast.add({ severity: 'success', summary: 'Erfolgreich', detail: 'Ereignis erstellt', life: 3000 });
+        }
+        closeEventDialog();
+        await fetchEvents();
+    } catch (error) {
+        console.error('Error saving event:', error);
+        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Speichern des Ereignisses', life: 3000 });
+    } finally {
+        saving.value = false;
+    }
+};
+
 // Neue deleteEvent Funktion die nach dem Löschen beide Dialoge schließt
 const deleteEvent = async () => {
     try {
@@ -706,11 +736,9 @@ const handleDayClick = (date) => {
         showHolidayInfo(date);
     } else if (enhancedHasVacations(date)) {
         // Wenn der Benutzer an diesem Tag Urlaub hat, zeige eine Meldung an
-        const toast = document.querySelector('.p-toast') ?
-            document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
-
-        if (toast) {
-            toast({
+        const toastInstance = toast;
+        if (toastInstance) {
+            toastInstance.add({
                 severity: 'info',
                 summary: 'Hinweis',
                 detail: 'Sie haben an diesem Tag Urlaub. Keine Einträge möglich.',
@@ -722,11 +750,9 @@ const handleDayClick = (date) => {
     } else if (isUserAbsent(date) && !checkTeamMemberAbsence(date) && !isHrUser.value) {
         // Wenn der Benutzer selbst an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter ist,
         // zeige eine Meldung an oder blockiere die Aktion
-        const toast = document.querySelector('.p-toast') ?
-            document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
-
-        if (toast) {
-            toast({
+        const toastInstance = toast;
+        if (toastInstance) {
+            toastInstance.add({
                 severity: 'info',
                 summary: 'Hinweis',
                 detail: 'Sie sind an diesem Tag als abwesend markiert. Keine Einträge möglich.',
@@ -804,4 +830,4 @@ watch(
         }
     }
 );
-</script>
+</script>>

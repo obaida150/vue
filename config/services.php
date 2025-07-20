@@ -24,6 +24,13 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'ews' => [
+        'host' => env('EWS_HOST'),
+        'username' => env('EWS_USERNAME'),
+        'password' => env('EWS_PASSWORD'),
+        'version' => \jamesiarmes\PhpEws\Client::VERSION_2016,
+    ],
+
     'resend' => [
         'key' => env('RESEND_KEY'),
     ],

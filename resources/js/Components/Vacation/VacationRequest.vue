@@ -8,19 +8,19 @@
                     <div class="col-12 md:col-4">
                         <div class="flex flex-column align-items-center">
                             <div class="text-4xl font-bold text-primary mb-2">{{ displayTotalVacationDays }}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Gesamtes Kontingent</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-200">Gesamtes Kontingent</div>
                         </div>
                     </div>
                     <div class="col-12 md:col-4">
                         <div class="flex flex-column align-items-center">
                             <div class="text-4xl font-bold text-orange-500 mb-2">{{ displayUsedVacationDays }}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Bereits genommen</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-200">Bereits genommen</div>
                         </div>
                     </div>
                     <div class="col-12 md:col-4">
                         <div class="flex flex-column align-items-center">
                             <div class="text-4xl font-bold text-green-500 mb-2">{{ displayRemainingVacationDays }}</div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">Verbleibend</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-200">Verbleibend</div>
                         </div>
                     </div>
                 </div>

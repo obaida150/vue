@@ -29,7 +29,8 @@ class Event extends Model
         'rejected_by',
         'rejected_date',
         'rejection_reason',
-        'created_by'
+        'created_by',
+        'outlook_change_key'
     ];
 
     /**
@@ -38,8 +39,8 @@ class Event extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'start_date' => 'datetime', // Changed from 'date' to 'datetime'
+        'end_date' => 'datetime',   // Changed from 'date' to 'datetime'
         'is_all_day' => 'boolean',
         'approved_date' => 'datetime',
         'rejected_date' => 'datetime',

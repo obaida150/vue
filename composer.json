@@ -7,12 +7,15 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "amirsanni/php-ews-wrapper": "^1.1",
         "barryvdh/laravel-dompdf": "^3.1",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/jetstream": "^5.3",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
+        "microsoft/microsoft-graph": "^1.100",
+        "spatie/laravel-permission": "^6.20",
         "tightenco/ziggy": "^2.5"
     },
     "require-dev": {
