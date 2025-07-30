@@ -122,7 +122,7 @@
                     <!-- Employee Column -->
                     <div class="col-span-3 p-3 flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                            {{ getInitials(employee.name) }}
+                            {{ employee.initials || getInitials(employee.name) }}
                         </div>
                         <div>
                             <div class="font-medium">{{ employee.name }}</div>
@@ -179,7 +179,7 @@
                     <!-- Employee Info -->
                     <div class="p-3 bg-gray-100 dark:bg-gray-800 flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                            {{ getInitials(employee.name) }}
+                            {{ employee.initials || getInitials(employee.name) }}
                         </div>
                         <div>
                             <div class="font-medium">{{ employee.name }}</div>
@@ -235,7 +235,7 @@
             <!-- Desktop View (lg und größer) -->
             <div class="hidden lg:block overflow-x-auto rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <div class="flex min-w-[800px]">
-                    <div class="w-[200px] min-w-[200px] p-3 bg-gray-100 dark:bg-gray-800 font-bold">Mitarbeiter</div>
+                    <div class="w-[260px] min-w-[260px] p-3 bg-gray-100 dark:bg-gray-800 font-bold text-center">Mitarbeiter</div>
                     <div
                         v-for="(day, index) in weekDays"
                         :key="index"
@@ -259,9 +259,9 @@
                         :key="employee.id"
                         class="flex border-t border-gray-200 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 even:bg-gray-50 dark:even:bg-gray-800"
                     >
-                        <div class="w-[200px] min-w-[200px] p-3 flex items-center gap-3">
+                        <div class="w-[260px] min-w-[260px] p-3 flex items-center gap-3">
                             <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                                {{ getInitials(employee.name) }}
+                                {{ employee.initials || getInitials(employee.name) }}
                             </div>
                             <div>
                                 <div class="font-medium">{{ employee.name }}</div>
@@ -328,7 +328,7 @@
                     <!-- Employee Info -->
                     <div class="p-3 bg-gray-100 dark:bg-gray-800 flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                            {{ getInitials(employee.name) }}
+                            {{ employee.initials || getInitials(employee.name) }}
                         </div>
                         <div>
                             <div class="font-medium">{{ employee.name }}</div>
@@ -389,7 +389,7 @@
                     >
                         <div class="w-[200px] min-w-[200px] p-2 flex items-center gap-3">
                             <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                                {{ getInitials(employee.name) }}
+                                {{ employee.initials || getInitials(employee.name) }}
                             </div>
                             <div class="overflow-hidden">
                                 <div class="font-medium">{{ employee.name }}</div>
@@ -455,7 +455,7 @@
                         <!-- Mitarbeiter-Info -->
                         <div class="p-3 bg-gray-100 dark:bg-gray-800 flex items-center gap-3">
                             <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                                {{ getInitials(employee.name) }}
+                                {{ employee.initials || getInitials(employee.name) }}
                             </div>
                             <div>
                                 <div class="font-medium">{{ employee.name }}</div>
@@ -578,7 +578,7 @@
                         <div class="flex flex-col sm:flex-row sm:items-center gap-4 p-3 bg-gray-100 dark:bg-gray-800">
                             <div class="flex items-center gap-3 flex-1">
                                 <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                                    {{ getInitials(employee.name) }}
+                                    {{ employee.initials || getInitials(employee.name) }}
                                 </div>
                                 <div class="font-medium">{{ employee.name }}</div>
                             </div>
@@ -668,7 +668,7 @@
                     >
                         <div class="flex items-center gap-4 p-3 bg-gray-100 dark:bg-gray-800">
                             <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                                {{ getInitials(employee.name) }}
+                                {{ employee.initials || getInitials(employee.name) }}
                             </div>
                             <div class="font-medium flex-1">{{ employee.name }}</div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>

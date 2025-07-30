@@ -105,6 +105,7 @@ class CalendarController extends Controller
                     'name' => $user->full_name,
                     'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
                     'team_id' => $user->current_team_id,
+                    'initials' => $user->initials,
                     'events' => $events,
                     'birth_date' => $user->birth_date ? $user->birth_date->format('Y-m-d') : null
                 ];
