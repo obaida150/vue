@@ -1,8 +1,5 @@
 <template>
-    <div :class="[
-        'w-full overflow-x-auto p-6 rounded-lg shadow-md transition-all duration-300',
-        isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-800'
-    ]">
+    <div class="w-full overflow-x-auto p-6 rounded-lg shadow-md transition-all duration-300 bg-white text-gray-800 dark:bg-gray-900 dark:text-gray-100">
         <!-- Calendar Header -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div class="flex items-center gap-4">
@@ -44,7 +41,7 @@
             <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
                 <div class="w-full md:flex-1">
                     <span class="p-input-icon-left w-full">
-                        <InputText v-model="searchQuery" placeholder="Mitarbeiter suchen..." class="w-full" />
+                        <InputText v-model="searchQuery" placeholder="Mitarbeiter suchen..." class="w-full dark:bg-gray-800 dark:text-gray-200" />
                     </span>
                 </div>
                 <div class="w-full md:flex-1">
@@ -53,7 +50,7 @@
                         :options="availableDepartments"
                         optionLabel="name"
                         placeholder="Abteilungen filtern"
-                        class="w-full"
+                        class="w-full dark:bg-gray-800 dark:text-gray-200"
                         :maxSelectedLabels="3"
                     />
                 </div>
@@ -801,6 +798,7 @@ import VacationService from '@/Services/VacationService';
 import { useToast } from 'primevue/usetoast';
 import axios from 'axios';
 import HolidayService from '@/Services/holiday-service';
+import AppLayout from "@/Layouts/AppLayout.vue";
 
 // Initialize dayjs plugins
 dayjs.extend(weekOfYear);
