@@ -13,10 +13,10 @@
         </template>
 
         <div class="py-6">
-            <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-full mx-auto sm:px-6 lg:px-8">
                 <!-- Informationskarte -->
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-                    <div class="flex items-start">
+                    <div class="flex items-center">
                         <i class="pi pi-info-circle text-blue-500 text-2xl mr-4 mt-1"></i>
                         <div>
                             <h3 class="text-lg font-semibold mb-2">Urlaubsübersicht für die Lohnabrechnung</h3>
@@ -65,8 +65,8 @@
                             <!-- Mitarbeiter-Spalte -->
                             <Column field="name" header="Mitarbeiter" :sortable="true" :filter="true" filterMatchMode="contains">
                                 <template #body="{ data }">
-                                    <div class="flex items-center gap-3">
-                                        <Avatar :label="getInitials(data.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.name) }" />
+                                    <div class="flex items-center gap-3 w-60">
+                                        <Avatar :label="data.initials || getInitials(data.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.name) }" />
                                         <div>
                                             <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.name }}</div>
                                             <div class="text-sm text-gray-500 dark:text-gray-400">{{ data.department }}</div>
@@ -104,9 +104,6 @@
                                         {{ data.vacation_days_per_year }} Tage
                                     </div>
                                 </template>
-<!--                                <template #filter="{ filterModel, filterCallback }">-->
-<!--                                    <InputNumber v-model="filterModel.value" @input="filterCallback()" placeholder="Tage" class="p-column-filter w-full" />-->
-<!--                                </template>-->
                             </Column>
 
                             <!-- Resttage aus dem Vorjahr -->
@@ -145,7 +142,7 @@
                             </Column>
 
                             <!-- Aktionen -->
-                            <Column header="Aktionen" :exportable="false" style="min-width: 8rem">
+                            <Column header="Aktion" :exportable="false" style="min-width: 2rem">
                                 <template #body="{ data }">
                                     <Button
                                         icon="pi pi-eye"
@@ -177,7 +174,7 @@
                     <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                         <h4 class="text-lg font-semibold mb-3">Mitarbeiterinformationen</h4>
                         <div class="flex items-center gap-3 mb-4">
-                            <Avatar :label="getInitials(selectedEmployee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(selectedEmployee.name) }" />
+                            <Avatar :label="selectedEmployee.initials || getInitials(selectedEmployee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(selectedEmployee.name) }" />
                             <div>
                                 <div class="font-medium text-gray-900 dark:text-gray-100">{{ selectedEmployee.name }}</div>
                                 <div class="text-sm text-gray-500 dark:text-gray-400">{{ selectedEmployee.department }}</div>
@@ -338,7 +335,7 @@ export default defineComponent({
             loading: false,
             vacationData: [],
             currentMonth: new Date().getMonth() + 1, // 1-basiert (1 = Januar, 2 = Februar, ...)
-            displayMonths: 4, // Standardmäßig bis April anzeigen
+            displayMonths: 0, // Wird vom Backend gesetzt
             detailsDialogVisible: false,
             selectedEmployee: null,
             departments: [], // Liste der verfügbaren Abteilungen
@@ -423,7 +420,7 @@ export default defineComponent({
                 this.$toast.add({
                     severity: 'error',
                     summary: 'Fehler',
-                    detail: 'Die Urlaubsübersicht konnte nicht geladen werden.',
+                    detail: error.response?.data?.message || 'Die Urlaubsübersicht konnte nicht geladen werden.',
                     life: 3000
                 });
             } finally {

@@ -450,6 +450,7 @@ class VacationController extends Controller
                     'employee' => [
                         'id' => $request->user->id,
                         'name' => $request->user->full_name,
+                        'initials' => $request->user->initials,
                         'is_apprentice' => $request->user->is_apprentice ?? false
                     ],
                     'department' => $request->user->currentTeam ? $request->user->currentTeam->name : 'Keine Abteilung',
@@ -1430,7 +1431,7 @@ class VacationController extends Controller
             $currentMonth = Carbon::now()->month;
 
             $users = User::where('is_active', true)
-                ->with(['vacationBalances' => function($query) use ($currentYear, $previousYear) {
+                ->with(['vacationBalances' => function ($query) use ($currentYear, $previousYear) {
                     $query->whereIn('year', [$previousYear, $currentYear]);
                 }])
                 ->get();
@@ -1451,6 +1452,7 @@ class VacationController extends Controller
                         'max_carry_over' => 10
                     ]);
                 }
+
                 if (!$previousYearBalance) {
                     $previousYearBalance = new VacationBalance([
                         'total_days' => $user->vacation_days_per_year,
@@ -1463,7 +1465,6 @@ class VacationController extends Controller
                 }
 
                 $carryOverFromPreviousYear = max(0, min(10, ($previousYearBalance->total_days + $previousYearBalance->carry_over_days) - ($previousYearBalance->used_days + $previousYearBalance->carry_over_used)));
-
                 $totalEntitlement = $currentYearBalance->total_days + $carryOverFromPreviousYear;
 
                 // NEU: Berechne die tatsächlich genutzten Tage für das aktuelle Jahr (HR-Übersicht)
@@ -1476,7 +1477,7 @@ class VacationController extends Controller
 
                 $vacationRequestsForMonthly = VacationRequest::where('user_id', $user->id)
                     ->where('status', 'approved')
-                    ->where(function($query) use ($currentYear) {
+                    ->where(function ($query) use ($currentYear) {
                         $query->whereYear('start_date', $currentYear)
                             ->orWhereYear('end_date', $currentYear);
                     })
@@ -1485,7 +1486,7 @@ class VacationController extends Controller
                 foreach ($vacationRequestsForMonthly as $request) {
                     $period = CarbonPeriod::create($request->start_date, $request->end_date);
                     foreach ($period as $date) {
-                        if ($date->year !== $currentYear || $date->isWeekend() || $holidaysCurrentYear->contains(fn($h) => $h->isSameDay($date))) {
+                        if ($date->year !== $currentYear || $date->isWeekend() || $holidaysCurrentYear->contains(fn ($h) => $h->isSameDay($date))) {
                             continue;
                         }
                         if ($request->start_date->eq($request->end_date) && in_array($request->day_type, ['morning', 'afternoon'])) {
@@ -1509,26 +1510,27 @@ class VacationController extends Controller
                 // Berechne die monatlichen Resttage
                 $monthlyRemainingDays = [];
                 $runningTotal = $totalEntitlement;
-
                 for ($month = 1; $month <= 12; $month++) {
-                    $runningTotal -= $monthlyUsage[$month-1]; // monthlyUsage ist 0-basiert
+                    $runningTotal -= $monthlyUsage[$month - 1]; // monthlyUsage ist 0-basiert
                     $monthlyRemainingDays[$month] = $runningTotal;
                 }
 
-                $displayMonths = min($currentMonth - 1, 4);
-                if ($currentMonth >= 6) {
-                    $displayMonths = 5;
+                // NEU: displayMonths soll immer bis zum Vormonat gehen
+                $displayMonths = $currentMonth - 1;
+                if ($displayMonths < 0) { // Falls es Januar ist, zeige keine Vormonate an
+                    $displayMonths = 0;
                 }
 
+
                 $allVacationRequests = VacationRequest::where('user_id', $user->id)
-                    ->where(function($query) use ($currentYear) {
+                    ->where(function ($query) use ($currentYear) {
                         $query->whereYear('start_date', $currentYear)
                             ->orWhereYear('end_date', $currentYear);
                     })
                     ->with('approver')
                     ->orderBy('start_date', 'desc')
                     ->get()
-                    ->map(function($request) {
+                    ->map(function ($request) {
                         return [
                             'id' => $request->id,
                             'start_date' => $request->start_date->format('Y-m-d'),
@@ -1559,6 +1561,7 @@ class VacationController extends Controller
                     'used_days_total' => $totalUniqueApprovedDaysCurrentYear, // NEU: Einzigartige Tage
                     'remaining_days_total' => $totalEntitlement - $totalUniqueApprovedDaysCurrentYear, // NEU: Einzigartige Tage
                     'monthly_remaining' => [],
+                    'initials' => $user->initials,
                     'vacation_requests' => $allVacationRequests,
                     'is_apprentice' => $user->is_apprentice ?? false,
                     'mentor_name' => $user->mentor ? $user->mentor->full_name : null
@@ -1574,13 +1577,13 @@ class VacationController extends Controller
             return response()->json([
                 'data' => $overviewData,
                 'current_month' => $currentMonth,
-                'display_months' => min($currentMonth - 1, 4) + (($currentMonth >= 6) ? 1 : 0)
+                'display_months' => $displayMonths
             ]);
         } catch (\Exception $e) {
             Log::error('Error in getHROverview: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['error' => $e->getMessage(), 'message' => $e->getMessage()], 500);
         }
     }
 
@@ -1739,6 +1742,7 @@ class VacationController extends Controller
                 $userData = [
                     'id' => $user->id,
                     'name' => $user->full_name,
+                    'initials' => $user->initials,
                     'personnel_number' => $user->employee_number ?? '-',
                     'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
                     'vacation_days_per_year' => $user->vacation_days_per_year,

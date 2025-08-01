@@ -49,7 +49,7 @@
                             <Column field="name" header="Name" :sortable="true">
                                 <template #body="{ data }">
                                     <div class="flex items-center gap-3">
-                                        <Avatar :label="getInitials(data.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.name) }" />
+                                        <Avatar :label="data.initials || getInitials(data.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.name) }" />
                                         <div>
                                             <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.name }}</div>
                                             <div class="text-sm text-gray-500 dark:text-gray-400">{{ data.email }}</div>

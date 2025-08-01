@@ -1,23 +1,38 @@
 <template>
     <AppLayout title="Urlaubsverwaltung">
         <template #header>
-            <div class="flex justify-between items-center">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
                     Urlaubsverwaltung
                 </h2>
-                <div class="flex items-center gap-2">
-                    <Button icon="pi pi-calendar" label="Kalenderansicht" class="p-button-outlined" @click="showCalendarView" />
-                    <Button icon="pi pi-download" label="Exportieren" class="p-button-outlined" @click="exportData" />
-                    <Button icon="pi pi-refresh" label="Aktualisieren" class="p-button-outlined" @click="refreshData" />
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                    <Button
+                        icon="pi pi-calendar"
+                        label="Kalenderansicht"
+                        class="p-button-outlined text-sm"
+                        @click="showCalendarView"
+                    />
+                    <Button
+                        icon="pi pi-download"
+                        label="Exportieren"
+                        class="p-button-outlined text-sm"
+                        @click="exportData"
+                    />
+                    <Button
+                        icon="pi pi-refresh"
+                        label="Aktualisieren"
+                        class="p-button-outlined text-sm"
+                        @click="refreshData"
+                    />
                 </div>
             </div>
         </template>
 
         <div class="py-6">
-            <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
                 <!-- Statistik-Karten -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mb-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 border-l-4 border-l-blue-500">
                         <div class="flex justify-between items-center">
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Offene Anträge</h3>
@@ -29,7 +44,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 border-l-4 border-l-green-500">
                         <div class="flex justify-between items-center">
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Genehmigte Anträge</h3>
@@ -41,7 +56,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border-l-4 border-red-500">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 border-l-4 border-l-red-500">
                         <div class="flex justify-between items-center">
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Abgelehnte Anträge</h3>
@@ -54,42 +69,38 @@
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl rounded-lg">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <div class="p-6 dark:text-gray-100">
-                        <Tabs>
+                        <Tabs class="modern-tabs">
                             <TabPanel header="Offene Anträge">
-                                <div class="card mb-4 bg-white">
+                                <div class="bg-white dark:bg-gray-900 rounded-lg">
                                     <!-- Filter-Leiste -->
-                                    <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            <div class="filter-field">
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Globale Suche</label>
-                                                <span class="p-input-icon-left w-full">
+                                            <div class="space-y-2">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Globale Suche</label>
                                                 <InputText
                                                     v-model="filters['global'].value"
                                                     placeholder="Alle Felder durchsuchen..."
-                                                    class="w-full p-inputtext-sm "
+                                                    class="w-full"
                                                     @input="onGlobalFilterChange"
                                                 />
-                                            </span>
                                             </div>
-                                            <div class="filter-field">
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Abteilungs</label>
-                                                <span class="p-input-icon-left w-full">
+                                            <div class="space-y-2">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Abteilung</label>
                                                 <Select
                                                     v-model="filters['department'].value"
                                                     :options="departmentOptions"
                                                     optionLabel="label"
                                                     optionValue="value"
                                                     placeholder="Alle Abteilungen"
-                                                    class="w-full p-inputtext-sm p-6"
+                                                    class="w-full"
                                                     :showClear="true"
                                                     @change="onDepartmentFilterChange"
                                                 />
-                                            </span>
                                             </div>
-                                            <div class="filter-field">
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zeitraum</label>
+                                            <div class="space-y-2">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Zeitraum</label>
                                                 <DatePicker
                                                     v-model="dateRangeFilter"
                                                     dateFormat="dd.mm.yy"
@@ -102,11 +113,11 @@
                                                     :locale="de"
                                                 />
                                             </div>
-                                            <div class="filter-field flex items-end">
+                                            <div class="flex items-end">
                                                 <Button
                                                     label="Filter zurücksetzen"
                                                     icon="pi pi-filter-slash"
-                                                    class="w-full"
+                                                    class="w-full p-button-outlined"
                                                     @click="clearAllFilters"
                                                 />
                                             </div>
@@ -121,7 +132,7 @@
                                         dataKey="id"
                                         :rowHover="true"
                                         responsiveLayout="scroll"
-                                        class="p-datatable-sm modern-datatable"
+                                        class="modern-datatable"
                                         :loading="loading"
                                         stripedRows
                                         :sortField="sortField"
@@ -129,7 +140,7 @@
                                         @sort="onSort"
                                     >
                                         <template #header>
-                                            <div class="flex justify-between items-center w-full">
+                                            <div class="flex justify-between items-center w-full p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                                                 <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">
                                                     Offene Urlaubsanträge ({{ filteredPendingRequests.length }})
                                                 </h3>
@@ -137,22 +148,27 @@
                                         </template>
 
                                         <template #empty>
-                                            <div class="text-center p-6">
-                                                <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                                                <p class="text-gray-500 dark:text-gray-800">
+                                            <div class="text-center p-8">
+                                                <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4 block"></i>
+                                                <p class="text-gray-500 dark:text-gray-400">
                                                     {{ filters['global'].value || hasActiveFilters ? 'Keine Anträge entsprechen den Filterkriterien' : 'Keine offenen Urlaubsanträge vorhanden' }}
                                                 </p>
                                             </div>
                                         </template>
-                                    <div class="text-red-800">
 
-                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true">
+                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true" class="min-w-[200px] ">
                                             <template #body="{ data }">
-                                                <div class="flex items-center gap-3">
-                                                    <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
+                                                <div class="flex items-center gap-3 ">
+                                                    <Avatar
+                                                        :label="data.employee.initials || getInitials(data.employee.name)"
+                                                        shape="circle"
+                                                        size="large"
+                                                        :style="{ backgroundColor: getInitialsColor(data.employee.name) }"
+                                                        class="flex-shrink-0"
+                                                    />
                                                     <div>
-                                                        <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.employee.name }}</div>
-                                                        <div class="text-sm text-gray-500 dark:text-gray-800">{{ data.department }}</div>
+                                                        <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.employee.name }}</div>
+                                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ data.department }}</div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -160,21 +176,20 @@
 
                                         <Column field="department" header="Abteilung" :sortable="true">
                                             <template #body="{ data }">
-                                            <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-sm">
-                                                {{ data.department }}
-                                            </span>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                                    {{ data.department }}
+                                                </span>
                                             </template>
                                         </Column>
 
-                                        <Column field="startDate" header="Zeitraum" :sortable="true">
+                                        <Column field="startDate" header="Zeitraum" :sortable="true" class="min-w-[180px]">
                                             <template #body="{ data }">
-                                                <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-800">
+                                                <div class="space-y-1">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-100">
                                                         {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
                                                     </div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-2 mt-1">
+                                                    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                                         <i class="pi pi-calendar text-xs"></i>
-                                                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                                                         <Tag
                                                             :value="getDayTypeLabel(data.dayType)"
                                                             :severity="getDayTypeSeverity(data.dayType)"
@@ -189,10 +204,15 @@
                                         <Column field="substitute.name" header="Vertretung" :sortable="true">
                                             <template #body="{ data }">
                                                 <div v-if="data.substitute" class="flex items-center gap-2">
-                                                    <Avatar :label="getInitials(data.substitute.name)" shape="circle" size="small" :style="{ backgroundColor: getInitialsColor(data.substitute.name) }" />
-                                                    <span>{{ data.substitute.name }}</span>
+                                                    <Avatar
+                                                        :label="data.substitute.initials || getInitials(data.substitute.name)"
+                                                        shape="circle"
+                                                        size="small"
+                                                        :style="{ backgroundColor: getInitialsColor(data.substitute.name) }"
+                                                    />
+                                                    <span class="text-gray-900 dark:text-gray-100">{{ data.substitute.name }}</span>
                                                 </div>
-                                                <div v-else class="text-gray-500 dark:text-gray-800">
+                                                <div v-else class="text-gray-500 dark:text-gray-400 italic">
                                                     Keine Vertretung
                                                 </div>
                                             </template>
@@ -200,28 +220,28 @@
 
                                         <Column field="requestDate" header="Beantragt am" :sortable="true">
                                             <template #body="{ data }">
-                                                <div class="flex items-center gap-2">
-                                                    <i class="pi pi-clock text-gray-500 dark:text-gray-800"></i>
+                                                <div class="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                                                    <i class="pi pi-clock text-gray-500 dark:text-gray-400"></i>
                                                     <span>{{ formatDateTime(data.requestDate) }}</span>
                                                 </div>
                                             </template>
                                         </Column>
 
-                                        <Column field="notes" header="Anmerkungen" StyleClass="t">
+                                        <Column field="notes" header="Anmerkungen" class="max-w-[200px]">
                                             <template #body="{ data }">
-                                                <div v-if="data.notes" class="max-w-xs truncate" :title="data.notes">
-                                                    <i class="pi pi-comment text-gray-500 dark:text-gray-800 mr-2"></i>
-                                                    {{ data.notes }}
+                                                <div v-if="data.notes" class="truncate" :title="data.notes">
+                                                    <i class="pi pi-comment text-gray-500 dark:text-gray-400 mr-2"></i>
+                                                    <span class="text-gray-700 dark:text-gray-300">{{ data.notes }}</span>
                                                 </div>
-                                                <div v-else class="text-gray-400 dark:text-gray-800">
+                                                <div v-else class="text-gray-400 dark:text-gray-500 italic">
                                                     Keine Anmerkungen
                                                 </div>
                                             </template>
                                         </Column>
 
-                                        <Column header="Aktionen" :exportable="false" style="min-width: 10rem">
+                                        <Column header="Aktionen" :exportable="false" class="w-[140px]">
                                             <template #body="{ data }">
-                                                <div class="flex gap-2">
+                                                <div class="flex gap-1">
                                                     <Button
                                                         icon="pi pi-check"
                                                         class="p-button-success p-button-rounded p-button-sm"
@@ -243,43 +263,39 @@
                                                 </div>
                                             </template>
                                         </Column>
-                                    </div>
                                     </DataTable>
                                 </div>
                             </TabPanel>
 
                             <TabPanel header="Genehmigte Anträge">
-                                <div class="card mb-4">
+                                <div class="bg-white dark:bg-gray-900 rounded-lg">
                                     <!-- Filter-Leiste für genehmigte Anträge -->
-                                    <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Globale Suche</label>
-                                                <span class="p-input-icon-left w-full">
-
+                                            <div class="space-y-2">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Globale Suche</label>
                                                 <InputText
                                                     v-model="approvedFilters['global'].value"
                                                     placeholder="Alle Felder durchsuchen..."
-                                                    class="w-full p-inputtext-sm"
+                                                    class="w-full"
                                                     @input="onApprovedGlobalFilterChange"
                                                 />
-                                            </span>
                                             </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Abteilung</label>
+                                            <div class="space-y-2">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Abteilung</label>
                                                 <Select
                                                     v-model="approvedFilters['department'].value"
                                                     :options="departmentOptions"
                                                     optionLabel="label"
                                                     optionValue="value"
                                                     placeholder="Alle Abteilungen"
-                                                    class="w-full p-inputtext-sm"
+                                                    class="w-full"
                                                     :showClear="true"
                                                     @change="onApprovedDepartmentFilterChange"
                                                 />
                                             </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zeitraum</label>
+                                            <div class="space-y-2">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Zeitraum</label>
                                                 <DatePicker
                                                     v-model="approvedDateRangeFilter"
                                                     dateFormat="dd.mm.yy"
@@ -296,7 +312,7 @@
                                                 <Button
                                                     label="Filter zurücksetzen"
                                                     icon="pi pi-filter-slash"
-                                                    class="w-full"
+                                                    class="w-full p-button-outlined"
                                                     @click="clearApprovedFilters"
                                                 />
                                             </div>
@@ -311,12 +327,12 @@
                                         dataKey="id"
                                         :rowHover="true"
                                         responsiveLayout="scroll"
-                                        class="p-datatable-sm modern-datatable"
+                                        class="modern-datatable"
                                         :loading="loading"
                                         stripedRows
                                     >
                                         <template #header>
-                                            <div class="flex justify-between items-center w-full">
+                                            <div class="flex justify-between items-center w-full p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                                                 <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">
                                                     Genehmigte Urlaubsanträge ({{ filteredApprovedRequests.length }})
                                                 </h3>
@@ -324,22 +340,28 @@
                                         </template>
 
                                         <template #empty>
-                                            <div class="text-center p-6">
-                                                <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                                                <p class="text-gray-500 dark:text-gray-800">
+                                            <div class="text-center p-8">
+                                                <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4 block"></i>
+                                                <p class="text-gray-500 dark:text-gray-400">
                                                     {{ approvedFilters['global'].value || hasActiveApprovedFilters ? 'Keine Anträge entsprechen den Filterkriterien' : 'Keine genehmigten Urlaubsanträge vorhanden' }}
                                                 </p>
                                             </div>
                                         </template>
 
                                         <!-- Gleiche Spalten wie bei offenen Anträgen, aber mit zusätzlicher "Genehmigt von" Spalte -->
-                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true">
+                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true" class="min-w-[200px]">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-3">
-                                                    <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
+                                                    <Avatar
+                                                        :label="data.employee.initials || getInitials(data.employee.name)"
+                                                        shape="circle"
+                                                        size="large"
+                                                        :style="{ backgroundColor: getInitialsColor(data.employee.name) }"
+                                                        class="flex-shrink-0"
+                                                    />
                                                     <div>
-                                                        <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.employee.name }}</div>
-                                                        <div class="text-sm text-gray-500 dark:text-gray-800">{{ data.department }}</div>
+                                                        <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.employee.name }}</div>
+                                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ data.department }}</div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -347,21 +369,20 @@
 
                                         <Column field="department" header="Abteilung" :sortable="true">
                                             <template #body="{ data }">
-                                            <span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-sm">
-                                                {{ data.department }}
-                                            </span>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                    {{ data.department }}
+                                                </span>
                                             </template>
                                         </Column>
 
-                                        <Column field="startDate" header="Zeitraum" :sortable="true">
+                                        <Column field="startDate" header="Zeitraum" :sortable="true" class="min-w-[180px]">
                                             <template #body="{ data }">
-                                                <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-800">
+                                                <div class="space-y-1">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-100">
                                                         {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
                                                     </div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-2 mt-1">
+                                                    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                                         <i class="pi pi-calendar text-xs"></i>
-                                                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                                                         <Tag
                                                             :value="getDayTypeLabel(data.dayType)"
                                                             :severity="getDayTypeSeverity(data.dayType)"
@@ -375,9 +396,9 @@
 
                                         <Column field="approvedBy" header="Genehmigt von" :sortable="true">
                                             <template #body="{ data }">
-                                                <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.approvedBy }}</div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-1 mt-1">
+                                                <div class="space-y-1">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.approvedBy }}</div>
+                                                    <div class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                                                         <i class="pi pi-calendar text-xs"></i>
                                                         <span>{{ formatDate(data.approvedDate) }}</span>
                                                     </div>
@@ -385,19 +406,19 @@
                                             </template>
                                         </Column>
 
-                                        <Column field="notes" header="Anmerkungen">
+                                        <Column field="notes" header="Anmerkungen" class="max-w-[200px]">
                                             <template #body="{ data }">
-                                                <div v-if="data.notes" class="max-w-xs truncate" :title="data.notes">
-                                                    <i class="pi pi-comment text-gray-500 dark:text-gray-800 mr-2"></i>
-                                                    {{ data.notes }}
+                                                <div v-if="data.notes" class="truncate" :title="data.notes">
+                                                    <i class="pi pi-comment text-gray-500 dark:text-gray-400 mr-2"></i>
+                                                    <span class="text-gray-700 dark:text-gray-300">{{ data.notes }}</span>
                                                 </div>
-                                                <div v-else class="text-gray-400 dark:text-gray-800">
+                                                <div v-else class="text-gray-400 dark:text-gray-500 italic">
                                                     Keine Anmerkungen
                                                 </div>
                                             </template>
                                         </Column>
 
-                                        <Column header="Aktionen" :exportable="false" style="min-width: 8rem">
+                                        <Column header="Aktionen" :exportable="false" class="w-[60px]">
                                             <template #body="{ data }">
                                                 <Button
                                                     icon="pi pi-eye"
@@ -412,37 +433,34 @@
                             </TabPanel>
 
                             <TabPanel header="Abgelehnte Anträge">
-                                <div class="card mb-4">
+                                <div class="bg-white dark:bg-gray-900 rounded-lg">
                                     <!-- Filter-Leiste für abgelehnte Anträge -->
-                                    <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Globale Suche</label>
-                                                <span class="p-input-icon-left w-full">
-
+                                            <div class="space-y-2">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Globale Suche</label>
                                                 <InputText
                                                     v-model="rejectedFilters['global'].value"
                                                     placeholder="Alle Felder durchsuchen..."
-                                                    class="w-full p-inputtext-sm"
+                                                    class="w-full"
                                                     @input="onRejectedGlobalFilterChange"
                                                 />
-                                            </span>
                                             </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Abteilung</label>
+                                            <div class="space-y-2">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Abteilung</label>
                                                 <Select
                                                     v-model="rejectedFilters['department'].value"
                                                     :options="departmentOptions"
                                                     optionLabel="label"
                                                     optionValue="value"
                                                     placeholder="Alle Abteilungen"
-                                                    class="w-full p-inputtext-sm"
+                                                    class="w-full"
                                                     :showClear="true"
                                                     @change="onRejectedDepartmentFilterChange"
                                                 />
                                             </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zeitraum</label>
+                                            <div class="space-y-2">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Zeitraum</label>
                                                 <DatePicker
                                                     v-model="rejectedDateRangeFilter"
                                                     dateFormat="dd.mm.yy"
@@ -459,7 +477,7 @@
                                                 <Button
                                                     label="Filter zurücksetzen"
                                                     icon="pi pi-filter-slash"
-                                                    class="w-full"
+                                                    class="w-full p-button-outlined"
                                                     @click="clearRejectedFilters"
                                                 />
                                             </div>
@@ -474,12 +492,12 @@
                                         dataKey="id"
                                         :rowHover="true"
                                         responsiveLayout="scroll"
-                                        class="p-datatable-sm modern-datatable"
+                                        class="modern-datatable"
                                         :loading="loading"
                                         stripedRows
                                     >
                                         <template #header>
-                                            <div class="flex justify-between items-center w-full">
+                                            <div class="flex justify-between items-center w-full p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                                                 <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">
                                                     Abgelehnte Urlaubsanträge ({{ filteredRejectedRequests.length }})
                                                 </h3>
@@ -487,21 +505,27 @@
                                         </template>
 
                                         <template #empty>
-                                            <div class="text-center p-6">
-                                                <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                                                <p class="text-gray-500 dark:text-gray-800">
+                                            <div class="text-center p-8">
+                                                <i class="pi pi-inbox text-5xl text-gray-300 dark:text-gray-600 mb-4 block"></i>
+                                                <p class="text-gray-500 dark:text-gray-400">
                                                     {{ rejectedFilters['global'].value || hasActiveRejectedFilters ? 'Keine Anträge entsprechen den Filterkriterien' : 'Keine abgelehnten Urlaubsanträge vorhanden' }}
                                                 </p>
                                             </div>
                                         </template>
 
-                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true">
+                                        <Column field="employee.name" header="Mitarbeiter" :sortable="true" class="min-w-[200px]">
                                             <template #body="{ data }">
                                                 <div class="flex items-center gap-3">
-                                                    <Avatar :label="getInitials(data.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(data.employee.name) }" />
+                                                    <Avatar
+                                                        :label="data.employee.initials || getInitials(data.employee.name)"
+                                                        shape="circle"
+                                                        size="large"
+                                                        :style="{ backgroundColor: getInitialsColor(data.employee.name) }"
+                                                        class="flex-shrink-0"
+                                                    />
                                                     <div>
-                                                        <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.employee.name }}</div>
-                                                        <div class="text-sm text-gray-500 dark:text-gray-800">{{ data.department }}</div>
+                                                        <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.employee.name }}</div>
+                                                        <div class="text-sm text-gray-500 dark:text-gray-400">{{ data.department }}</div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -509,21 +533,20 @@
 
                                         <Column field="department" header="Abteilung" :sortable="true">
                                             <template #body="{ data }">
-                                            <span class="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-full text-sm">
-                                                {{ data.department }}
-                                            </span>
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                                    {{ data.department }}
+                                                </span>
                                             </template>
                                         </Column>
 
-                                        <Column field="startDate" header="Zeitraum" :sortable="true">
+                                        <Column field="startDate" header="Zeitraum" :sortable="true" class="min-w-[180px]">
                                             <template #body="{ data }">
-                                                <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-800">
+                                                <div class="space-y-1">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-100">
                                                         {{ formatDate(data.startDate) }} - {{ formatDate(data.endDate) }}
                                                     </div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-2 mt-1">
+                                                    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                                         <i class="pi pi-calendar text-xs"></i>
-                                                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                                                         <Tag
                                                             :value="getDayTypeLabel(data.dayType)"
                                                             :severity="getDayTypeSeverity(data.dayType)"
@@ -537,9 +560,9 @@
 
                                         <Column field="rejectedBy" header="Abgelehnt von" :sortable="true">
                                             <template #body="{ data }">
-                                                <div class="flex flex-col">
-                                                    <div class="font-medium text-gray-900 dark:text-gray-800">{{ data.rejectedBy }}</div>
-                                                    <div class="text-sm text-gray-500 dark:text-gray-800 flex items-center gap-1 mt-1">
+                                                <div class="space-y-1">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ data.rejectedBy }}</div>
+                                                    <div class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                                                         <i class="pi pi-calendar text-xs"></i>
                                                         <span>{{ formatDate(data.rejectedDate) }}</span>
                                                     </div>
@@ -547,19 +570,19 @@
                                             </template>
                                         </Column>
 
-                                        <Column field="rejectionReason" header="Ablehnungsgrund">
+                                        <Column field="rejectionReason" header="Ablehnungsgrund" class="max-w-[250px]">
                                             <template #body="{ data }">
-                                                <div v-if="data.rejectionReason" class="max-w-xs truncate text-red-600 dark:text-red-400" :title="data.rejectionReason">
+                                                <div v-if="data.rejectionReason" class="truncate text-red-600 dark:text-red-400" :title="data.rejectionReason">
                                                     <i class="pi pi-exclamation-circle mr-2"></i>
                                                     {{ data.rejectionReason }}
                                                 </div>
-                                                <div v-else class="text-gray-400 dark:text-gray-800">
+                                                <div v-else class="text-gray-400 dark:text-gray-500 italic">
                                                     Kein Grund angegeben
                                                 </div>
                                             </template>
                                         </Column>
 
-                                        <Column header="Aktionen" :exportable="false" style="min-width: 8rem">
+                                        <Column header="Aktionen" :exportable="false" class="w-[60px]">
                                             <template #body="{ data }">
                                                 <Button
                                                     icon="pi pi-eye"
@@ -582,14 +605,13 @@
         <Dialog
             v-model:visible="approveDialogVisible"
             header="Urlaubsantrag genehmigen"
-            :style="{ width: '500px' }"
+            class="w-full max-w-lg mx-4"
             :modal="true"
             :closable="true"
-            class="dark:text-gray-100 dark:bg-gray-800"
         >
-            <div class="confirmation-content p-4 dark:text-gray-100 dark:bg-gray-800">
-                <div class="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg mb-6 flex items-start">
-                    <i class="pi pi-check-circle text-green-500 dark:text-green-400 text-2xl mr-4 mt-1"></i>
+            <div class="p-4">
+                <div class="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg mb-6 flex items-start gap-4">
+                    <i class="pi pi-check-circle text-green-500 dark:text-green-400 text-2xl flex-shrink-0 mt-1"></i>
                     <div>
                         <h3 class="text-lg font-semibold text-green-800 dark:text-green-300 mb-2">Urlaubsantrag genehmigen</h3>
                         <p class="text-green-700 dark:text-green-400">
@@ -598,16 +620,15 @@
                     </div>
                 </div>
 
-                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
-                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-100 uppercase mb-3">Antragsdetails</h4>
+                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6 border border-gray-200 dark:border-gray-700">
+                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Antragsdetails</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
-                            <div class="font-medium">
+                            <div class="font-medium text-gray-900 dark:text-gray-100">
                                 {{ selectedRequest ? formatDate(selectedRequest.startDate) : '' }} - {{ selectedRequest ? formatDate(selectedRequest.endDate) : '' }}
                             </div>
                         </div>
-                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
                             <div class="font-medium">
@@ -620,33 +641,34 @@
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
-                            <div class="font-medium">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
-                            <div class="font-medium">{{ selectedRequest?.department }}</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ selectedRequest?.department }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
-                            <div class="font-medium">{{ selectedRequest ? formatDate(selectedRequest.requestDate) : '' }}</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ selectedRequest ? formatDate(selectedRequest.requestDate) : '' }}</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="field mb-4">
-                    <label for="approvalNotes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Anmerkungen (optional)</label>
+                <div class="space-y-2">
+                    <label for="approvalNotes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Anmerkungen (optional)</label>
                     <Textarea
                         id="approvalNotes"
                         v-model="approvalNotes"
                         rows="3"
                         autoResize
-                        class="w-full p-inputtext-sm"
+                        class="w-full"
                         placeholder="Fügen Sie hier Ihre Anmerkungen zur Genehmigung hinzu..."
                     />
                 </div>
             </div>
+
             <template #footer>
-                <div class="flex justify-end gap-2 pt-4 border-gray-200 dark:border-gray-700">
+                <div class="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
                     <Button
                         label="Abbrechen"
                         icon="pi pi-times"
@@ -668,14 +690,13 @@
         <Dialog
             v-model:visible="rejectDialogVisible"
             header="Urlaubsantrag ablehnen"
-            :style="{ width: '500px' }"
+            class="w-full max-w-lg mx-4"
             :modal="true"
             :closable="true"
-            class="dark:text-gray-100 dark:bg-gray-800"
         >
-            <div class="confirmation-content p-4">
-                <div class="bg-red-50 dark:bg-red-900/30 p-4 rounded-lg mb-6 flex items-start">
-                    <i class="pi pi-exclamation-triangle text-red-500 dark:text-red-400 text-2xl mr-4 mt-1"></i>
+            <div class="p-4">
+                <div class="bg-red-50 dark:bg-red-900/30 p-4 rounded-lg mb-6 flex items-start gap-4">
+                    <i class="pi pi-exclamation-triangle text-red-500 dark:text-red-400 text-2xl flex-shrink-0 mt-1"></i>
                     <div>
                         <h3 class="text-lg font-semibold text-red-800 dark:text-red-300 mb-2">Urlaubsantrag ablehnen</h3>
                         <p class="text-red-700 dark:text-red-400">
@@ -684,16 +705,15 @@
                     </div>
                 </div>
 
-                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
-                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-100 uppercase mb-3">Antragsdetails</h4>
+                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6 border border-gray-200 dark:border-gray-700">
+                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-3">Antragsdetails</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
-                            <div class="font-medium">
+                            <div class="font-medium text-gray-900 dark:text-gray-100">
                                 {{ selectedRequest ? formatDate(selectedRequest.startDate) : '' }} - {{ selectedRequest ? formatDate(selectedRequest.endDate) : '' }}
                             </div>
                         </div>
-                        <!-- NEU: Zeige Urlaubstyp und tatsächliche Tage -->
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
                             <div class="font-medium">
@@ -706,34 +726,37 @@
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
-                            <div class="font-medium">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ selectedRequest ? getActualDays(selectedRequest) : 0 }} {{ selectedRequest && getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Abteilung</div>
-                            <div class="font-medium">{{ selectedRequest?.department }}</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ selectedRequest?.department }}</div>
                         </div>
                         <div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
-                            <div class="font-medium">{{ selectedRequest ? formatDate(selectedRequest.requestDate) : '' }}</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ selectedRequest ? formatDate(selectedRequest.requestDate) : '' }}</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="field mb-4">
-                    <label for="rejectionReason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ablehnungsgrund <span class="text-red-500">*</span></label>
+                <div class="space-y-2">
+                    <label for="rejectionReason" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Ablehnungsgrund <span class="text-red-500">*</span>
+                    </label>
                     <Textarea
                         id="rejectionReason"
                         v-model="rejectionReason"
                         rows="3"
                         autoResize
-                        class="w-full p-inputtext-sm"
+                        class="w-full"
                         placeholder="Bitte geben Sie einen Grund für die Ablehnung an..."
                     />
-                    <small class="text-gray-500 dark:text-gray-800 mt-1 block">Diese Information wird dem Mitarbeiter angezeigt.</small>
+                    <small class="text-gray-500 dark:text-gray-400 block">Diese Information wird dem Mitarbeiter angezeigt.</small>
                 </div>
             </div>
+
             <template #footer>
-                <div class="flex justify-end gap-2 pt-4 border-gray-200 dark:border-gray-700">
+                <div class="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
                     <Button
                         label="Abbrechen"
                         icon="pi pi-times"
@@ -743,7 +766,7 @@
                     <Button
                         label="Ablehnen"
                         icon="pi pi-times"
-                        class="p-button-danger hover:bg-red-950 dark:hover:bg-red-800"
+                        class="p-button-danger"
                         @click="confirmReject"
                         :loading="processingRequest"
                         :disabled="!rejectionReason"
@@ -756,32 +779,35 @@
         <Dialog
             v-model:visible="detailsDialogVisible"
             :header="`Urlaubsantrag Details`"
-            :style="{ width: '600px' }"
+            class="w-full max-w-2xl mx-4"
             :modal="true"
             :closable="true"
-            class="modern-dialog dark:text-gray-100 dark:bg-gray-800"
         >
             <div v-if="selectedRequest" class="p-4">
-                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6">
+                <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-6 border border-gray-200 dark:border-gray-700">
                     <div class="flex items-center gap-3 mb-4">
-                        <Avatar :label="getInitials(selectedRequest.employee.name)" shape="circle" size="large" :style="{ backgroundColor: getInitialsColor(selectedRequest.employee.name) }" />
+                        <Avatar
+                            :label="selectedRequest.employee.initials || getInitials(selectedRequest.employee.name)"
+                            shape="circle"
+                            size="large"
+                            :style="{ backgroundColor: getInitialsColor(selectedRequest.employee.name) }"
+                        />
                         <div>
-                            <h3 class="text-xl font-bold dark:text-gray-100">{{ selectedRequest.employee.name }}</h3>
-                            <p class="text-gray-500 dark:text-gray-100">{{ selectedRequest.department }}</p>
+                            <h3 class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ selectedRequest.employee.name }}</h3>
+                            <p class="text-gray-500 dark:text-gray-400">{{ selectedRequest.department }}</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-100">Zeitraum</div>
-                            <div class="font-medium dark:text-gray-100">
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Zeitraum</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">
                                 {{ formatDate(selectedRequest.startDate) }} - {{ formatDate(selectedRequest.endDate) }}
                             </div>
                         </div>
-                        <!-- NEU: Zeige Urlaubstyp -->
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-100">Art</div>
-                            <div class="font-medium dark:text-gray-100">
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Art</div>
+                            <div class="font-medium">
                                 <Tag
                                     :value="getDayTypeLabel(selectedRequest.dayType)"
                                     :severity="getDayTypeSeverity(selectedRequest.dayType)"
@@ -789,22 +815,22 @@
                             </div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-100">Tatsächliche Tage</div>
-                            <div class="font-medium dark:text-gray-100">{{ getActualDays(selectedRequest) }} {{ getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Tatsächliche Tage</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ getActualDays(selectedRequest) }} {{ getActualDays(selectedRequest) === 1 ? 'Tag' : 'Tage' }}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 dark:text-gray-100">Beantragt am</div>
-                            <div class="font-medium dark:text-gray-100">{{ formatDateTime(selectedRequest.requestDate) }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Beantragt am</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ formatDateTime(selectedRequest.requestDate) }}</div>
                         </div>
                         <div v-if="selectedRequest.substitute">
-                            <div class="text-sm text-gray-500 dark:text-gray-100">Vertretung</div>
-                            <div class="font-medium dark:text-gray-100">{{ selectedRequest.substitute.name }}</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-400">Vertretung</div>
+                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ selectedRequest.substitute.name }}</div>
                         </div>
                     </div>
 
                     <div v-if="selectedRequest.notes" class="mb-4">
-                        <div class="text-sm text-gray-500 dark:text-gray-800">Anmerkungen</div>
-                        <div class="font-medium p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                        <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">Anmerkungen</div>
+                        <div class="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100">
                             {{ selectedRequest.notes }}
                         </div>
                     </div>
@@ -828,7 +854,7 @@
                             Abgelehnt von {{ selectedRequest.rejectedBy }} am {{ formatDateTime(selectedRequest.rejectedDate) }}
                         </div>
                         <div v-if="selectedRequest.rejectionReason" class="mt-2">
-                            <div class="text-sm text-red-600 dark:text-red-300">Ablehnungsgrund:</div>
+                            <div class="text-sm text-red-600 dark:text-red-300 mb-1">Ablehnungsgrund:</div>
                             <div class="p-2 bg-white dark:bg-gray-700 rounded border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300">
                                 {{ selectedRequest.rejectionReason }}
                             </div>
@@ -836,12 +862,13 @@
                     </div>
                 </div>
             </div>
+
             <template #footer>
-                <div class="flex justify-end gap-2 pt-4 border-gray-200 dark:border-gray-700">
+                <div class="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
                     <Button
                         label="Schließen"
                         icon="pi pi-times"
-                        class="p-button-text items-left"
+                        class="p-button-text"
                         @click="detailsDialogVisible = false"
                     />
                     <Button
@@ -868,7 +895,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { FilterMatchMode, FilterOperator } from '@primevue/core/api';
+import { FilterMatchMode } from '@primevue/core/api';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
@@ -888,11 +915,12 @@ import 'dayjs/locale/de';
 import VacationService from '@/Services/VacationService';
 import Select from 'primevue/select';
 import { router } from '@inertiajs/vue3';
-import {usePrimeVue} from "primevue/config";
-
+import { usePrimeVue } from "primevue/config";
 
 const toast = useToast();
+const primevue = usePrimeVue();
 dayjs.locale('de');
+
 // Deutsche Lokalisierung für PrimeVue
 const de = {
     firstDayOfWeek: 1,
@@ -907,42 +935,32 @@ const de = {
     dateFormat: "dd.mm.yy",
     firstDay: 1
 };
-const primevue = usePrimeVue();
 
-// NEU: Hilfsfunktionen für Halbtags-Anzeige
+// Hilfsfunktionen für Halbtags-Anzeige
 const getDayTypeLabel = (dayType) => {
     switch (dayType) {
-        case 'morning':
-            return 'Vormittag'
-        case 'afternoon':
-            return 'Nachmittag'
+        case 'morning': return 'Vormittag'
+        case 'afternoon': return 'Nachmittag'
         case 'full_day':
-        default:
-            return 'Ganzer Tag'
+        default: return 'Ganzer Tag'
     }
 }
 
 const getDayTypeSeverity = (dayType) => {
     switch (dayType) {
-        case 'morning':
-            return 'info'
-        case 'afternoon':
-            return 'warning'
+        case 'morning': return 'info'
+        case 'afternoon': return 'warning'
         case 'full_day':
-        default:
-            return 'primary'
+        default: return 'primary'
     }
 }
 
 const getActualDays = (request) => {
-    // Verwende actualDays falls vorhanden, sonst berechne basierend auf dayType
     if (request.actualDays !== undefined) {
         return request.actualDays
     }
 
-    // Fallback-Berechnung
     if (request.dayType && request.dayType !== 'full_day') {
-        // Prüfe ob es ein einzelner Tag ist
         const startDate = dayjs(request.startDate)
         const endDate = dayjs(request.endDate)
         if (startDate.isSame(endDate, 'day')) {
@@ -967,7 +985,7 @@ const rejectionReason = ref('');
 const sortField = ref('requestDate');
 const sortOrder = ref(-1);
 
-// Filter für DataTable - Verbesserte Initialisierung
+// Filter für DataTable
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     'employee.name': { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -1071,7 +1089,6 @@ const applyFilters = (data, filterObj, dateRange) => {
                 (item.approvedBy && item.approvedBy.toLowerCase().includes(globalValue)) ||
                 (item.rejectedBy && item.rejectedBy.toLowerCase().includes(globalValue)) ||
                 (item.rejectionReason && item.rejectionReason.toLowerCase().includes(globalValue)) ||
-                // NEU: Durchsuche auch Urlaubstyp
                 getDayTypeLabel(item.dayType).toLowerCase().includes(globalValue)
             );
         });
@@ -1100,41 +1117,15 @@ const applyFilters = (data, filterObj, dateRange) => {
 };
 
 // Event Handler für Filter
-const onGlobalFilterChange = () => {
-    // Filter wird automatisch durch computed property angewendet
-};
-
-const onDepartmentFilterChange = () => {
-    // Filter wird automatisch durch computed property angewendet
-};
-
-const onDateRangeFilterChange = () => {
-    // Filter wird automatisch durch computed property angewendet
-};
-
-const onApprovedGlobalFilterChange = () => {
-    // Filter wird automatisch durch computed property angewendet
-};
-
-const onApprovedDepartmentFilterChange = () => {
-    // Filter wird automatisch durch computed property angewendet
-};
-
-const onApprovedDateRangeFilterChange = () => {
-    // Filter wird automatisch durch computed property angewendet
-};
-
-const onRejectedGlobalFilterChange = () => {
-    // Filter wird automatisch durch computed property angewendet
-};
-
-const onRejectedDepartmentFilterChange = () => {
-    // Filter wird automatisch durch computed property angewendet
-};
-
-const onRejectedDateRangeFilterChange = () => {
-    // Filter wird automatisch durch computed property angewendet
-};
+const onGlobalFilterChange = () => {};
+const onDepartmentFilterChange = () => {};
+const onDateRangeFilterChange = () => {};
+const onApprovedGlobalFilterChange = () => {};
+const onApprovedDepartmentFilterChange = () => {};
+const onApprovedDateRangeFilterChange = () => {};
+const onRejectedGlobalFilterChange = () => {};
+const onRejectedDepartmentFilterChange = () => {};
+const onRejectedDateRangeFilterChange = () => {};
 
 // Filter zurücksetzen
 const clearAllFilters = () => {
@@ -1155,17 +1146,9 @@ const clearRejectedFilters = () => {
     rejectedDateRangeFilter.value = null;
 };
 
-const clearDateRangeFilter = () => {
-    dateRangeFilter.value = null;
-};
-
-const clearApprovedDateRangeFilter = () => {
-    approvedDateRangeFilter.value = null;
-};
-
-const clearRejectedDateRangeFilter = () => {
-    rejectedDateRangeFilter.value = null;
-};
+const clearDateRangeFilter = () => { dateRangeFilter.value = null; };
+const clearApprovedDateRangeFilter = () => { approvedDateRangeFilter.value = null; };
+const clearRejectedDateRangeFilter = () => { rejectedDateRangeFilter.value = null; };
 
 // Sortierung
 const onSort = (event) => {
@@ -1190,11 +1173,15 @@ const fetchVacationRequests = async () => {
             life: 3000
         });
 
-        // Fallback mit erweiterten Beispieldaten - NEU: Mit Halbtags-Daten
+        // Fallback mit erweiterten Beispieldaten
         pendingRequests.value = [
             {
                 id: 1,
-                employee: { name: 'Max Mustermann', id: 1 },
+                employee: {
+                    name: 'Max Mustermann',
+                    id: 1,
+                    initials: 'MM' // Beispiel für vorhandene Initialen
+                },
                 department: 'Entwicklung',
                 startDate: new Date(2025, 3, 15),
                 endDate: new Date(2025, 3, 20),
@@ -1203,12 +1190,20 @@ const fetchVacationRequests = async () => {
                 actualDays: 6,
                 requestDate: new Date(2025, 2, 1),
                 status: 'pending',
-                substitute: { name: 'Anna Schmidt', id: 2 },
+                substitute: {
+                    name: 'Anna Schmidt',
+                    id: 2,
+                    initials: null // Beispiel für fehlende Initialen - wird Fallback verwenden
+                },
                 notes: 'Familienurlaub in den Osterferien'
             },
             {
                 id: 2,
-                employee: { name: 'Julia Weber', id: 3 },
+                employee: {
+                    name: 'Julia Weber',
+                    id: 3,
+                    initials: 'JW'
+                },
                 department: 'Marketing',
                 startDate: new Date(2025, 4, 10),
                 endDate: new Date(2025, 4, 10),
@@ -1222,16 +1217,24 @@ const fetchVacationRequests = async () => {
             },
             {
                 id: 5,
-                employee: { name: 'Peter Schneider', id: 6 },
+                employee: {
+                    name: 'Peter Schneider',
+                    id: 6,
+                    initials: null // Wird getInitials() verwenden
+                },
                 department: 'Vertrieb',
                 startDate: new Date(2025, 5, 1),
                 endDate: new Date(2025, 5, 7),
                 days: 7,
                 dayType: 'full_day',
-                actualDays: 5, // Wochenenden nicht mitgezählt
+                actualDays: 5,
                 requestDate: new Date(2025, 4, 10),
                 status: 'pending',
-                substitute: { name: 'Lisa Müller', id: 7 },
+                substitute: {
+                    name: 'Lisa Müller',
+                    id: 7,
+                    initials: 'LM'
+                },
                 notes: 'Hochzeitsreise'
             }
         ];
@@ -1239,7 +1242,11 @@ const fetchVacationRequests = async () => {
         approvedRequests.value = [
             {
                 id: 3,
-                employee: { name: 'Thomas Müller', id: 4 },
+                employee: {
+                    name: 'Thomas Müller',
+                    id: 4,
+                    initials: 'TM'
+                },
                 department: 'Vertrieb',
                 startDate: new Date(2025, 5, 1),
                 endDate: new Date(2025, 5, 14),
@@ -1254,7 +1261,11 @@ const fetchVacationRequests = async () => {
             },
             {
                 id: 6,
-                employee: { name: 'Sandra Klein', id: 8 },
+                employee: {
+                    name: 'Sandra Klein',
+                    id: 8,
+                    initials: 'SK'
+                },
                 department: 'Personal',
                 startDate: new Date(2025, 2, 20),
                 endDate: new Date(2025, 2, 20),
@@ -1272,7 +1283,11 @@ const fetchVacationRequests = async () => {
         rejectedRequests.value = [
             {
                 id: 4,
-                employee: { name: 'Sarah Fischer', id: 5 },
+                employee: {
+                    name: 'Sarah Fischer',
+                    id: 5,
+                    initials: null // Wird getInitials() verwenden
+                },
                 department: 'Personal',
                 startDate: new Date(2025, 2, 20),
                 endDate: new Date(2025, 2, 24),
@@ -1287,7 +1302,11 @@ const fetchVacationRequests = async () => {
             },
             {
                 id: 7,
-                employee: { name: 'Michael Wagner', id: 9 },
+                employee: {
+                    name: 'Michael Wagner',
+                    id: 9,
+                    initials: 'MW'
+                },
                 department: 'Entwicklung',
                 startDate: new Date(2025, 6, 1),
                 endDate: new Date(2025, 6, 21),
@@ -1392,7 +1411,7 @@ const confirmApprove = async () => {
         });
 
         closeApproveDialog();
-        await fetchVacationRequests(); // Daten neu laden
+        await fetchVacationRequests();
     } catch (error) {
         console.error('Fehler beim Genehmigen:', error);
         toast.add({
@@ -1432,7 +1451,7 @@ const confirmReject = async () => {
         });
 
         closeRejectDialog();
-        await fetchVacationRequests(); // Daten neu laden
+        await fetchVacationRequests();
     } catch (error) {
         console.error('Fehler beim Ablehnen:', error);
         toast.add({
@@ -1447,7 +1466,6 @@ const confirmReject = async () => {
 };
 
 const showCalendarView = () => {
-    // Navigiere zur Kalenderansicht mit Inertia
     router.visit('/company-calendar');
 };
 
@@ -1488,7 +1506,7 @@ const exportData = () => {
         return;
     }
 
-    // Erstelle CSV-Inhalt mit deutschen Überschriften - NEU: Mit Halbtags-Informationen
+    // Erstelle CSV-Inhalt mit deutschen Überschriften
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM für korrekte Umlaute
 
     // Header mit deutschen Bezeichnungen
@@ -1521,8 +1539,8 @@ const exportData = () => {
             `"${item.department}"`,
             formatDate(item.startDate),
             formatDate(item.endDate),
-            `"${getDayTypeLabel(item.dayType)}"`, // NEU
-            getActualDays(item), // NEU
+            `"${getDayTypeLabel(item.dayType)}"`,
+            getActualDays(item),
             item.status === 'pending' ? 'Ausstehend' : (item.status === 'approved' ? 'Genehmigt' : 'Abgelehnt'),
             `"${item.substitute ? item.substitute.name : 'Keine Vertretung'}"`,
             formatDateTime(item.requestDate),
@@ -1563,265 +1581,96 @@ onMounted(() => {
 });
 </script>
 
-<style scoped>
-.card {
-    background-color: var(--surface-card);
-    border-radius: var(--border-radius);
-    box-shadow: var(--card-shadow);
+<style>
+/* Modern tabs styling mit Tailwind */
+.modern-tabs .p-tabview-nav {
+    @apply border-b border-gray-200 dark:border-gray-700 px-4 bg-gray-50 dark:bg-gray-800;
 }
 
-:deep(.modern-datatable) {
-    border-radius: 0.5rem;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+.modern-tabs .p-tabview-nav li .p-tabview-nav-link {
+    @apply border-none text-gray-600 dark:text-gray-400 transition-all duration-200 px-6 py-4 font-medium hover:text-gray-800 dark:hover:text-gray-200;
 }
 
-:deep(.modern-datatable .p-datatable-header) {
-    background-color: var(--surface-section);
-    border: none;
-    padding: 1.25rem;
+.modern-tabs .p-tabview-nav li.p-highlight .p-tabview-nav-link {
+    @apply text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-white dark:bg-gray-900;
 }
 
-:deep(.modern-datatable .p-datatable-thead > tr > th) {
-    background-color: var(--surface-section);
-    padding: 1rem;
-    font-weight: 600;
-    color: var(--text-color-secondary);
-    border-color: var(--surface-border);
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
+.modern-tabs .p-tabview-panels {
+    @apply p-0;
 }
 
-:deep(.modern-datatable .p-datatable-tbody > tr) {
-    transition: all 0.2s;
-    border-color: var(--surface-border);
+/* DataTable Styling mit Tailwind */
+.modern-datatable {
+    @apply rounded-lg overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700;
 }
 
-:deep(.modern-datatable .p-datatable-tbody > tr > td) {
-    padding: 1rem;
-    border-color: var(--surface-border);
+.modern-datatable .p-datatable-header {
+    @apply bg-gray-50 dark:bg-gray-800 border-none p-0;
 }
 
-:deep(.modern-datatable .p-datatable-tbody > tr:hover) {
-    background-color: var(--surface-hover);
+.modern-datatable .p-datatable-thead > tr > th {
+    @apply bg-gray-50 dark:bg-gray-800 p-4 font-semibold text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 uppercase text-xs tracking-wide;
 }
 
-:deep(.modern-datatable .p-paginator) {
-    padding: 1rem;
-    background-color: var(--surface-section);
-    border: none;
+.modern-datatable .p-datatable-tbody > tr {
+    @apply transition-all duration-200 border-gray-200 dark:border-gray-700 ;
 }
 
-:deep(.p-tabview .p-tabview-nav) {
-    border-bottom: 1px solid var(--surface-border);
-    padding: 0 1rem;
+.modern-datatable .p-datatable-tbody > tr > td {
+    @apply p-4 border-gray-200 dark:border-gray-700;
 }
 
-:deep(.p-tabview .p-tabview-nav li .p-tabview-nav-link) {
-    border: none;
-    color: var(--text-color-secondary);
-    transition: all 0.2s;
-    padding: 1rem 1.5rem;
-    font-weight: 500;
+.modern-datatable .p-datatable-tbody > tr:hover {
+    @apply bg-gray-50 dark:bg-gray-800;
 }
 
-:deep(.p-tabview .p-tabview-nav li.p-highlight .p-tabview-nav-link) {
-    color: var(--primary-color);
-    border-bottom: 2px solid var(--primary-color);
+.modern-datatable .p-paginator {
+    @apply p-4 bg-gray-50 dark:bg-gray-800 border-none;
 }
 
-:deep(.p-tabview .p-tabview-panels) {
-    padding: 0;
+/* Dialog Styling mit Tailwind */
+.p-dialog {
+    @apply rounded-lg overflow-hidden shadow-xl border border-gray-200 dark:border-gray-700;
 }
 
-/* Modern Dialog Styles */
-:deep(.modern-dialog) {
-    border-radius: 0.75rem;
-    overflow: hidden;
+.p-dialog .p-dialog-header {
+    @apply px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700;
 }
 
-:deep(.modern-dialog .p-dialog-header) {
-    padding: 1.5rem;
-    background-color: var(--surface-section);
-    border-bottom: 1px solid var(--surface-border);
-
+.p-dialog .p-dialog-title {
+    @apply font-semibold text-lg text-gray-900 dark:text-gray-100;
 }
 
-:deep(.modern-dialog .p-dialog-title) {
-    font-weight: 600;
-    font-size: 1.25rem;
-}
-
-:deep(.modern-dialog .p-dialog-content) {
-    padding: 0;
-    background-color: var(--surface-card);
-}
-
-:deep(.modern-dialog .p-dialog-footer) {
-    padding: 0 1.5rem 1.5rem 1.5rem;
-    background-color: var(--surface-card);
-    border-top: none;
-}
-
-/* Filter-Leiste Styling - Desktop */
-:deep(.p-dropdown) {
-    width: 100%;
-}
-
-:deep(.p-calendar) {
-    width: 100%;
-}
-
-/* Filter-Feld Styling */
-.filter-field {
-    margin-bottom: 0;
-    flex: 1;
-    min-width: 0;
-}
-
-
-:deep(.p-calendar .p-inputtext) {
-    width: 100%;
-}
-
-:deep(.p-dropdown-panel) {
-    width: auto !important;
-    min-width: 100%;
+.p-dialog .p-dialog-content {
+    @apply p-0 bg-white dark:bg-gray-900;
 }
 
 /* Responsive Verbesserungen */
 @media (max-width: 768px) {
-    /* DataTable Responsive */
-    :deep(.modern-datatable .p-datatable-tbody > tr > td) {
-        padding: 0.5rem;
-        font-size: 0.875rem;
+    .modern-tabs .p-tabview-nav {
+        @apply px-2 overflow-x-auto;
     }
 
-    :deep(.modern-datatable .p-datatable-thead > tr > th) {
-        padding: 0.75rem 0.5rem;
-        font-size: 0.75rem;
+    .modern-tabs .p-tabview-nav li .p-tabview-nav-link {
+        @apply px-4 py-3 text-sm whitespace-nowrap;
     }
 
-    :deep(.modern-datatable .p-datatable-header) {
-        padding: 1rem;
+    .modern-datatable .p-datatable-tbody > tr > td {
+        @apply p-2 text-sm;
     }
 
-    /* Filter-Leiste Mobile */
-    .filter-field {
-        margin-bottom: 1rem;
-        flex: none;
-        width: 100%;
-    }
-
-    /* Grid Layout für Mobile anpassen */
-    .grid.grid-cols-1.md\\:grid-cols-4.gap-4 {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    /* Button auf Mobile */
-    .filter-field .p-button {
-        width: 100%;
-        margin-top: 0.5rem;
-    }
-
-    /* Tabs auf Mobile */
-    :deep(.p-tabview .p-tabview-nav) {
-        padding: 0 0.5rem;
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-
-    :deep(.p-tabview .p-tabview-nav li .p-tabview-nav-link) {
-        padding: 0.75rem 1rem;
-        font-size: 0.875rem;
-    }
-
-    /* Header auf Mobile */
-    .flex.justify-between.items-center {
-        flex-direction: column;
-        gap: 1rem;
-        align-items: stretch;
-    }
-
-    .flex.items-center.gap-2 {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .flex.items-center.gap-2 .p-button {
-        width: 100%;
+    .modern-datatable .p-datatable-thead > tr > th {
+        @apply p-3 text-xs;
     }
 }
 
 @media (max-width: 480px) {
-    /* Sehr kleine Bildschirme */
-    :deep(.modern-datatable .p-datatable-tbody > tr > td) {
-        padding: 0.25rem;
-        font-size: 0.75rem;
+    .modern-datatable .p-datatable-tbody > tr > td {
+        @apply p-1 text-xs;
     }
 
-    :deep(.modern-datatable .p-datatable-thead > tr > th) {
-        padding: 0.5rem 0.25rem;
-        font-size: 0.625rem;
-    }
-
-    /* Statistik-Karten auf sehr kleinen Bildschirmen */
-    .grid.grid-cols-1.md\\:grid-cols-3.gap-6 {
-        gap: 1rem;
-    }
-
-    /* Dialog auf kleinen Bildschirmen */
-    :deep(.modern-dialog) {
-        width: 95vw !important;
-        max-width: 95vw !important;
-        margin: 1rem;
-    }
-
-    :deep(.modern-dialog .p-dialog-header) {
-        padding: 1rem;
-    }
-
-    :deep(.modern-dialog .p-dialog-footer) {
-        padding: 0 1rem 1rem 1rem;
+    .modern-datatable .p-datatable-thead > tr > th {
+        @apply p-2 text-xs;
     }
 }
-
-/* Dark mode adjustments */
-:deep(.dark .p-datatable .p-datatable-thead > tr > th) {
-    background-color: var(--surface-card);
-}
-
-:deep(.dark .p-datatable .p-datatable-tbody > tr:nth-child(even)) {
-    background-color: rgba(255, 255, 255, 0.02);
-}
-
-:deep(.dark .p-datatable .p-datatable-tbody > tr:hover) {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.p-select {
-    height: 60%;
-    padding: 0px;
-}
-.p-inputtext {
-    height: 60%;
-    padding: 10px;
-}
-
-p.button{
-    height: 60%;
-    padding: 10px;
-}
-
-/* Verbesserte Filter-Leiste */
-.filter-bar {
-    background: linear-gradient(135deg, var(--surface-50) 0%, var(--surface-100) 100%);
-    border: 1px solid var(--surface-border);
-}
-
-
-
 </style>
