@@ -133,7 +133,7 @@
                                 <template #body="{ data }">
                                     <div class="flex items-center">
                                         <Avatar
-                                            :label="getInitials(data.instructor_name)"
+                                            :label="data.initials || getInitials(data.instructor_name)"
                                             class="mr-2"
                                             size="small"
                                             style="background-color: #2196F3; color: #ffffff"

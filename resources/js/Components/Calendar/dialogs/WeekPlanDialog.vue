@@ -6,7 +6,7 @@
         :header="`Wochenplanung - KW ${weekNumber}`"
         :modal="true"
         :closable="true"
-        class="week-plan-dialog"
+        class="week-plan-dialog p-2"
     >
         <div>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -122,7 +122,7 @@
         </div>
 
         <template #footer>
-            <div class="flex justify-end gap-2">
+            <div class="flex justify-end gap-2 p-2">
                 <Button label="Abbrechen" icon="pi pi-times" @click="onClose" class="p-button-text" />
                 <Button label="Speichern" icon="pi pi-check" @click="onSave" :loading="saving" autofocus />
             </div>

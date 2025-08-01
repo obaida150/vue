@@ -23,6 +23,7 @@ class ReportController extends Controller
                     'id' => $report->id,
                     'berichtsnummer' => $report->berichtsnummer,
                     'type' => $report->type,
+                    'initials' => $report->user->initials,
                     'year' => $report->year,
                     'date_from' => $report->date_from ? $report->date_from->format('Y-m-d') : null,
                     'date_to' => $report->date_to ? $report->date_to->format('Y-m-d') : null,
