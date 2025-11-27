@@ -163,6 +163,7 @@
                                 <span class="font-medium">{{ truncateText(event.employee_name || 'Unbekannt', 12) }}</span>
                             </div>
                             <div class="pl-3 truncate">{{ truncateText(event.title, 15) }}</div>
+
                             <div class="pl-3">
                                 <template v-if="event.start_time && event.end_time">
                                     von {{ formatTime(event.start_time) }} bis {{ formatTime(event.end_time) }}
