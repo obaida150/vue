@@ -19,7 +19,6 @@ class OutlookController extends Controller
     private function convertIanaToWindowsTimeZone(string $ianaTimeZoneId): string
     {
         // Eine einfache Zuordnung für die häufigsten Fälle.
-        // Für eine umfassendere Lösung könnte eine Bibliothek oder eine größere Mapping-Tabelle verwendet werden.
         switch ($ianaTimeZoneId) {
             case 'Europe/Berlin':
             case 'Europe/Vienna':
@@ -35,11 +34,9 @@ class OutlookController extends Controller
                 return 'Tokyo Standard Time';
             case 'Europe/London':
                 return 'GMT Standard Time';
-            // Fügen Sie hier weitere Mappings hinzu, falls andere Zeitzonen benötigt werden
             default:
-                // Fallback: Versuchen Sie, die ID direkt zu verwenden, oder eine Standard-ID
                 Log::warning("Unknown IANA timezone ID: $ianaTimeZoneId. Falling back to direct ID or 'UTC'.");
-                return $ianaTimeZoneId; // Oder eine sichere Standard-ID wie 'UTC'
+                return $ianaTimeZoneId;
         }
     }
 
@@ -76,7 +73,15 @@ class OutlookController extends Controller
             "Content-Type: text/xml; charset=utf-8",
             "Accept: text/xml"
         ]);
-        curl_setopt($ch, CURLOPT_VERBOSE, true); // Behalten wir für detaillierte Logs
+        curl_setopt($ch, CURLOPT_VERBOSE, true);
+
+        $verifySSL = env('EWS_VERIFY_SSL', true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST,  0);
+
+        if (!$verifySSL) {
+            Log::warning('EWS SSL verification is disabled. This should only be used in development!');
+        }
 
         $response = curl_exec($ch);
 
@@ -111,7 +116,7 @@ class OutlookController extends Controller
         $targetUser = $user->email;
         $subject = htmlspecialchars($event->title);
         $body = htmlspecialchars($event->description ?? '');
-        $location = ''; // Kann bei Bedarf hinzugefügt werden
+        $location = '';
 
         $isAllDayEventXml = $event->is_all_day ? 'true' : 'false';
         $start = '';
@@ -119,20 +124,42 @@ class OutlookController extends Controller
         $timeZoneXml = '';
 
         if ($event->is_all_day) {
-            // Für ganztägige Ereignisse: Start um 00:00 des Starttages, Ende um 00:00 des FOLGETAGES
             $start = Carbon::parse($event->start_date)->startOfDay()->format('Y-m-d\TH:i:s');
             $end = Carbon::parse($event->end_date)->addDay()->startOfDay()->format('Y-m-d\TH:i:s');
-            // Keine Zeitzonen-Informationen für echte Ganztagesereignisse in EWS
         } else {
-            // Für zeitbasierte Ereignisse: Exakte Zeiten mit Zeitzonen-Offset
-            $start = Carbon::parse($event->start_date)->toIso8601String(); // Inkl. Zeitzonen-Offset
-            $end = Carbon::parse($event->end_date)->toIso8601String();     // Inkl. Zeitzonen-Offset
+            $startDateTime = Carbon::parse($event->start_date);
+            $endDateTime = Carbon::parse($event->end_date);
+
+            if ($event->start_time) {
+                $timeParts = explode(':', $event->start_time);
+                $startDateTime->setTime((int)$timeParts[0], (int)$timeParts[1], 0);
+            }
+
+            if ($event->end_time) {
+                $timeParts = explode(':', $event->end_time);
+                $endDateTime->setTime((int)$timeParts[0], (int)$timeParts[1], 0);
+            }
+
+            $start = $startDateTime->toIso8601String();
+            $end = $endDateTime->toIso8601String();
+
             $appTimeZone = config('app.timezone');
-            $windowsTimeZoneId = $this->convertIanaToWindowsTimeZone($appTimeZone); // Konvertierung hier!
+            $windowsTimeZoneId = $this->convertIanaToWindowsTimeZone($appTimeZone);
             $timeZoneXml = <<<XML
 <t:StartTimeZone Id="$windowsTimeZoneId" />
 <t:EndTimeZone Id="$windowsTimeZoneId" />
 XML;
+
+            Log::info('Creating EWS event with times', [
+                'start_date' => $event->start_date,
+                'start_time' => $event->start_time,
+                'end_date' => $event->end_date,
+                'end_time' => $event->end_time,
+                'start_iso' => $start,
+                'end_iso' => $end,
+                'timezone' => $windowsTimeZoneId,
+                'is_all_day' => false
+            ]);
         }
 
         $xmlPayload = <<<XML
@@ -183,13 +210,13 @@ XML;
                 if ($responseClass === 'Success') {
                     $itemIdNodes = $xml->xpath('//t:ItemId/@Id');
                     $itemId = count($itemIdNodes) > 0 ? (string)$itemIdNodes[0] : null;
-                    $changeKeyNodes = $xml->xpath('//t:ItemId/@ChangeKey'); // Extract ChangeKey
+                    $changeKeyNodes = $xml->xpath('//t:ItemId/@ChangeKey');
                     $changeKey = count($changeKeyNodes) > 0 ? (string)$changeKeyNodes[0] : null;
 
                     if ($itemId) {
                         $event->outlook_event_id = $itemId;
-                        $event->outlook_change_key = $changeKey; // Save ChangeKey
-                        $event->save(); // Save the event with new Outlook ID and ChangeKey
+                        $event->outlook_change_key = $changeKey;
+                        $event->save();
                         Log::info('EWS event created for user ' . $user->id . ': ' . $itemId . ' with ChangeKey: ' . $changeKey);
                         return $itemId;
                     }
@@ -216,7 +243,7 @@ XML;
      */
     public function updateEwsEvent(\App\Models\Event $event, \App\Models\User $user): bool
     {
-        if (!$event->outlook_event_id || !$event->outlook_change_key) { // Check for ChangeKey as well
+        if (!$event->outlook_event_id || !$event->outlook_change_key) {
             Log::warning('No EWS event ID or ChangeKey found for local event ' . $event->id . '. Update skipped.');
             return false;
         }
@@ -227,7 +254,7 @@ XML;
         $targetUser = $user->email;
         $subject = htmlspecialchars($event->title);
         $body = htmlspecialchars($event->description ?? '');
-        $location = ''; // Kann bei Bedarf hinzugefügt werden
+        $location = '';
 
         $isAllDayEventXml = $event->is_all_day ? 'true' : 'false';
         $start = '';
@@ -237,8 +264,6 @@ XML;
         if ($event->is_all_day) {
             $start = Carbon::parse($event->start_date)->startOfDay()->format('Y-m-d\TH:i:s');
             $end = Carbon::parse($event->end_date)->addDay()->startOfDay()->format('Y-m-d\TH:i:s');
-            // Für Updates müssen wir explizit die Zeitzonenfelder löschen, wenn wir von einem zeitbasierten
-            // zu einem ganztägigen Ereignis wechseln.
             $timeZoneUpdateXml = <<<XML
 <t:DeleteItemField>
     <t:FieldURI FieldURI="calendar:StartTimeZone" />
@@ -248,10 +273,24 @@ XML;
 </t:DeleteItemField>
 XML;
         } else {
-            $start = Carbon::parse($event->start_date)->toIso8601String();
-            $end = Carbon::parse($event->end_date)->toIso8601String();
+            $startDateTime = Carbon::parse($event->start_date);
+            $endDateTime = Carbon::parse($event->end_date);
+
+            if ($event->start_time) {
+                $timeParts = explode(':', $event->start_time);
+                $startDateTime->setTime((int)$timeParts[0], (int)$timeParts[1], 0);
+            }
+
+            if ($event->end_time) {
+                $timeParts = explode(':', $event->end_time);
+                $endDateTime->setTime((int)$timeParts[0], (int)$timeParts[1], 0);
+            }
+
+            $start = $startDateTime->toIso8601String();
+            $end = $endDateTime->toIso8601String();
+
             $appTimeZone = config('app.timezone');
-            $windowsTimeZoneId = $this->convertIanaToWindowsTimeZone($appTimeZone); // Konvertierung hier!
+            $windowsTimeZoneId = $this->convertIanaToWindowsTimeZone($appTimeZone);
             $timeZoneUpdateXml = <<<XML
 <t:SetItemField>
     <t:FieldURI FieldURI="calendar:StartTimeZone" />
@@ -266,6 +305,17 @@ XML;
     </t:CalendarItem>
 </t:SetItemField>
 XML;
+
+            Log::info('Updating EWS event with times', [
+                'start_date' => $event->start_date,
+                'start_time' => $event->start_time,
+                'end_date' => $event->end_date,
+                'end_time' => $event->end_time,
+                'start_iso' => $start,
+                'end_iso' => $end,
+                'timezone' => $windowsTimeZoneId,
+                'is_all_day' => false
+            ]);
         }
 
         $xmlPayload = <<<XML
@@ -343,17 +393,41 @@ XML;
 
                 $responseClassNodes = $xml->xpath('//m:UpdateItemResponseMessage/@ResponseClass');
                 $responseClass = count($responseClassNodes) > 0 ? (string)$responseClassNodes[0] : null;
+
                 if ($responseClass === 'Success') {
-                    $updatedChangeKeyNodes = $xml->xpath('//t:ItemId/@ChangeKey'); // Extract new ChangeKey
+                    $updatedChangeKeyNodes = $xml->xpath('//t:ItemId/@ChangeKey');
                     $updatedChangeKey = count($updatedChangeKeyNodes) > 0 ? (string)$updatedChangeKeyNodes[0] : null;
 
                     if ($updatedChangeKey) {
-                        $event->outlook_change_key = $updatedChangeKey; // Update ChangeKey
-                        $event->save(); // Save the event with the new ChangeKey
+                        $event->outlook_change_key = $updatedChangeKey;
+                        $event->save();
                     }
                     Log::info('EWS event updated for user ' . $user->id . ': ' . $event->outlook_event_id . ' with new ChangeKey: ' . $updatedChangeKey);
                     return true;
                 } else {
+                    $responseCodeNodes = $xml->xpath('//m:ResponseCode');
+                    $responseCode = count($responseCodeNodes) > 0 ? (string)$responseCodeNodes[0] : null;
+
+                    if ($responseCode === 'ErrorIrresolvableConflict') {
+                        Log::warning('ChangeKey conflict detected. Attempting to refresh ChangeKey and retry update.');
+
+                        // Aktuellen ChangeKey aus Outlook holen
+                        $currentChangeKey = $this->getEwsEventChangeKey($outlookItemId, $targetUser);
+
+                        if ($currentChangeKey) {
+                            // ChangeKey in der Datenbank aktualisieren
+                            $event->outlook_change_key = $currentChangeKey;
+                            $event->save();
+
+                            Log::info('ChangeKey refreshed. Retrying update with new ChangeKey: ' . $currentChangeKey);
+
+                            // Update erneut versuchen (rekursiver Aufruf, aber nur einmal)
+                            return $this->updateEwsEvent($event, $user);
+                        } else {
+                            Log::error('Failed to retrieve current ChangeKey from Outlook.');
+                        }
+                    }
+
                     $messageTextNodes = $xml->xpath('//m:MessageText');
                     $messageText = count($messageTextNodes) > 0 ? (string)$messageTextNodes[0] : 'Unknown EWS error';
                     Log::error('EWS UpdateItem failed for user ' . $user->id . ': ' . $messageText);
@@ -376,7 +450,7 @@ XML;
      */
     public function deleteEwsEvent(\App\Models\Event $event, \App\Models\User $user): bool
     {
-        if (!$event->outlook_event_id || !$event->outlook_change_key) { // Check for ChangeKey as well
+        if (!$event->outlook_event_id || !$event->outlook_change_key) {
             Log::warning('No EWS event ID or ChangeKey found for local event ' . $event->id . '. Delete skipped.');
             return false;
         }
@@ -435,5 +509,69 @@ XML;
             Log::error('EWS DeleteItem request failed for user ' . $user->id . ': ' . $response['error']);
         }
         return false;
+    }
+
+    /**
+     * Holt den aktuellen ChangeKey eines Events aus Outlook via EWS.
+     *
+     * @param string $outlookItemId Die Outlook Event ID.
+     * @param string $userEmail Die E-Mail-Adresse des Benutzers.
+     * @return string|null Der aktuelle ChangeKey bei Erfolg, sonst null.
+     */
+    private function getEwsEventChangeKey(string $outlookItemId, string $userEmail): ?string
+    {
+        $xmlPayload = <<<XML
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages"
+xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+<soap:Header>
+<t:RequestServerVersion Version="Exchange2016" />
+<t:ExchangeImpersonation>
+<t:ConnectingSID>
+<t:PrimarySmtpAddress>$userEmail</t:PrimarySmtpAddress>
+</t:ConnectingSID>
+</t:ExchangeImpersonation>
+</soap:Header>
+<soap:Body>
+<m:GetItem>
+<m:ItemShape>
+<t:BaseShape>IdOnly</t:BaseShape>
+</m:ItemShape>
+<m:ItemIds>
+<t:ItemId Id="$outlookItemId" />
+</m:ItemIds>
+</m:GetItem>
+</soap:Body>
+</soap:Envelope>
+XML;
+
+        $response = $this->sendEwsRequest($xmlPayload, $userEmail);
+
+        if ($response['success']) {
+            try {
+                $xml = simplexml_load_string($response['response']);
+                $xml->registerXPathNamespace('m', 'http://schemas.microsoft.com/exchange/services/2006/messages');
+                $xml->registerXPathNamespace('t', 'http://schemas.microsoft.com/exchange/services/2006/types');
+
+                $responseClassNodes = $xml->xpath('//m:GetItemResponseMessage/@ResponseClass');
+                $responseClass = count($responseClassNodes) > 0 ? (string)$responseClassNodes[0] : null;
+
+                if ($responseClass === 'Success') {
+                    $changeKeyNodes = $xml->xpath('//t:ItemId/@ChangeKey');
+                    $changeKey = count($changeKeyNodes) > 0 ? (string)$changeKeyNodes[0] : null;
+
+                    if ($changeKey) {
+                        Log::info('Retrieved current ChangeKey from Outlook: ' . $changeKey);
+                        return $changeKey;
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Error parsing EWS GetItem response: ' . $e->getMessage());
+            }
+        }
+
+        return null;
     }
 }

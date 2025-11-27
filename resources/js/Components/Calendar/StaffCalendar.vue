@@ -687,6 +687,10 @@ const editEvent = () => {
 // NEU: saveEvent Funktion, die das Event vom Dialog empfängt
 const saveEvent = async (eventData) => {
     saving.value = true;
+    console.log('Session-Check:');
+    console.log('Cookies:', document.cookie);
+    console.log('CSRF-Token im Meta:', document.querySelector('meta[name="csrf-token"]')?.content);
+    console.log('Event Data:', eventData);
     try {
         if (eventData.id) {
             // Update existing event
@@ -702,6 +706,11 @@ const saveEvent = async (eventData) => {
         closeEventDialog();
         await fetchEvents();
     } catch (error) {
+        console.error('Fehler Details:');
+        console.error('Status:', error.response?.status);
+        console.error('Headers:', error.response?.headers);
+        console.error('Data:', error.response?.data);
+        console.error('Config:', error.config);
         console.error('Error saving event:', error);
         toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Speichern des Ereignisses', life: 3000 });
     } finally {

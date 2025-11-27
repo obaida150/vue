@@ -163,6 +163,17 @@
                                 <span class="font-medium">{{ truncateText(event.employee_name || 'Unbekannt', 12) }}</span>
                             </div>
                             <div class="pl-3 truncate">{{ truncateText(event.title, 15) }}</div>
+                            <div class="pl-3">
+                                <template v-if="event.start_time && event.end_time">
+                                    von {{ formatTime(event.start_time) }} bis {{ formatTime(event.end_time) }}
+                                </template>
+                                <template v-else-if="event.start_time">
+                                    von {{ formatTime(event.start_time) }}
+                                </template>
+                                <template v-else-if="event.end_time">
+                                    bis {{ formatTime(event.end_time) }}
+                                </template>
+                            </div>
                         </div>
                     </template>
                 </div>
@@ -260,10 +271,11 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat'
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
-
+dayjs.extend(customParseFormat)
 const props = defineProps({
     currentDate: {
         type: Object,
@@ -412,6 +424,21 @@ const getVacationDetailsForDay = (date) => {
 
     return vacation;
 };
+
+function formatTime(timeStr) {
+    if (!timeStr) return ''
+    // deckt "09:00:00" (DB) ab
+    if (/^\d{2}:\d{2}:\d{2}$/.test(timeStr)) {
+        return dayjs(timeStr, 'HH:mm:ss').format('HH:mm')
+    }
+    // falls die Zeit schon in "HH:mm" kommt
+    if (/^\d{2}:\d{2}$/.test(timeStr)) {
+        return timeStr
+    }
+    // falls es ein ISO-String ist wie "2025-10-30T09:00:00"
+    const d = dayjs(timeStr)
+    return d.isValid() ? d.format('HH:mm') : String(timeStr)
+}
 
 // Berechne den Header für den Dialog
 const selectedDayHeader = computed(() => {

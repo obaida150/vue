@@ -202,14 +202,56 @@ const syncWithOutlook = ref(false);
 const selectedEmployee = ref(null);
 
 // NEW: Local ref for isAllDay to ensure robust reactivity
-const isAllDayLocal = ref(props.event.isAllDay);
+const isAllDayLocal = ref(props.event.is_all_day ?? props.event.isAllDay ?? false);
 
 watch(() => props.visible, (newValue) => {
     localVisible.value = newValue;
     if (newValue) {
         // When dialog opens, initialize local state from prop
-        isAllDayLocal.value = props.event.isAllDay;
-        syncWithOutlook.value = props.event.sync_with_outlook ?? false; // Ensure syncWithOutlook is initialized
+
+        // 1. Basis-Felder setzen (außer syncWithOutlook)
+        isAllDayLocal.value = props.event.is_all_day ?? false;
+
+        console.log('[v0] Event beim Laden:', {
+            id: props.event.id,
+            sync_with_outlook: props.event.sync_with_outlook,
+            outlook_event_id: props.event.outlook_event_id,
+            is_all_day: props.event.is_all_day,
+            start_time: props.event.start_time,
+            end_time: props.event.end_time,
+        });
+
+        // 2. Zeiten konvertieren (BEVOR syncWithOutlook gesetzt wird!)
+        if (props.event.start_time) {
+            const timeParts = props.event.start_time.split(':');
+            const hours = parseInt(timeParts[0]);
+            const minutes = parseInt(timeParts[1]);
+            const startTime = new Date();
+            startTime.setHours(hours, minutes, 0, 0);
+            props.event.startTime = startTime;
+            console.log('[v0] Start-Zeit konvertiert:', props.event.start_time, '→', startTime);
+        }
+
+        if (props.event.end_time) {
+            const timeParts = props.event.end_time.split(':');
+            const hours = parseInt(timeParts[0]);
+            const minutes = parseInt(timeParts[1]);
+            const endTime = new Date();
+            endTime.setHours(hours, minutes, 0, 0);
+            props.event.endTime = endTime;
+            console.log('[v0] End-Zeit konvertiert:', props.event.end_time, '→', endTime);
+        }
+
+        // 3. JETZT syncWithOutlook setzen (nachdem die Zeiten bereits konvertiert sind)
+        // Der Watch auf syncWithOutlook wird die Zeiten nicht überschreiben, weil sie bereits gesetzt sind
+        syncWithOutlook.value = props.event.sync_with_outlook ?? false;
+
+        console.log('[v0] Nach Initialisierung:', {
+            isAllDayLocal: isAllDayLocal.value,
+            syncWithOutlook: syncWithOutlook.value,
+            startTime: props.event.startTime,
+            endTime: props.event.endTime,
+        });
     }
 });
 
@@ -240,19 +282,6 @@ watch(() => props.event, (newEvent) => {
     } else {
         selectedEmployee.value = null;
     }
-
-    // Initialisiere startTime und endTime, wenn sie nicht vorhanden sind
-    if (!newEvent.startTime) newEvent.startTime = null;
-    if (!newEvent.endTime) newEvent.endTime = null;
-
-    // Wenn ein bestehendes Event geladen wird, das Zeiten hat, diese in startTime/endTime setzen
-    if (newEvent.start_date && !newEvent.isAllDay && !newEvent.startTime) {
-        props.event.startTime = dayjs(newEvent.start_date).toDate();
-    }
-    if (newEvent.end_date && !newEvent.isAllDay && !newEvent.endTime) {
-        props.event.endTime = dayjs(newEvent.end_date).toDate();
-    }
-
 }, { immediate: true, deep: true });
 
 watch(() => props.event.type, (newType) => {
@@ -263,7 +292,7 @@ watch(() => props.event.type, (newType) => {
 
 // NEW: Watch for changes in isAllDayLocal and update event.isAllDay, clearing times if all-day
 watch(isAllDayLocal, (newValue) => {
-    props.event.isAllDay = newValue; // Keep props.event.isAllDay in sync
+    props.event.is_all_day = newValue; // Keep props.event.is_all_day in sync
     if (newValue) {
         props.event.startTime = null;
         props.event.endTime = null;
@@ -277,6 +306,25 @@ watch(() => [props.event.startTime, props.event.endTime], ([newStartTime, newEnd
     }
 });
 
+watch(syncWithOutlook, (newValue) => {
+    if (newValue) {
+        // Ganztägig automatisch deaktivieren, damit Zeitfelder erscheinen
+        isAllDayLocal.value = false;
+        props.event.is_all_day = false;
+
+        if (!props.event.startTime) {
+            const defaultStart = new Date();
+            defaultStart.setHours(9, 0, 0, 0);
+            props.event.startTime = defaultStart;
+        }
+        if (!props.event.endTime) {
+            const defaultEnd = new Date();
+            defaultEnd.setHours(17, 0, 0, 0);
+            props.event.endTime = defaultEnd;
+        }
+    }
+});
+
 const onClose = () => {
     updateVisible(false);
 };
@@ -287,49 +335,37 @@ const onSave = () => {
         return;
     }
 
-    if (syncWithOutlook.value && !isAllDayLocal.value) { // Use isAllDayLocal here
+    if (syncWithOutlook.value && !isAllDayLocal.value) {
         if (!props.event.startTime || !props.event.endTime) {
             alert('Bitte geben Sie Start- und Endzeit für das Outlook-Ereignis an.');
             return;
         }
     }
 
-    let finalStartDate = props.event.startDate;
-    let finalEndDate = props.event.endDate;
+    let startTime = null;
+    let endTime = null;
 
-    // Wenn mit Outlook synchronisiert wird und es KEIN ganztägiges Ereignis ist,
-    // kombiniere Datum und Zeit aus den separaten Feldern.
-    // Für ganztägige Outlook-Events werden die Zeiten im Backend gesetzt.
-    if (syncWithOutlook.value && !isAllDayLocal.value) { // Use isAllDayLocal here
-        if (props.event.startTime) {
-            const time = dayjs(props.event.startTime);
-            finalStartDate = dayjs(props.event.startDate)
-                .set('hour', time.hour())
-                .set('minute', time.minute())
-                .set('second', time.second())
-                .toDate();
-        }
-        if (props.event.endTime) {
-            const time = dayjs(props.event.endTime);
-            finalEndDate = dayjs(props.event.endDate)
-                .set('hour', time.hour())
-                .set('minute', time.minute())
-                .set('second', time.second())
-                .toDate();
-        }
+    if (syncWithOutlook.value && !isAllDayLocal.value && props.event.startTime && props.event.endTime) {
+        // Zeiten als HH:mm:ss formatieren
+        startTime = dayjs(props.event.startTime).format('HH:mm:ss');
+        endTime = dayjs(props.event.endTime).format('HH:mm:ss');
     }
 
     const eventToSave = {
-        id: props.event.id, // Wichtig für Updates
+        id: props.event.id,
         title: props.event.title,
         description: props.event.description,
-        start_date: finalStartDate ? dayjs(finalStartDate).format('YYYY-MM-DD HH:mm:ss') : null,
-        end_date: finalEndDate ? dayjs(finalEndDate).format('YYYY-MM-DD HH:mm:ss') : null,
-        is_all_day: isAllDayLocal.value, // Use isAllDayLocal here
+        start_date: props.event.startDate ? dayjs(props.event.startDate).format('YYYY-MM-DD') : null,
+        end_date: props.event.endDate ? dayjs(props.event.endDate).format('YYYY-MM-DD') : null,
+        start_time: startTime, // Separate Zeit als HH:mm:ss
+        end_time: endTime, // Separate Zeit als HH:mm:ss
+        is_all_day: isAllDayLocal.value,
         event_type_id: props.event.type ? props.event.type.id : null,
         user_id: props.event.user_id,
         sync_with_outlook: syncWithOutlook.value,
     };
+
+    console.log('[v0] Event to save:', eventToSave);
     emit('save', eventToSave);
 };
 </script>

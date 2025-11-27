@@ -11,13 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
-// Entfernen Sie die Microsoft Graph API Imports, da sie hier nicht mehr direkt verwendet werden
-// use Microsoft\Graph\Graph;
-// use Microsoft\Graph\Model\Event as OutlookGraphEvent;
-// use Microsoft\Graph\Model\ItemBody;
-// use Microsoft\Graph\Model\DateTimeTimeZone;
-// use Microsoft\Graph\Model\BodyType;
-use App\Http\Controllers\OutlookController; // Importieren Sie den neuen Controller
+use App\Http\Controllers\OutlookController;
 
 class EventController extends Controller
 {
@@ -84,13 +78,18 @@ class EventController extends Controller
                     'description' => $event->description,
                     'start_date' => $event->start_date->format('Y-m-d'),
                     'end_date' => $event->end_date->format('Y-m-d'),
+                    'start_time' => $event->start_time, // Direkt aus der Spalte
+                    'end_time' => $event->end_time, // Direkt aus der Spalte
                     'is_all_day' => $event->is_all_day,
                     'status' => $event->status,
                     'event_type_id' => $event->event_type_id,
                     'event_type' => $event->eventType ? $event->eventType->name : null,
                     'user_id' => $event->user_id,
                     'team_id' => $event->team_id,
-                    'employee_name' => $event->user ? $event->user->first_name . ' ' . $event->user->last_name : null
+                    'employee_name' => $event->user ? $event->user->first_name . ' ' . $event->user->last_name : null,
+                    'sync_with_outlook' => !empty($event->outlook_event_id),
+                    'outlook_event_id' => $event->outlook_event_id,
+                    'outlook_change_key' => $event->outlook_change_key,
                 ];
             });
         } catch (\Exception $e) {
@@ -107,31 +106,29 @@ class EventController extends Controller
         try {
             $user = Auth::user();
 
-            // Überprüfen Sie, ob der Benutzer die Berechtigung hat, Ereignisse zu erstellen
-            if (!$user->hasPermissionTo('create events')) {
-                return response()->json(['error' => 'Nicht autorisiert, Ereignisse zu erstellen.'], 403);
-            }
-
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
-                'description' => 'nullable|string',
                 'start_date' => 'required|date',
                 'end_date' => 'required|date|after_or_equal:start_date',
                 'is_all_day' => 'boolean',
                 'event_type_id' => 'required|exists:event_types,id',
                 'user_id' => 'nullable|exists:users,id',
-                'sync_with_outlook' => 'boolean', // NEU: Für Outlook-Synchronisierung
+                'description' => 'nullable|string',
+                'sync_with_outlook' => 'boolean',
+                'start_time' => 'nullable|date_format:H:i:s',
+                'end_time' => 'nullable|date_format:H:i:s',
             ]);
 
-            // Wenn eine user_id angegeben ist, überprüfen Sie, ob der aktuelle Benutzer die Berechtigung hat, Ereignisse für andere Benutzer zu erstellen
             $userId = $validated['user_id'] ?? $user->id;
-            if ($userId !== $user->id && !$user->hasPermissionTo('create events for others')) {
-                return response()->json(['error' => 'Nicht autorisiert, Ereignisse für andere Benutzer zu erstellen.'], 403);
+            if ($userId != $user->id) {
+                if (!$user->hasPermissionTo('create events for others')) {
+                    return response()->json(['error' => 'Nicht autorisiert, Ereignisse für andere zu erstellen.'], 403);
+                }
             }
 
             // Überprüfen Sie, ob der Benutzer, für den das Ereignis erstellt wird, ein aktives Krankheitsereignis hat
             $hasActiveSickness = Event::where('user_id', $userId)
-                ->where('event_type_id', 3) // Annahme: 3 ist die ID für "Krankheit"
+                ->where('event_type_id', 3)
                 ->where('start_date', '<=', $validated['end_date'])
                 ->where('end_date', '>=', $validated['start_date'])
                 ->exists();
@@ -140,13 +137,24 @@ class EventController extends Controller
                 return response()->json(['error' => 'Benutzer hat bereits ein aktives Krankheitsereignis für diesen Zeitraum.'], 400);
             }
 
+            $isAllDay = $validated['is_all_day'] ?? true;
+
+            Log::info('Event store request', [
+                'is_all_day' => $isAllDay,
+                'sync_with_outlook' => $validated['sync_with_outlook'] ?? false,
+                'start_time' => $validated['start_time'] ?? null,
+                'end_time' => $validated['end_time'] ?? null,
+            ]);
+
             // Ereignis erstellen
             $event = new Event();
             $event->title = $validated['title'];
             $event->description = $validated['description'] ?? null;
-            $event->start_date = $validated['start_date'];
-            $event->end_date = $validated['end_date'];
-            $event->is_all_day = $validated['is_all_day'] ?? true;
+            $event->start_date = $validated['start_date']; // Nur das Datum
+            $event->end_date = $validated['end_date']; // Nur das Datum
+            $event->start_time = $validated['start_time'] ?? null; // Zeit separat
+            $event->end_time = $validated['end_time'] ?? null; // Zeit separat
+            $event->is_all_day = $isAllDay;
             $event->event_type_id = $validated['event_type_id'];
             $event->user_id = $userId;
             $userTeamId = User::find($userId)->current_team_id;
@@ -156,14 +164,13 @@ class EventController extends Controller
 
             $event->save();
 
-            // NEU: Synchronisierung mit Outlook, wenn gewünscht
-            // outlook_access_token ist für EWS nicht relevant, die EWS-Client-Prüfung erfolgt im OutlookController
+            // Synchronisierung mit Outlook, wenn gewünscht
             if (($validated['sync_with_outlook'] ?? false)) {
                 $outlookController = new OutlookController();
                 $ewsEventId = $outlookController->createEwsEvent($event, $user);
                 if ($ewsEventId) {
                     $event->outlook_event_id = $ewsEventId;
-                    $event->save(); // Speichern der Outlook Event ID
+                    $event->save();
                 } else {
                     Log::warning('Failed to sync new event ' . $event->id . ' to Outlook via EWS.');
                 }
@@ -227,13 +234,18 @@ class EventController extends Controller
                 'description' => $event->description,
                 'start_date' => $event->start_date->format('Y-m-d'),
                 'end_date' => $event->end_date->format('Y-m-d'),
+                'start_time' => $event->start_time, // Direkt aus der Spalte
+                'end_time' => $event->end_time, // Direkt aus der Spalte
                 'is_all_day' => $event->is_all_day,
                 'status' => $event->status,
                 'event_type_id' => $event->event_type_id,
                 'event_type' => $event->eventType ? $event->eventType->name : null,
                 'user_id' => $event->user_id,
                 'team_id' => $event->team_id,
-                'employee_name' => $event->user ? $event->user->first_name . ' ' . $event->user->last_name : null
+                'employee_name' => $event->user ? $event->user->first_name . ' ' . $event->user->last_name : null,
+                'sync_with_outlook' => !empty($event->outlook_event_id),
+                'outlook_event_id' => $event->outlook_event_id,
+                'outlook_change_key' => $event->outlook_change_key,
             ]);
         } catch (\Exception $e) {
             Log::error('Fehler beim Abrufen des Ereignisses: ' . $e->getMessage());
@@ -263,7 +275,9 @@ class EventController extends Controller
                 'is_all_day' => 'boolean',
                 'event_type_id' => 'required|exists:event_types,id',
                 'user_id' => 'nullable|exists:users,id',
-                'sync_with_outlook' => 'boolean', // NEU: Für Outlook-Synchronisierung
+                'sync_with_outlook' => 'boolean',
+                'start_time' => 'nullable|date_format:H:i:s',
+                'end_time' => 'nullable|date_format:H:i:s',
             ]);
 
             // Wenn eine user_id angegeben ist, überprüfen Sie, ob der aktuelle Benutzer die Berechtigung hat, Ereignisse für andere Benutzer zu bearbeiten
@@ -274,8 +288,8 @@ class EventController extends Controller
 
             // Überprüfen Sie, ob der Benutzer, für den das Ereignis bearbeitet wird, ein aktives Krankheitsereignis hat
             $hasActiveSickness = Event::where('user_id', $userId)
-                ->where('event_type_id', 3) // Annahme: 3 ist die ID für "Krankheit"
-                ->where('id', '!=', $id) // Ausnahme für das aktuelle Ereignis
+                ->where('event_type_id', 3)
+                ->where('id', '!=', $id)
                 ->where('start_date', '<=', $validated['end_date'])
                 ->where('end_date', '>=', $validated['start_date'])
                 ->exists();
@@ -284,12 +298,23 @@ class EventController extends Controller
                 return response()->json(['error' => 'Benutzer hat bereits ein aktives Krankheitsereignis für diesen Zeitraum.'], 400);
             }
 
+            $isAllDay = $validated['is_all_day'] ?? true;
+
+            Log::info('Event update request', [
+                'is_all_day' => $isAllDay,
+                'sync_with_outlook' => $validated['sync_with_outlook'] ?? false,
+                'start_time' => $validated['start_time'] ?? null,
+                'end_time' => $validated['end_time'] ?? null,
+            ]);
+
             // Ereignis aktualisieren
             $event->title = $validated['title'];
             $event->description = $validated['description'] ?? null;
             $event->start_date = $validated['start_date'];
             $event->end_date = $validated['end_date'];
-            $event->is_all_day = $validated['is_all_day'] ?? true;
+            $event->start_time = $validated['start_time'] ?? null; // Separat speichern
+            $event->end_time = $validated['end_time'] ?? null; // Separat speichern
+            $event->is_all_day = $isAllDay;
             $event->event_type_id = $validated['event_type_id'];
             $event->user_id = $userId;
 
@@ -302,11 +327,14 @@ class EventController extends Controller
 
             $event->save();
 
-            // NEU: Synchronisierung mit Outlook, wenn gewünscht
+            // Synchronisierung mit Outlook, wenn gewünscht
             $outlookController = new OutlookController();
             if (($validated['sync_with_outlook'] ?? false)) {
                 if ($event->outlook_event_id) {
-                    $outlookController->updateEwsEvent($event, $user);
+                    $success = $outlookController->updateEwsEvent($event, $user);
+                    if (!$success) {
+                        Log::warning('Failed to update event ' . $event->id . ' in Outlook via EWS.');
+                    }
                 } else {
                     // Wenn noch keine Outlook ID vorhanden ist, aber jetzt synchronisiert werden soll
                     $ewsEventId = $outlookController->createEwsEvent($event, $user);
@@ -324,7 +352,26 @@ class EventController extends Controller
                 $event->save();
             }
 
-            return response()->json($event);
+            $event->refresh();
+
+            return response()->json([
+                'id' => $event->id,
+                'title' => $event->title,
+                'description' => $event->description,
+                'start_date' => $event->start_date->format('Y-m-d'),
+                'end_date' => $event->end_date->format('Y-m-d'),
+                'start_time' => $event->start_time, // Direkt aus der Spalte
+                'end_time' => $event->end_time, // Direkt aus der Spalte
+                'is_all_day' => $event->is_all_day,
+                'status' => $event->status,
+                'event_type_id' => $event->event_type_id,
+                'event_type' => $event->eventType ? $event->eventType->name : null,
+                'user_id' => $event->user_id,
+                'team_id' => $event->team_id,
+                'sync_with_outlook' => !empty($event->outlook_event_id),
+                'outlook_event_id' => $event->outlook_event_id,
+                'outlook_change_key' => $event->outlook_change_key,
+            ]);
         } catch (\Exception $e) {
             Log::error('Fehler beim Aktualisieren des Ereignisses: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
@@ -345,7 +392,7 @@ class EventController extends Controller
                 return response()->json(['error' => 'Nicht autorisiert, dieses Ereignis zu löschen.'], 403);
             }
 
-            // NEU: Outlook-Ereignis löschen, bevor das lokale Ereignis gelöscht wird
+            // Outlook-Ereignis löschen, bevor das lokale Ereignis gelöscht wird
             if ($event->outlook_event_id) { // outlook_access_token ist für EWS nicht relevant
                 $outlookController = new OutlookController();
                 $outlookController->deleteEwsEvent($event, $user);
@@ -442,6 +489,8 @@ class EventController extends Controller
                 $event->description = $eventData['description'] ?? null;
                 $event->start_date = $eventData['start_date'];
                 $event->end_date = $eventData['end_date'];
+                $event->start_time = $eventData['start_time'] ?? null; // Zeit separat
+                $event->end_time = $eventData['end_time'] ?? null; // Zeit separat
                 $event->is_all_day = $eventData['is_all_day'] ?? true;
                 $event->event_type_id = $eventData['event_type_id'];
                 $event->user_id = $userId;

@@ -438,7 +438,7 @@ import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue'
 import ApplicationMark from '@/Components/ApplicationMark.vue'
 import BirthdayNotification from '@/Components/Notifications/BirthdayNotification.vue'
 import Button from "primevue/button";
-import ThemeSwitcher from "@/Components/ThemeSwitcher.vue";
+// import ThemeSwitcher from "@/Components/ThemeSwitcher.vue";
 
 export default defineComponent({
     props: {
@@ -446,7 +446,7 @@ export default defineComponent({
     },
 
     components: {
-        ThemeSwitcher,
+        // ThemeSwitcher,
         Button,
         BirthdayNotification,
         Head,
