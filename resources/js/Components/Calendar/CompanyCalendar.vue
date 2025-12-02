@@ -54,7 +54,6 @@
                         </option>
                     </select>
                 </div>
-                <!-- Added filter for event types -->
                 <div class="w-full md:flex-1">
                     <select
                         v-model="selectedEventTypeFilter"
@@ -73,7 +72,6 @@
         <div class="flex flex-col gap-4 mb-6">
             <!-- Department Cards -->
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                <!-- Verbesserte Kachel-Markierung mit Häkchen-Icon und klareren aktiven Styles -->
                 <div
                     v-for="department in departmentSummary"
                     :key="department.name"
@@ -83,7 +81,6 @@
                         ? 'ring-2 ring-blue-500 ring-offset-2'
                         : 'hover:border-blue-300'"
                 >
-                    <!-- Checkmark badge when selected -->
                     <div
                         v-if="selectedDepartmentFilter === department.name"
                         class="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-md"
@@ -99,7 +96,6 @@
 
             <!-- Status Cards -->
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                <!-- Verbesserte Kachel-Markierung mit Häkchen-Icon und klareren aktiven Styles -->
                 <div
                     v-for="status in statusSummary"
                     :key="status.type.value"
@@ -114,7 +110,6 @@
                         '--tw-ring-color': status.type.color
                     }"
                 >
-                    <!-- Checkmark badge when selected -->
                     <div
                         v-if="selectedEventTypeFilter === status.type.value"
                         class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center shadow-md"
@@ -131,362 +126,51 @@
             </div>
         </div>
 
-        <!-- Day View -->
-        <div v-if="calendarView === 'day'" class="w-full">
-            <h3 class="text-xl font-medium text-center mb-4">
-                {{ formatDate(currentDate) }}
-                <span v-if="isHoliday(currentDate)" class="ml-2 text-red-500 font-bold">({{ getHolidayName(currentDate) }})</span>
-            </h3>
+        <!-- View Components -->
+        <CalendarDayView
+            v-if="calendarView === 'day'"
+            :current-date="currentDate"
+            :filtered-employees="filteredEmployeesForDay"
+            :is-holiday="isHoliday"
+            :get-holiday-name="getHolidayName"
+            :get-employee-events-for-day="getEmployeeEventsForDay"
+            :get-initials="getInitials"
+            :get-initials-color="getInitialsColor"
+            :format-date="formatDate"
+        />
 
-            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
-                <div class="grid grid-cols-12 bg-gray-100 dark:bg-gray-800 font-bold p-3">
-                    <div class="col-span-3">Mitarbeiter</div>
-                    <div class="col-span-4">Status</div>
-                    <div class="col-span-5">Notizen</div>
-                </div>
+        <CalendarWeekView
+            v-else-if="calendarView === 'week'"
+            :week-days="weekDays"
+            :filtered-employees="filteredEmployees"
+            :active-event-types-for-week="activeEventTypesForWeek"
+            :is-holiday="isHoliday"
+            :get-holiday-name="getHolidayName"
+            :get-employee-events-for-day="getEmployeeEventsForDay"
+            :get-employees-by-event-type-and-day="getEmployeesByEventTypeAndDay"
+            :get-employees-count-by-event-type-and-day="getEmployeesCountByEventTypeAndDay"
+            :active-event-types-for-day="activeEventTypesForDay"
+            :get-initials="getInitials"
+            :get-initials-color="getInitialsColor"
+            :format-day-month="formatDayMonth"
+            @open-employee-dialog="openEmployeeDayDialog"
+        />
 
-                <div
-                    v-for="employee in filteredEmployeesForDay"
-                    :key="employee.id"
-                    class="grid grid-cols-12 border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                    <div class="col-span-3 p-3 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                            {{ getInitials(employee.name) }}
-                        </div>
-                        <div>
-                            <div class="font-medium">{{ employee.name }}</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
-                        </div>
-                    </div>
-
-                    <div class="col-span-4 p-3">
-                        <div class="flex flex-col gap-2">
-                            <div
-                                v-for="(event, eventIndex) in getEmployeeEventsForDay(employee, currentDate)"
-                                :key="eventIndex"
-                                class="px-3 py-1.5 rounded text-sm text-white shadow-sm"
-                                :style="{ backgroundColor: event.type.color }"
-                            >
-                                {{ event.type.name }}
-                            </div>
-                            <div v-if="getEmployeeEventsForDay(employee, currentDate).length === 0" class="px-3 py-1.5 rounded text-sm bg-gray-200 dark:bg-gray-700 text-gray-500">
-                                Nicht eingetragen
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-span-5 p-3">
-                        <div v-for="(event, eventIndex) in getEmployeeEventsForDay(employee, currentDate)" :key="eventIndex">
-                            <div v-if="event.notes" class="text-sm">{{ event.notes }}</div>
-                        </div>
-                        <div v-if="!getEmployeeEventsForDay(employee, currentDate).some(e => e.notes)" class="text-gray-400">-</div>
-                    </div>
-                </div>
-
-                <div v-if="filteredEmployeesForDay.length === 0" class="p-6 text-center text-gray-500">
-                    Keine Einträge für diesen Tag
-                </div>
-            </div>
-        </div>
-
-        <!-- Week View: Ereignisse als Spalten, Tage als Zeilen -->
-        <div v-else-if="calendarView === 'week'" class="w-full">
-            <!-- Desktop Ansicht -->
-            <div class="hidden lg:block overflow-x-auto rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <table class="w-full border-collapse min-w-[900px]">
-                    <thead>
-                    <tr class="bg-gray-100 dark:bg-gray-800">
-                        <th class="p-3 text-left font-bold border-b border-r border-gray-200 dark:border-gray-700 w-[140px] min-w-[140px]">
-                            Tag
-                        </th>
-                        <th
-                            v-for="eventType in activeEventTypesForWeek"
-                            :key="eventType.value"
-                            class="p-3 text-center font-bold border-b border-r border-gray-200 dark:border-gray-700 min-w-[150px]"
-                        >
-                            <div class="flex items-center justify-center gap-2">
-                                <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: eventType.color }"></div>
-                                <span>{{ eventType.name }}</span>
-                            </div>
-                        </th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr
-                        v-for="day in weekDays"
-                        :key="day.date.format('YYYY-MM-DD')"
-                        class="border-b border-gray-200 dark:border-gray-700"
-                        :class="{
-                                'bg-blue-50 dark:bg-blue-900/20': day.isToday,
-                                'bg-red-50 dark:bg-red-900/20': isHoliday(day.date),
-                                'bg-gray-100 dark:bg-gray-800/50': day.isWeekend && !isHoliday(day.date)
-                            }"
-                    >
-                        <td class="p-3 border-r border-gray-200 dark:border-gray-700 align-top">
-                            <div class="font-bold text-lg">{{ day.dayName }}</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ formatDayMonth(day.date) }}</div>
-                            <div v-if="isHoliday(day.date)" class="text-xs text-red-500 font-semibold mt-1">
-                                {{ getHolidayName(day.date) }}
-                            </div>
-                        </td>
-                        <td
-                            v-for="eventType in activeEventTypesForWeek"
-                            :key="eventType.value"
-                            class="p-2 border-r border-gray-200 dark:border-gray-700 align-top"
-                        >
-                            <div class="flex flex-col gap-2">
-                                <div
-                                    v-for="deptGroup in getEmployeesByEventTypeAndDay(eventType, day.date)"
-                                    :key="deptGroup.department"
-                                    class="mb-2"
-                                >
-                                    <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 border-b border-gray-200 dark:border-gray-700 pb-1">
-                                        {{ deptGroup.department }}
-                                    </div>
-                                    <div class="flex flex-col gap-1">
-                                        <div
-                                            v-for="emp in deptGroup.employees"
-                                            :key="emp.id"
-                                            class="flex items-center gap-2 p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                                            @click="openEmployeeDayDialog(emp, day.date)"
-                                        >
-                                            <div
-                                                class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0"
-                                                :style="{ backgroundColor: getInitialsColor(emp.name) }"
-                                            >
-                                                {{ getInitials(emp.name) }}
-                                            </div>
-                                            <span class="text-sm truncate">{{ emp.name }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div
-                                    v-if="getEmployeesByEventTypeAndDay(eventType, day.date).length === 0"
-                                    class="text-xs text-gray-400 dark:text-gray-500 text-center py-2"
-                                >
-                                    -
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Mobile Ansicht -->
-            <div class="lg:hidden flex flex-col gap-4">
-                <div class="flex justify-between items-center mb-2 bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                    <button
-                        @click="mobileWeekDay = Math.max(0, mobileWeekDay - 1)"
-                        :disabled="mobileWeekDay === 0"
-                        class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                    </button>
-                    <div class="text-center">
-                        <div class="font-bold text-lg">{{ weekDays[mobileWeekDay]?.dayName }}</div>
-                        <div class="text-sm">{{ formatDayMonth(weekDays[mobileWeekDay]?.date) }}</div>
-                        <div v-if="isHoliday(weekDays[mobileWeekDay]?.date)" class="text-xs text-red-500 font-semibold">
-                            {{ getHolidayName(weekDays[mobileWeekDay]?.date) }}
-                        </div>
-                    </div>
-                    <button
-                        @click="mobileWeekDay = Math.min(6, mobileWeekDay + 1)"
-                        :disabled="mobileWeekDay === 6"
-                        class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    </button>
-                </div>
-
-                <div class="flex justify-center gap-2 mb-4">
-                    <button
-                        v-for="(day, index) in weekDays"
-                        :key="index"
-                        @click="mobileWeekDay = index"
-                        class="w-3 h-3 rounded-full transition-colors"
-                        :class="{
-                            'bg-emerald-500': mobileWeekDay === index,
-                            'bg-gray-300 dark:bg-gray-600': mobileWeekDay !== index
-                        }"
-                    ></button>
-                </div>
-
-                <div class="flex flex-col gap-4">
-                    <div
-                        v-for="eventType in activeEventTypesForDay(weekDays[mobileWeekDay]?.date)"
-                        :key="eventType.value"
-                        class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm"
-                    >
-                        <div
-                            class="p-3 flex items-center gap-2"
-                            :style="{ backgroundColor: eventType.color + '20' }"
-                        >
-                            <div class="w-5 h-5 rounded-full" :style="{ backgroundColor: eventType.color }"></div>
-                            <span class="font-bold">{{ eventType.name }}</span>
-                            <span class="text-sm text-gray-500 dark:text-gray-400 ml-auto">
-                                {{ getEmployeesCountByEventTypeAndDay(eventType, weekDays[mobileWeekDay]?.date) }} Mitarbeiter
-                            </span>
-                        </div>
-                        <div class="p-3">
-                            <div
-                                v-for="deptGroup in getEmployeesByEventTypeAndDay(eventType, weekDays[mobileWeekDay]?.date)"
-                                :key="deptGroup.department"
-                                class="mb-3 last:mb-0"
-                            >
-                                <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 border-b border-gray-200 dark:border-gray-700 pb-1">
-                                    {{ deptGroup.department }}
-                                </div>
-                                <div class="flex flex-wrap gap-2">
-                                    <div
-                                        v-for="emp in deptGroup.employees"
-                                        :key="emp.id"
-                                        class="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        @click="openEmployeeDayDialog(emp, weekDays[mobileWeekDay]?.date)"
-                                    >
-                                        <div
-                                            class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm"
-                                            :style="{ backgroundColor: getInitialsColor(emp.name) }"
-                                        >
-                                            {{ getInitials(emp.name) }}
-                                        </div>
-                                        <span class="text-sm font-medium">{{ emp.name }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div
-                        v-if="activeEventTypesForDay(weekDays[mobileWeekDay]?.date).length === 0"
-                        class="text-center p-6 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg"
-                    >
-                        Keine Einträge für diesen Tag
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Month View -->
-        <div v-else-if="calendarView === 'month'" class="w-full">
-            <div class="hidden xl:block overflow-x-auto rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-                <div class="flex min-w-[1200px]">
-                    <div class="w-[200px] min-w-[200px] p-2 bg-gray-100 dark:bg-gray-800 font-bold">Mitarbeiter</div>
-                    <div
-                        v-for="dayNum in daysInMonth"
-                        :key="dayNum"
-                        class="w-[50px] min-w-[30px] py-2 text-center text-sm font-bold border-l border-gray-200 dark:border-gray-700"
-                        :class="{
-                            'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
-                            'bg-red-50 dark:bg-red-900/20': isHolidayInMonth(dayNum),
-                            'bg-gray-100 dark:bg-gray-800': !isToday(dayNum) && !isWeekendDay(dayNum) && !isHolidayInMonth(dayNum),
-                            'bg-gray-200 dark:bg-gray-700': isWeekendDay(dayNum) && !isHolidayInMonth(dayNum)
-                        }"
-                    >
-                        <div :class="{ 'text-red-500': isHolidayInMonth(dayNum) }">{{ dayNum }}</div>
-                    </div>
-                </div>
-
-                <div class="flex flex-col min-w-[1200px]">
-                    <div
-                        v-for="employee in filteredEmployees"
-                        :key="employee.id"
-                        class="flex border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                        <div class="w-[200px] min-w-[200px] p-2 flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                                {{ getInitials(employee.name) }}
-                            </div>
-                            <div class="overflow-hidden">
-                                <div class="font-medium truncate">{{ employee.name }}</div>
-                                <div class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ employee.department }}</div>
-                            </div>
-                        </div>
-
-                        <div
-                            v-for="dayNum in daysInMonth"
-                            :key="dayNum"
-                            class="w-[50px] min-w-[30px] h-[50px] flex items-center justify-center border-l border-gray-200 dark:border-gray-700"
-                            :class="{
-                                'bg-blue-50 dark:bg-blue-900/20': isToday(dayNum),
-                                'bg-red-50 dark:bg-red-900/20': isHolidayInMonth(dayNum),
-                                'bg-gray-200 dark:bg-gray-700': isWeekendDay(dayNum) && !isHolidayInMonth(dayNum)
-                            }"
-                        >
-                            <div class="flex flex-wrap gap-0.5 justify-center">
-                                <div
-                                    v-for="(event, eventIndex) in getEmployeeEventsForMonthDay(employee, dayNum).slice(0, 3)"
-                                    :key="eventIndex"
-                                    class="w-2 h-2 rounded-full"
-                                    :style="{ backgroundColor: event.type.color }"
-                                    :title="event.type.name"
-                                ></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Mobile Month View -->
-            <div class="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div
-                    v-for="employee in filteredEmployees"
-                    :key="employee.id"
-                    class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm"
-                >
-                    <div class="p-3 bg-gray-100 dark:bg-gray-800 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" :style="{ backgroundColor: getInitialsColor(employee.name) }">
-                            {{ getInitials(employee.name) }}
-                        </div>
-                        <div>
-                            <div class="font-medium">{{ employee.name }}</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ employee.department }}</div>
-                        </div>
-                    </div>
-
-                    <div class="p-3">
-                        <div class="grid grid-cols-7 gap-1 mb-1 text-center text-xs">
-                            <div v-for="day in weekdaysShort" :key="day" class="font-medium">{{ day }}</div>
-                        </div>
-
-                        <div class="grid grid-cols-7 gap-1">
-                            <div v-for="i in getMonthStartDay()" :key="`empty-${i}`" class="w-8 h-8"></div>
-                            <div
-                                v-for="dayNum in daysInMonth"
-                                :key="`day-${dayNum}`"
-                                class="w-8 h-8 flex items-center justify-center text-xs rounded-full relative cursor-pointer"
-                                :class="{
-                                    'bg-blue-500 text-white': isToday(dayNum),
-                                    'bg-red-100 dark:bg-red-900/20 text-red-800': !isToday(dayNum) && isHolidayInMonth(dayNum),
-                                    'bg-gray-200 dark:bg-gray-700': !isToday(dayNum) && isWeekendDay(dayNum) && !isHolidayInMonth(dayNum),
-                                    'font-bold': getEmployeeEventsForMonthDay(employee, dayNum).length > 0
-                                }"
-                            >
-                                {{ dayNum }}
-                                <div
-                                    v-if="getEmployeeEventsForMonthDay(employee, dayNum).length > 0"
-                                    class="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full"
-                                    :style="{ backgroundColor: getEmployeeEventsForMonthDay(employee, dayNum)[0]?.type.color }"
-                                ></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                        <div class="flex flex-wrap gap-2 text-sm">
-                            <div
-                                v-for="summary in getEmployeeMonthSummary(employee)"
-                                :key="summary.type"
-                                class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full"
-                            >
-                                <div class="w-2 h-2 rounded-full" :style="{ backgroundColor: summary.color }"></div>
-                                <span>{{ summary.name }}: {{ summary.count }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <CalendarMonthView
+            v-else-if="calendarView === 'month'"
+            :current-date="currentDate"
+            :days-in-month="daysInMonth"
+            :filtered-employees="filteredEmployees"
+            :is-today="isToday"
+            :is-holiday-in-month="isHolidayInMonth"
+            :is-weekend-day="isWeekendDay"
+            :get-month-start-day="getMonthStartDay"
+            :get-employee-events-for-month-day="getEmployeeEventsForMonthDay"
+            :get-employee-month-summary="getEmployeeMonthSummary"
+            :get-initials="getInitials"
+            :get-initials-color="getInitialsColor"
+            :weekdays-short="weekdaysShort"
+        />
 
         <!-- Legend -->
         <div class="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
@@ -504,54 +188,16 @@
         </div>
 
         <!-- Employee Day Details Dialog -->
-        <div v-if="employeeDayDialogVisible" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <h3 class="text-lg font-bold">{{ selectedEmployeeForDay?.name }}</h3>
-                    <button @click="employeeDayDialogVisible = false" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <div v-if="selectedEmployeeForDay && selectedDateForDialog" class="p-4">
-                    <div class="flex items-center gap-3 mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        <div
-                            class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
-                            :style="{ backgroundColor: getInitialsColor(selectedEmployeeForDay.name) }"
-                        >
-                            {{ getInitials(selectedEmployeeForDay.name) }}
-                        </div>
-                        <div>
-                            <div class="font-bold">{{ selectedEmployeeForDay.name }}</div>
-                            <div class="text-sm text-gray-500 dark:text-gray-400">{{ selectedEmployeeForDay.department }}</div>
-                        </div>
-                    </div>
-
-                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                        {{ formatDate(selectedDateForDialog) }}
-                    </div>
-
-                    <div class="flex flex-col gap-3">
-                        <div
-                            v-for="(event, eventIndex) in getEmployeeEventsForDay(selectedEmployeeForDay, selectedDateForDialog)"
-                            :key="eventIndex"
-                            class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden"
-                        >
-                            <div class="p-2 font-medium text-white" :style="{ backgroundColor: event.type.color }">
-                                {{ event.type.name }}
-                            </div>
-                            <div class="p-3">
-                                <div v-if="event.notes" class="text-sm">{{ event.notes }}</div>
-                                <div v-else class="text-sm text-gray-500 dark:text-gray-400">Keine Notizen</div>
-                            </div>
-                        </div>
-
-                        <div v-if="getEmployeeEventsForDay(selectedEmployeeForDay, selectedDateForDialog).length === 0" class="text-center p-4 text-gray-500">
-                            Keine Einträge für diesen Tag
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <CalendarEmployeeDialog
+            v-if="employeeDayDialogVisible"
+            :employee="selectedEmployeeForDay"
+            :date="selectedDateForDialog"
+            :get-employee-events-for-day="getEmployeeEventsForDay"
+            :get-initials="getInitials"
+            :get-initials-color="getInitialsColor"
+            :format-date="formatDate"
+            @close="employeeDayDialogVisible = false"
+        />
 
         <!-- Loading Overlay -->
         <div v-if="isLoading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -575,6 +221,12 @@ import VacationService from '@/Services/VacationService'
 import HolidayService from '@/Services/holiday-service'
 import axios from 'axios'
 
+// Child components
+import CalendarDayView from './CalendarDayView.vue'
+import CalendarWeekView from './CalendarWeekView.vue'
+import CalendarMonthView from './CalendarMonthView.vue'
+import CalendarEmployeeDialog from './CalendarEmployeeDialog.vue'
+
 dayjs.extend(weekOfYear)
 dayjs.extend(isoWeek)
 dayjs.extend(isSameOrAfter)
@@ -587,7 +239,6 @@ const currentDate = ref(dayjs())
 const searchQuery = ref('')
 const selectedDepartmentFilter = ref('')
 const selectedEventTypeFilter = ref('')
-const mobileWeekDay = ref(0)
 const isLoading = ref(false)
 
 // Dialog state
@@ -608,7 +259,7 @@ const eventTypes = ref([
     { name: 'Sonstiges', value: 'other', color: '#607D8B' }
 ])
 const holidays = ref([])
-const weekdaysShort = ['Montag', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+const weekdaysShort = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
 // Computed - Calendar
 const currentYear = computed(() => currentDate.value.year())
@@ -659,25 +310,23 @@ const filteredEmployees = computed(() => {
     }
     if (selectedEventTypeFilter.value) {
         result = result.filter(emp => {
-            // Check if employee has any event of the selected type in the current view period
             if (calendarView.value === 'week') {
                 for (let i = 0; i < 7; i++) {
                     const date = weekStart.value.add(i, 'day')
                     const events = getEmployeeEventsForDay(emp, date)
-                    if (events.some(e => e.type.value === selectedEventTypeFilter.value)) {
+                    if (events.some(e => (e.type?.value || e.type) === selectedEventTypeFilter.value)) {
                         return true
                     }
                 }
             } else if (calendarView.value === 'day') {
                 const events = getEmployeeEventsForDay(emp, currentDate.value)
-                return events.some(e => e.type.value === selectedEventTypeFilter.value)
+                return events.some(e => (e.type?.value || e.type) === selectedEventTypeFilter.value)
             } else {
-                // Month view - check all days in month
                 const daysCount = currentDate.value.daysInMonth()
                 for (let i = 1; i <= daysCount; i++) {
                     const date = currentDate.value.date(i)
                     const events = getEmployeeEventsForDay(emp, date)
-                    if (events.some(e => e.type.value === selectedEventTypeFilter.value)) {
+                    if (events.some(e => (e.type?.value || e.type) === selectedEventTypeFilter.value)) {
                         return true
                     }
                 }
@@ -694,149 +343,134 @@ const filteredEmployeesForDay = computed(() => {
     )
 })
 
-// Active event types for week
-const activeEventTypesForWeek = computed(() => {
-    const activeTypes = new Set()
-    weekDays.value.forEach(day => {
-        filteredEmployees.value.forEach(employee => {
-            const events = getEmployeeEventsForDay(employee, day.date)
-            events.forEach(event => activeTypes.add(event.type.value))
-        })
-    })
-    return eventTypes.value.filter(type => activeTypes.has(type.value))
-})
-
-const allActiveEventTypes = computed(() => {
-    const types = [...activeEventTypesForWeek.value]
-    if (hasHolidaysInCurrentPeriod()) {
-        types.push({ name: 'Feiertag', value: 'holiday', color: '#FF0000' })
-    }
-    return types
-})
-
-// Summaries - Always show ALL departments and status types, not filtered ones
+// Summary Cards
 const departmentSummary = computed(() => {
-    const departments = {}
-    // Use employees.value instead of filteredEmployees to always show all departments
-    employees.value.forEach(emp => {
-        if (!departments[emp.department]) {
-            departments[emp.department] = { name: emp.department, count: 0 }
-        }
-        // Count employees who have any event in the current week view
-        const hasEvent = weekDays.value.some(day =>
-            getEmployeeEventsForDay(emp, day.date).length > 0
-        )
-        if (hasEvent) departments[emp.department].count++
-    })
-    return Object.values(departments).filter(d => d.count > 0)
+    const deptCounts = {}
+
+    if (calendarView.value === 'day') {
+        // Im Tagesansicht: nur Abteilungen von Mitarbeitern mit Events an diesem Tag
+        employees.value.forEach(emp => {
+            const events = getEmployeeEventsForDay(emp, currentDate.value)
+            if (events.length > 0) {
+                const dept = emp.department || 'Keine Abteilung'
+                deptCounts[dept] = (deptCounts[dept] || 0) + 1
+            }
+        })
+    } else if (calendarView.value === 'week') {
+        // Im Wochenansicht: nur Abteilungen von Mitarbeitern mit Events in dieser Woche
+        employees.value.forEach(emp => {
+            let hasEventInWeek = false
+            weekDays.value.forEach(day => {
+                const events = getEmployeeEventsForDay(emp, day.date)
+                if (events.length > 0) hasEventInWeek = true
+            })
+            if (hasEventInWeek) {
+                const dept = emp.department || 'Keine Abteilung'
+                deptCounts[dept] = (deptCounts[dept] || 0) + 1
+            }
+        })
+    } else {
+        // Im Monatsansicht: nur Abteilungen von Mitarbeitern mit Events in diesem Monat
+        const daysCount = currentDate.value.daysInMonth()
+        employees.value.forEach(emp => {
+            let hasEventInMonth = false
+            for (let i = 1; i <= daysCount; i++) {
+                const day = currentDate.value.startOf('month').add(i - 1, 'day')
+                const events = getEmployeeEventsForDay(emp, day)
+                if (events.length > 0) {
+                    hasEventInMonth = true
+                    break
+                }
+            }
+            if (hasEventInMonth) {
+                const dept = emp.department || 'Keine Abteilung'
+                deptCounts[dept] = (deptCounts[dept] || 0) + 1
+            }
+        })
+    }
+
+    return Object.entries(deptCounts).map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
 })
 
 const statusSummary = computed(() => {
-    const statuses = {}
-    // Use employees.value instead of filteredEmployees to always show all status types
-    weekDays.value.forEach(day => {
-        employees.value.forEach(emp => {
-            const events = getEmployeeEventsForDay(emp, day.date)
+    const typeCounts = {}
+    const relevantDates = []
+
+    if (calendarView.value === 'day') {
+        // Nur der aktuelle Tag
+        relevantDates.push(currentDate.value)
+    } else if (calendarView.value === 'week') {
+        // Alle Tage der aktuellen Woche
+        for (let i = 0; i < 7; i++) {
+            relevantDates.push(weekStart.value.add(i, 'day'))
+        }
+    } else {
+        // Alle Tage des aktuellen Monats
+        const daysCount = currentDate.value.daysInMonth()
+        for (let i = 1; i <= daysCount; i++) {
+            relevantDates.push(currentDate.value.startOf('month').add(i - 1, 'day'))
+        }
+    }
+
+    console.log('[v0] statusSummary - view:', calendarView.value, 'dates:', relevantDates.map(d => d.format('YYYY-MM-DD')))
+
+    employees.value.forEach(emp => {
+        relevantDates.forEach(date => {
+            const events = getEmployeeEventsForDay(emp, date)
             events.forEach(event => {
-                if (!statuses[event.type.value]) {
-                    statuses[event.type.value] = { type: event.type, count: 0, employeeIds: new Set() }
-                }
-                if (!statuses[event.type.value].employeeIds.has(emp.id)) {
-                    statuses[event.type.value].count++
-                    statuses[event.type.value].employeeIds.add(emp.id)
+                const typeValue = event.type?.value || event.type
+                if (typeValue) {
+                    if (!typeCounts[typeValue]) {
+                        typeCounts[typeValue] = { employees: new Set(), type: event.type }
+                    }
+                    typeCounts[typeValue].employees.add(emp.id)
                 }
             })
         })
     })
-    return Object.values(statuses)
+
+    console.log('[v0] statusSummary - typeCounts:', Object.keys(typeCounts))
+
+    return Object.entries(typeCounts).map(([value, data]) => ({
+        type: data.type,
+        count: data.employees.size
+    })).sort((a, b) => {
+        const order = ['homeoffice', 'office', 'field', 'sick', 'vacation', 'birthday', 'other']
+        return order.indexOf(a.type?.value || a.type) - order.indexOf(b.type?.value || b.type)
+    })
 })
 
-// Methods - Events
-const getEmployeeEventsForDay = (employee, date) => {
-    if (!employee?.events || !Array.isArray(employee.events)) return []
+const allActiveEventTypes = computed(() => {
+    return eventTypes.value
+})
 
-    const dateStr = date.format('YYYY-MM-DD')
-    const isWeekend = date.day() === 0 || date.day() === 6
-    const uniqueEvents = []
+// Active event types for week
+const activeEventTypesForWeek = computed(() => {
+    const activeTypes = new Set()
 
-    // Exact date matches
-    const exactEvents = employee.events.filter(e => e.date === dateStr)
-
-    // Range events
-    const rangeEvents = employee.events.filter(e => {
-        if (e.start_date && e.end_date) {
-            const startDate = dayjs(e.start_date)
-            const endDate = dayjs(e.end_date)
-            return date.isSameOrAfter(startDate, 'day') && date.isSameOrBefore(endDate, 'day')
-        }
-        return false
-    })
-
-    const allEvents = [...exactEvents, ...rangeEvents]
-
-    allEvents.forEach(event => {
-        const isDuplicate = uniqueEvents.some(e =>
-            (e.id && e.id === event.id) ||
-            (e.type.value === event.type.value && e.date === event.date)
-        )
-
-        if (!isDuplicate) {
-            // Apply weekend logic here for filtering
-            if (isWeekend) {
-                // Only include certain types on weekends
-                if (['sick', 'birthday', 'other', 'sonstiges'].includes(event.type.value)) {
-                    uniqueEvents.push(event)
+    weekDays.value.forEach(day => {
+        employees.value.forEach(employee => {
+            const events = getEmployeeEventsForDay(employee, day.date)
+            events.forEach(event => {
+                const typeValue = event.type?.value || event.type
+                if (typeValue) {
+                    activeTypes.add(typeValue)
                 }
-            } else {
-                uniqueEvents.push(event)
-            }
-        }
+            })
+        })
     })
 
-    return uniqueEvents
-}
+    let result = eventTypes.value.filter(type => activeTypes.has(type.value))
 
-const getEmployeeEventsForMonthDay = (employee, dayNum) => {
-    const date = currentDate.value.startOf('month').date(dayNum)
-    return getEmployeeEventsForDay(employee, date)
-}
+    if (selectedEventTypeFilter.value) {
+        result = result.filter(type => type.value === selectedEventTypeFilter.value)
+    }
 
-// Group employees by event type and day, sorted by department
-const getEmployeesByEventTypeAndDay = (eventType, date) => {
-    if (!date) return []
+    return result
+})
 
-    const departmentGroups = {}
-
-    filteredEmployees.value.forEach(employee => {
-        const events = getEmployeeEventsForDay(employee, date)
-        const hasEventType = events.some(e => e.type.value === eventType.value)
-
-        if (hasEventType) {
-            const dept = employee.department || 'Keine Abteilung'
-            if (!departmentGroups[dept]) {
-                departmentGroups[dept] = { department: dept, employees: [] }
-            }
-            departmentGroups[dept].employees.push(employee)
-        }
-    })
-
-    // Sort employees within each department
-    Object.values(departmentGroups).forEach(group => {
-        group.employees.sort((a, b) => a.name.localeCompare(b.name))
-    })
-
-    // Return sorted by department name
-    return Object.values(departmentGroups).sort((a, b) =>
-        a.department.localeCompare(b.department)
-    )
-}
-
-const getEmployeesCountByEventTypeAndDay = (eventType, date) => {
-    if (!date) return 0
-    const groups = getEmployeesByEventTypeAndDay(eventType, date)
-    return groups.reduce((sum, group) => sum + group.employees.length, 0)
-}
-
+// Active event types for day
 const activeEventTypesForDay = (date) => {
     if (!date) return []
     const typesSet = new Set()
@@ -852,31 +486,108 @@ const activeEventTypesForDay = (date) => {
         })
     })
 
-    // Define a custom order for event types
     const order = ['homeoffice', 'office', 'field', 'sick', 'vacation', 'birthday', 'other']
     types.sort((a, b) => {
         const indexA = order.indexOf(a.value)
         const indexB = order.indexOf(b.value)
-        // Handle cases where a type might not be in the predefined order
         return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB)
     })
 
     return types
 }
 
-const getEmployeeMonthSummary = (employee) => {
-    const summary = {}
-    daysInMonth.value.forEach(dayNum => {
-        const date = currentDate.value.startOf('month').date(dayNum)
-        const events = getEmployeeEventsForDay(employee, date)
-        events.forEach(event => {
-            if (!summary[event.type.value]) {
-                summary[event.type.value] = { name: event.type.name, color: event.type.color, count: 0 }
+// Methods - Events
+const getEmployeeEventsForDay = (employee, date) => {
+    if (!employee?.events || !Array.isArray(employee.events)) return []
+
+    const dateStr = date.format('YYYY-MM-DD')
+    const isWeekend = date.day() === 0 || date.day() === 6
+    const seenTypes = new Set()
+    const uniqueEvents = []
+
+    const vacationEvents = employee.events.filter(e => (e.type?.value || e.type) === 'vacation')
+    if (vacationEvents.length > 0) {
+        console.log('[v0] getEmployeeEventsForDay - checking', employee.name, 'for date', dateStr, '- has vacation events:', vacationEvents.map(v => ({ id: v.id, date: v.date, start: v.start_date, end: v.end_date })))
+    }
+
+    // Nur Events mit exaktem Datum ODER wo das Datum im Bereich liegt (aber nicht beides)
+    employee.events.forEach(event => {
+        const eventDate = event.date
+        const hasDateRange = event.start_date && event.end_date
+
+        let matchesDay = false
+
+        if (eventDate === dateStr) {
+            // Event mit exaktem Datum
+            matchesDay = true
+        } else if (hasDateRange) {
+            // Event mit Datumsbereich - prüfe ob aktuelles Datum im Bereich liegt
+            const startDate = dayjs(event.start_date)
+            const endDate = dayjs(event.end_date)
+            matchesDay = date.isSameOrAfter(startDate, 'day') && date.isSameOrBefore(endDate, 'day')
+        }
+
+        if (matchesDay) {
+            const typeValue = event.type?.value || event.type
+
+            if (typeValue === 'vacation') {
+                console.log('[v0] MATCH! Vacation event for', employee.name, 'on', dateStr, ':', event.id)
             }
-            summary[event.type.value].count++
-        })
+
+            // Deduplizierung: nur ein Event pro Typ pro Tag
+            if (!seenTypes.has(typeValue)) {
+                if (isWeekend) {
+                    if (['sick', 'birthday', 'other', 'sonstiges', 'vacation', 'urlaub'].includes(typeValue)) {
+                        seenTypes.add(typeValue)
+                        uniqueEvents.push(event)
+                    }
+                } else {
+                    seenTypes.add(typeValue)
+                    uniqueEvents.push(event)
+                }
+            }
+        }
     })
-    return Object.values(summary)
+
+    return uniqueEvents
+}
+
+const getEmployeeEventsForMonthDay = (employee, dayNum) => {
+    const date = currentDate.value.startOf('month').date(dayNum)
+    return getEmployeeEventsForDay(employee, date)
+}
+
+const getEmployeesByEventTypeAndDay = (eventType, date) => {
+    if (!date) return []
+
+    const departmentGroups = {}
+
+    filteredEmployees.value.forEach(employee => {
+        const events = getEmployeeEventsForDay(employee, date)
+        const hasEventType = events.some(e => (e.type?.value || e.type) === eventType.value)
+
+        if (hasEventType) {
+            const dept = employee.department || 'Keine Abteilung'
+            if (!departmentGroups[dept]) {
+                departmentGroups[dept] = { department: dept, employees: [] }
+            }
+            departmentGroups[dept].employees.push(employee)
+        }
+    })
+
+    Object.values(departmentGroups).forEach(group => {
+        group.employees.sort((a, b) => a.name.localeCompare(b.name))
+    })
+
+    return Object.values(departmentGroups).sort((a, b) =>
+        a.department.localeCompare(b.department)
+    )
+}
+
+const getEmployeesCountByEventTypeAndDay = (eventType, date) => {
+    if (!date) return 0
+    const groups = getEmployeesByEventTypeAndDay(eventType, date)
+    return groups.reduce((sum, group) => sum + group.employees.length, 0)
 }
 
 // Holiday methods
@@ -907,7 +618,6 @@ const isWeekendDay = (dayNum) => {
 const getMonthStartDay = () => {
     const firstDayOfMonth = currentDate.value.startOf('month')
     const dayOfWeek = firstDayOfMonth.day()
-    // If Sunday (0), it should be the 7th day of the week for alignment
     return dayOfWeek === 0 ? 6 : dayOfWeek - 1
 }
 
@@ -923,7 +633,6 @@ const getInitialsColor = (name) => {
     for (let i = 0; i < name.length; i++) {
         hash = name.charCodeAt(i) + ((hash << 5) - hash)
     }
-    // Use HSL for better color distribution
     return `hsl(${hash % 360}, 70%, 60%)`
 }
 
@@ -974,38 +683,73 @@ const fetchCalendarData = async () => {
         employees.value = response.data.employees || []
         availableDepartments.value = response.data.departments || []
 
-        // Dynamically update event types if provided by backend
         if (response.data.eventTypes) {
             eventTypes.value = response.data.eventTypes
         }
 
-        // Load vacation requests and merge them with employee events
         try {
             const vacationResponse = await axios.get('/api/vacation/all-requests')
-            const vacationEvents = vacationResponse.data
-                .filter(v => v.status === 'approved') // Only consider approved vacations
-                .map(v => ({
-                    // Use user_id to link to employee, assuming 'id' in response is user_id
-                    user_id: v.user_id,
-                    date: v.start_date, // For day view display
-                    start_date: v.start_date,
-                    end_date: v.end_date,
-                    type: { name: 'Urlaub', value: 'vacation', color: '#9C27B0' }, // Hardcoded vacation type
-                    notes: v.notes || 'Genehmigter Urlaub' // Default notes if none provided
-                }))
+            console.log('[v0] Vacation API Response:', vacationResponse.data)
 
-            employees.value.forEach(emp => {
-                const empVacations = vacationEvents.filter(v => v.user_id === emp.id)
-                if (empVacations.length > 0) {
-                    // Ensure emp.events is an array before spreading
-                    emp.events = [...(emp.events || []), ...empVacations]
+            const approvedVacations = vacationResponse.data.filter(v => v.status === 'approved')
+            console.log('[v0] Approved vacations:', approvedVacations)
+
+            const vacationType = eventTypes.value.find(t =>
+                t.value === 'vacation' || t.value === 'urlaub' || t.name?.toLowerCase() === 'urlaub'
+            ) || { name: 'Urlaub', value: 'vacation', color: '#9C27B0' }
+
+            console.log('[v0] Using vacation type:', vacationType)
+
+            approvedVacations.forEach(vacation => {
+                const employee = employees.value.find(emp => emp.id === vacation.user_id)
+                if (employee) {
+                    if (!employee.events) {
+                        employee.events = []
+                    }
+
+                    const startDate = dayjs(vacation.start_date)
+                    const endDate = dayjs(vacation.end_date)
+                    let loopDate = startDate
+
+                    while (loopDate.isSameOrBefore(endDate, 'day')) {
+                        const vacationEvent = {
+                            id: `vacation-${vacation.id}-${loopDate.format('YYYY-MM-DD')}`,
+                            user_id: vacation.user_id,
+                            date: loopDate.format('YYYY-MM-DD'),
+                            start_date: vacation.start_date,
+                            end_date: vacation.end_date,
+                            type: vacationType,
+                            notes: vacation.notes || `Urlaub (${startDate.format('DD.MM.')} - ${endDate.format('DD.MM.YYYY')})`
+                        }
+
+                        const isDuplicate = employee.events.some(e =>
+                            e.id === vacationEvent.id ||
+                            ((e.type?.value === 'vacation' || e.type?.value === 'urlaub') && e.date === vacationEvent.date)
+                        )
+
+                        if (!isDuplicate) {
+                            employee.events.push(vacationEvent)
+                        }
+
+                        loopDate = loopDate.add(1, 'day')
+                    }
+
+                    console.log('[v0] Added vacation events for employee:', employee.name, employee.events.filter(e => e.type?.value === 'vacation' || e.type?.value === 'urlaub'))
                 }
             })
+
+            console.log('[v0] All employees with events:', employees.value.map(e => ({
+                id: e.id,
+                name: e.name,
+                eventsCount: e.events?.length || 0,
+                vacationEvents: e.events?.filter(ev => ev.type?.value === 'vacation' || ev.type?.value === 'urlaub') || []
+            })))
+
         } catch (e) {
-            console.error('Error loading vacation requests:', e)
+            console.error('[v0] Error loading vacation requests:', e)
         }
     } catch (error) {
-        console.error('Error loading calendar data:', error)
+        console.error('[v0] Error loading calendar data:', error)
     } finally {
         isLoading.value = false
     }
@@ -1019,12 +763,10 @@ const fetchHolidays = async (year) => {
     }
 }
 
-// Watch year changes to fetch holidays for the correct year
 watch(() => currentDate.value.year(), (newYear, oldYear) => {
     if (newYear !== oldYear) fetchHolidays(newYear)
 })
 
-// Initialize data when the component mounts
 onMounted(() => {
     fetchHolidays(currentDate.value.year())
     fetchCalendarData()
