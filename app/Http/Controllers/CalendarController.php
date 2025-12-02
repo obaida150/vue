@@ -292,62 +292,67 @@ class CalendarController extends Controller
     /**
      * Get all active employees
      */
-    public function getEmployees()
-    {
-        try {
-            $user = Auth::user();
+public function getEmployees()
+{
+    try {
+        $user = Auth::user();
 
-            if (!$user) {
-                return response()->json(['error' => 'User not authenticated'], 401);
-            }
-
-            // Prüfen, ob der Benutzer die HR-Rolle hat oder ein Abteilungsleiter ist
-            $isHR = $user->role_id === 2;
-            $isTeamManager = false;
-            $teamId = null;
-
-            if ($user->currentTeam) {
-                $teamId = $user->currentTeam->id;
-
-                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
-                $teamUserRole = DB::table('team_user')
-                    ->where('team_id', $teamId)
-                    ->where('user_id', $user->id)
-                    ->value('role');
-
-                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
-            }
-
-            if (!$isHR && !$isTeamManager) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
-
-            // Mitarbeiter laden basierend auf der Rolle
-            $query = User::where('is_active', true);
-
-            // Wenn der Benutzer ein Abteilungsleiter ist, nur Mitarbeiter aus seinem Team laden
-            if ($isTeamManager && !$isHR) {
-                $query->whereHas('teams', function($q) use ($teamId) {
-                    $q->where('teams.id', $teamId);
-                });
-            }
-
-            $employees = $query->select('id', 'first_name', 'last_name', 'current_team_id')
-                ->get()
-                ->map(function ($user) {
-                    return [
-                        'id' => $user->id,
-                        'name' => $user->first_name . ' ' . $user->last_name,
-                        'team_id' => $user->current_team_id
-                    ];
-                });
-
-            return response()->json($employees);
-        } catch (\Exception $e) {
-            Log::error('Fehler beim Abrufen der Mitarbeiterliste: ' . $e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
+        if (!$user) {
+            return response()->json(['error' => 'User not authenticated'], 401);
         }
+
+        // Prüfen, ob der Benutzer eine HR-Rolle hat (role_id = 1 oder 2)
+        $isHR = $user->role_id === 1 || $user->role_id === 2;
+
+        // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+        $isTeamManager = false;
+        $teamId = null;
+
+        if ($user->currentTeam) {
+            $teamId = $user->currentTeam->id;
+            $teamUserRole = DB::table('team_user')
+                ->where('team_id', $teamId)
+                ->where('user_id', $user->id)
+                ->first();
+
+            $isTeamManager = $teamUserRole && $teamUserRole->role === 'Abteilungsleiter';
+        }
+
+        // Wenn weder HR noch Abteilungsleiter, Zugriff verweigern
+        if (!$isHR && !$isTeamManager) {
+            Log::warning('Unauthorized access to getEmployees', [
+                'user_id' => $user->id,
+                'role_id' => $user->role_id,
+                'isHR' => $isHR,
+                'isTeamManager' => $isTeamManager
+            ]);
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // Mitarbeiter laden basierend auf der Rolle
+        $query = User::where('is_active', true);
+
+        // Wenn Abteilungsleiter (und nicht HR), nur das eigene Team
+        if ($isTeamManager && !$isHR) {
+            $query->where('current_team_id', $teamId);
+        }
+
+        $employees = $query->select('id', 'first_name', 'last_name', 'current_team_id')
+            ->get()
+            ->map(function ($emp) {
+                return [
+                    'id' => $emp->id,
+                    'name' => $emp->first_name . ' ' . $emp->last_name,
+                    'team_id' => $emp->current_team_id
+                ];
+            });
+
+        return response()->json($employees);
+    } catch (\Exception $e) {
+        Log::error('Fehler beim Abrufen der Mitarbeiterliste: ' . $e->getMessage());
+        return response()->json(['error' => $e->getMessage()], 500);
     }
+}
 
     /**
      * Get all vacation requests for calendar display

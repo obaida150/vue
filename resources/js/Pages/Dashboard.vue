@@ -422,13 +422,17 @@ async function initializeDashboard() {
     try {
         loading.value = true;
 
-        // Lade verfügbare Mitarbeiter basierend auf der Rolle
-        await loadAvailableEmployees();
-
-        // Lade Abteilungen NACH dem Laden der Mitarbeiter (für HR)
+        // Lade Abteilungen ZUERST (für HR)
         if (isHR.value) {
             await loadDepartments();
+            // Setze die erste Abteilung als Standard
+            if (availableDepartments.value.length > 0) {
+                selectedDepartment.value = availableDepartments.value[0]; // "Alle Abteilungen"
+            }
         }
+
+        // Lade verfügbare Mitarbeiter basierend auf der Rolle (nach Abteilungen)
+        await loadAvailableEmployees();
 
         // Setze den aktuellen Benutzer als ausgewählten Mitarbeiter
         selectedEmployee.value = {
@@ -456,27 +460,23 @@ async function initializeDashboard() {
 
 async function loadAvailableEmployees() {
     try {
-        // Lade Mitarbeiter basierend auf der Rolle
         let employees = [];
 
-        if (userRole.value <= 3) { // HR oder Abteilungsleiter
+        if (userRole.value <= 2) {
+            // HR (role_id 1-2) sieht alle Mitarbeiter
             const response = await axios.get('/api/employees');
-            allEmployees.value = response.data; // Speichere alle Mitarbeiter
-            employees = [...allEmployees.value]; // Kopie erstellen
-
-            // Filtere Mitarbeiter basierend auf der Rolle und ausgewählter Abteilung
-            if (userRole.value === 3) { // Abteilungsleiter sieht nur sein Team
-                employees = employees.filter(emp =>
-                    emp.team_id === currentUser.value.current_team_id
-                );
-            } else if (isHR.value && selectedDepartment.value && selectedDepartment.value.id) {
-                // HR mit ausgewählter Abteilung
-                employees = employees.filter(emp =>
-                    emp.team_id === selectedDepartment.value.id
-                );
-            }
+            allEmployees.value = response.data;
+            employees = [...allEmployees.value];
+        } else if (userRole.value === 3) {
+            // Abteilungsleiter (role_id 3) sieht sich und sein Team
+            const response = await axios.get('/api/employees');
+            allEmployees.value = response.data;
+            employees = allEmployees.value.filter(emp =>
+                emp.id === currentUser.value.id ||
+                emp.team_id === currentUser.value.current_team_id
+            );
         } else {
-            // Mitarbeiter sieht nur sich selbst
+            // Mitarbeiter (role_id 4) sieht nur sich selbst
             employees = [{
                 id: currentUser.value.id,
                 name: currentUser.value.name
@@ -662,128 +662,182 @@ async function loadEventsData() {
 }
 
 function processHomeofficeData(events, homeofficeTypeId) {
-    // Initialisiere monatliche Daten
-    const monthlyData = Array(12).fill(0);
     let total = 0;
 
     // Filtere Homeoffice-Ereignisse
     const homeofficeEvents = events.filter(event => event.event_type_id === homeofficeTypeId);
 
-    // Verarbeite jedes Homeoffice-Ereignis
-    homeofficeEvents.forEach(event => {
-        const startDate = new Date(event.start_date);
-        const endDate = new Date(event.end_date);
+    if (selectedMonth.value) {
+        // Wenn ein Monat ausgewählt ist, erstelle tägliche Daten
+        const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
+        const dailyData = Array(daysInMonth).fill(0);
 
-        // Wenn ein Monat ausgewählt ist, filtere nur Ereignisse in diesem Monat
-        if (selectedMonth.value && (startDate.getMonth() + 1 !== selectedMonth.value && endDate.getMonth() + 1 !== selectedMonth.value)) {
-            return;
-        }
-
-        // Berechne die Anzahl der Tage
-        const days = calculateWorkingDays(startDate, endDate);
-        total += days;
-
-        // Verteile die Tage auf die entsprechenden Monate
-        if (selectedMonth.value) {
-            // Wenn ein Monat ausgewählt ist, erstelle tägliche Daten
-            const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
-            const dailyData = Array(daysInMonth).fill(0);
+        homeofficeEvents.forEach(event => {
+            const startDate = new Date(event.start_date);
+            const endDate = new Date(event.end_date);
 
             let currentDate = new Date(startDate);
             while (currentDate <= endDate) {
-                if (currentDate.getMonth() + 1 === selectedMonth.value) {
-                    const day = currentDate.getDate() - 1; // 0-basierter Index
-                    dailyData[day] = 1;
+                // Prüfe, ob das Datum im ausgewählten Monat liegt
+                if (currentDate.getFullYear() === selectedYear.value &&
+                    currentDate.getMonth() + 1 === selectedMonth.value) {
+                    const day = currentDate.getDate() - 1;
+                    const dayOfWeek = currentDate.getDay();
+
+                    // Zähle nur Werktage (Mo-Fr)
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6 && dailyData[day] === 0) {
+                        dailyData[day] = 1;
+                        total++;
+                    }
                 }
                 currentDate.setDate(currentDate.getDate() + 1);
             }
+        });
 
-            statistics.value.homeoffice.monthly = dailyData;
-        } else {
-            // Wenn kein Monat ausgewählt ist, verteile auf Monate
+        statistics.value.homeoffice.monthly = dailyData;
+    } else {
+        // Wenn kein Monat ausgewählt ist, verteile auf Monate
+        const monthlyData = Array(12).fill(0);
+
+        homeofficeEvents.forEach(event => {
+            const startDate = new Date(event.start_date);
+            const endDate = new Date(event.end_date);
+
             let currentDate = new Date(startDate);
             while (currentDate <= endDate) {
-                // Zähle nur Werktage (Mo-Fr)
                 const dayOfWeek = currentDate.getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
                     const month = currentDate.getMonth();
                     monthlyData[month]++;
+                    total++;
                 }
                 currentDate.setDate(currentDate.getDate() + 1);
             }
+        });
 
-            statistics.value.homeoffice.monthly = monthlyData;
-        }
-    });
+        statistics.value.homeoffice.monthly = monthlyData;
+    }
 
     statistics.value.homeoffice.total = total;
 }
 
 function processAbsenceData(events, absenceTypeId) {
-    // Initialisiere monatliche Daten
-    const monthlyData = Array(12).fill(0);
     let total = 0;
 
     // Filtere Abwesenheits-Ereignisse
     const absenceEvents = events.filter(event => event.event_type_id === absenceTypeId);
 
-    // Verarbeite jedes Abwesenheits-Ereignis
-    absenceEvents.forEach(event => {
-        const startDate = new Date(event.start_date);
-        const endDate = new Date(event.end_date);
+    if (selectedMonth.value) {
+        // Wenn ein Monat ausgewählt ist, erstelle tägliche Daten
+        const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
+        const dailyData = Array(daysInMonth).fill(0);
 
-        // Berechne die Anzahl der Tage
-        const days = calculateWorkingDays(startDate, endDate);
-        total += days;
+        absenceEvents.forEach(event => {
+            const startDate = new Date(event.start_date);
+            const endDate = new Date(event.end_date);
 
-        // Verteile die Tage auf die entsprechenden Monate
-        let currentDate = new Date(startDate);
-        while (currentDate <= endDate) {
-            // Zähle nur Werktage (Mo-Fr)
-            const dayOfWeek = currentDate.getDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
-                const month = currentDate.getMonth();
-                monthlyData[month]++;
+            let currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                // Prüfe, ob das Datum im ausgewählten Monat liegt
+                if (currentDate.getFullYear() === selectedYear.value &&
+                    currentDate.getMonth() + 1 === selectedMonth.value) {
+                    const day = currentDate.getDate() - 1;
+                    const dayOfWeek = currentDate.getDay();
+
+                    // Zähle nur Werktage (Mo-Fr)
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6 && dailyData[day] === 0) {
+                        dailyData[day] = 1;
+                        total++;
+                    }
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
             }
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-    });
+        });
 
-    statistics.value.absence.monthly = monthlyData;
+        statistics.value.absence.monthly = dailyData;
+    } else {
+        // Wenn kein Monat ausgewählt ist, verteile auf Monate
+        const monthlyData = Array(12).fill(0);
+
+        absenceEvents.forEach(event => {
+            const startDate = new Date(event.start_date);
+            const endDate = new Date(event.end_date);
+
+            let currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                const dayOfWeek = currentDate.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    const month = currentDate.getMonth();
+                    monthlyData[month]++;
+                    total++;
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+        });
+
+        statistics.value.absence.monthly = monthlyData;
+    }
+
     statistics.value.absence.total = total;
 }
 
 function processFieldServiceData(events, fieldServiceTypeId) {
-    // Initialisiere monatliche Daten
-    const monthlyData = Array(12).fill(0);
     let total = 0;
 
     // Filtere Außendienst-Ereignisse
     const fieldServiceEvents = events.filter(event => event.event_type_id === fieldServiceTypeId);
 
-    // Verarbeite jedes Außendienst-Ereignis
-    fieldServiceEvents.forEach(event => {
-        const startDate = new Date(event.start_date);
-        const endDate = new Date(event.end_date);
+    if (selectedMonth.value) {
+        // Wenn ein Monat ausgewählt ist, erstelle tägliche Daten
+        const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
+        const dailyData = Array(daysInMonth).fill(0);
 
-        // Berechne die Anzahl der Tage
-        const days = calculateWorkingDays(startDate, endDate);
-        total += days;
+        fieldServiceEvents.forEach(event => {
+            const startDate = new Date(event.start_date);
+            const endDate = new Date(event.end_date);
 
-        // Verteile die Tage auf die entsprechenden Monate
-        let currentDate = new Date(startDate);
-        while (currentDate <= endDate) {
-            // Zähle nur Werktage (Mo-Fr)
-            const dayOfWeek = currentDate.getDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
-                const month = currentDate.getMonth();
-                monthlyData[month]++;
+            let currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                // Prüfe, ob das Datum im ausgewählten Monat liegt
+                if (currentDate.getFullYear() === selectedYear.value &&
+                    currentDate.getMonth() + 1 === selectedMonth.value) {
+                    const day = currentDate.getDate() - 1;
+                    const dayOfWeek = currentDate.getDay();
+
+                    // Zähle nur Werktage (Mo-Fr)
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6 && dailyData[day] === 0) {
+                        dailyData[day] = 1;
+                        total++;
+                    }
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
             }
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-    });
+        });
 
-    statistics.value.fieldService.monthly = monthlyData;
+        statistics.value.fieldService.monthly = dailyData;
+    } else {
+        // Wenn kein Monat ausgewählt ist, verteile auf Monate
+        const monthlyData = Array(12).fill(0);
+
+        fieldServiceEvents.forEach(event => {
+            const startDate = new Date(event.start_date);
+            const endDate = new Date(event.end_date);
+
+            let currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                const dayOfWeek = currentDate.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    const month = currentDate.getMonth();
+                    monthlyData[month]++;
+                    total++;
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+        });
+
+        statistics.value.fieldService.monthly = monthlyData;
+    }
+
     statistics.value.fieldService.total = total;
 }
 
