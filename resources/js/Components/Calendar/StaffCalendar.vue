@@ -9,6 +9,7 @@
             :is-team-manager="isTeamManager"
             :is-hr-user="isHrUser"
             :show-only-own-events="showOnlyOwnEvents"
+            :current-user-role-id="currentUserRoleId"
             @previous="previousPeriod"
             @next="nextPeriod"
             @set-view="setCalendarView"
@@ -77,8 +78,8 @@
             :is-hr="isHrUser"
             :employees="employees"
             :is-team-manager="isTeamManager"
-        @close="closeEventDialog"
-        @save="saveEvent"
+            @close="closeEventDialog"
+            @save="saveEvent"
         />
 
         <EventDetailsDialog
@@ -281,10 +282,10 @@ const {
     isTeamManager,
     userTeamId,
     showOnlyOwnEvents,
-    findEventType
+    findEventType,
+    currentUserRoleId // Added currentUserRoleId parameter
 );
 
-// Verwende das neue useVacations Composable
 const {
     vacations: vacationsFromService,
     loading: vacationsLoading,
@@ -687,31 +688,35 @@ const editEvent = () => {
 // NEU: saveEvent Funktion, die das Event vom Dialog empfängt
 const saveEvent = async (eventData) => {
     saving.value = true;
-    console.log('Session-Check:');
-    console.log('Cookies:', document.cookie);
-    console.log('CSRF-Token im Meta:', document.querySelector('meta[name="csrf-token"]')?.content);
-    console.log('Event Data:', eventData);
     try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+        const config = {
+            headers: {
+                "X-CSRF-TOKEN": csrfToken,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            withCredentials: true,
+        };
+
         if (eventData.id) {
             // Update existing event
-            await axios.put(`/api/events/${eventData.id}`, eventData);
+            await axios.put(`/api/events/${eventData.id}`, eventData, config);
             // Wenn das Event erfolgreich aktualisiert wurde, aktualisieren Sie auch das selectedEvent
             selectedEvent.value = { ...selectedEvent.value, ...eventData };
             toast.add({ severity: 'success', summary: 'Erfolgreich', detail: 'Ereignis aktualisiert', life: 3000 });
         } else {
             // Create new event
-            await axios.post('/api/events', eventData);
+            await axios.post('/api/events', eventData, config);
             toast.add({ severity: 'success', summary: 'Erfolgreich', detail: 'Ereignis erstellt', life: 3000 });
         }
         closeEventDialog();
         await fetchEvents();
     } catch (error) {
-        console.error('Fehler Details:');
-        console.error('Status:', error.response?.status);
-        console.error('Headers:', error.response?.headers);
-        console.error('Data:', error.response?.data);
-        console.error('Config:', error.config);
         console.error('Error saving event:', error);
+        console.error('Error details:', error.response?.data);
+        console.error('Error status:', error.response?.status);
         toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Speichern des Ereignisses', life: 3000 });
     } finally {
         saving.value = false;
@@ -792,11 +797,23 @@ watch(eventTypes, () => {
 onMounted(async () => {
     primevue.config.locale = de;
 
+    console.log('[v0] StaffCalendar mounted - Before fetchUserRole');
+    console.log('[v0] isHrUser before fetch:', isHrUser.value);
+    console.log('[v0] currentUserId before fetch:', currentUserId.value);
+
     // Lade Benutzerrolle und warte auf Abschluss
     await fetchUserRole();
 
+    console.log('[v0] StaffCalendar - After fetchUserRole');
+    console.log('[v0] User Role geladen. isHrUser:', isHrUser.value, 'isTeamManager:', isTeamManager.value);
+    console.log('[v0] currentUserRoleId:', useUserRole().currentUserRoleId.value);
+
     if (isHrUser.value || isTeamManager.value) {
+        console.log('[v0] Lade Employees...');
         await fetchEmployees();
+        console.log('[v0] Employees geladen:', employees.value);
+        console.log('[v0] Anzahl Employees:', employees.value?.length);
+        console.log('[v0] Employees Details:', JSON.stringify(employees.value, null, 2));
     }
 
     // Für HR-Benutzer und Abteilungsleiter: Intelligente Standardeinstellung
@@ -839,4 +856,4 @@ watch(
         }
     }
 );
-</script>>
+</script>

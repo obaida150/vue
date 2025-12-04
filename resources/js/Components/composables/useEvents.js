@@ -15,6 +15,7 @@ export function useEvents(
     userTeamId,
     showOnlyOwnEvents,
     findEventType,
+    currentUserRoleId, // Added currentUserRoleId parameter
 ) {
     const events = ref([])
     const vacations = ref([])
@@ -54,6 +55,8 @@ export function useEvents(
             try {
                 const eventsResponse = await axios.get("/api/events", config)
 
+                console.log("[v0] Raw events from backend (first 2):", eventsResponse.data.slice(0, 2))
+
                 allEvents = eventsResponse.data.map((event) => {
                     const eventTypeName = event.event_type || event.title
                     let eventType = null
@@ -86,6 +89,18 @@ export function useEvents(
                             typeof event.event_type === "string" &&
                             event.event_type.toLowerCase().includes("urlaub"))
 
+                    if (event.outlook_event_id) {
+                        console.log("[v0] Event with Outlook sync:", {
+                            id: event.id,
+                            title: event.title,
+                            sync_with_outlook: event.sync_with_outlook,
+                            outlook_event_id: event.outlook_event_id,
+                            is_all_day: event.is_all_day,
+                            start_time: event.start_time,
+                            end_time: event.end_time,
+                        })
+                    }
+
                     return {
                         id: event.id,
                         title: event.title,
@@ -109,6 +124,11 @@ export function useEvents(
                         is_all_day: event.is_all_day, // Zusätzlich mit Unterstrich für Konsistenz
                     }
                 })
+
+                const outlookEvents = allEvents.filter((e) => e.outlook_event_id)
+                if (outlookEvents.length > 0) {
+                    console.log("[v0] Transformed events with Outlook sync:", outlookEvents.slice(0, 2))
+                }
             } catch (error) {
                 console.error("Fehler beim Laden der Ereignisse:", error)
             }
@@ -136,6 +156,14 @@ export function useEvents(
     const hasEvents = (date) => {
         if (!date) return false
         const dateStr = dayjs(date).format("YYYY-MM-DD")
+
+        if (currentUserRoleId && currentUserRoleId.value === 4) {
+            return events.value.some((event) => {
+                const eventStartDate = dayjs(event.startDate).format("YYYY-MM-DD")
+                const eventEndDate = dayjs(event.endDate).format("YYYY-MM-DD")
+                return dateStr >= eventStartDate && dateStr <= eventEndDate && event.user_id === currentUserId.value
+            })
+        }
 
         // In der Jahresansicht oder wenn showOnlyOwnEvents aktiviert ist, nur eigene Ereignisse berücksichtigen
         if (calendarView.value === "year" || showOnlyOwnEvents.value) {
@@ -180,6 +208,14 @@ export function useEvents(
         if (!date) return []
         const dateStr = dayjs(date).format("YYYY-MM-DD")
 
+        if (currentUserRoleId && currentUserRoleId.value === 4) {
+            return events.value.filter((event) => {
+                const eventStartDate = dayjs(event.startDate).format("YYYY-MM-DD")
+                const eventEndDate = dayjs(event.endDate).format("YYYY-MM-DD")
+                return dateStr >= eventStartDate && dateStr <= eventEndDate && event.user_id === currentUserId.value
+            })
+        }
+
         // Wenn showOnlyOwnEvents aktiviert ist, nur eigene Ereignisse zurückgeben
         if (showOnlyOwnEvents.value) {
             return events.value.filter((event) => {
@@ -223,6 +259,15 @@ export function useEvents(
     const getEventColorForDay = (date) => {
         if (!date) return null
         const dateStr = dayjs(date).format("YYYY-MM-DD")
+
+        if (currentUserRoleId && currentUserRoleId.value === 4) {
+            const event = events.value.find((event) => {
+                const eventStartDate = dayjs(event.startDate).format("YYYY-MM-DD")
+                const eventEndDate = dayjs(event.endDate).format("YYYY-MM-DD")
+                return dateStr >= eventStartDate && dateStr <= eventEndDate && event.user_id === currentUserId.value
+            })
+            return event ? event.color : null
+        }
 
         // In der Jahresansicht oder wenn showOnlyOwnEvents aktiviert ist, nur eigene Ereignisse berücksichtigen
         if (calendarView.value === "year" || showOnlyOwnEvents.value) {

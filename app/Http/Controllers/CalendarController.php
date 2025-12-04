@@ -239,7 +239,7 @@ class CalendarController extends Controller
             $user = Auth::user();
 
             if (!$user) {
-                return response()->json(['error' => 'User not authenticated'], 401);
+                return response()->json(['error' => 'Benutzer nicht authentifiziert'], 401);
             }
 
             // Prüfen, ob der Benutzer ein Abteilungsleiter ist
@@ -258,30 +258,32 @@ class CalendarController extends Controller
 
                 $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
 
-                // Wenn der Benutzer ein Abteilungsleiter ist, hole alle Teammitglieder
+                // Wenn Abteilungsleiter, hole die Teammitglieder
                 if ($isTeamManager) {
-                    $teamMembers = DB::table('team_user')
-                        ->where('team_id', $teamId)
-                        ->where('user_id', '!=', $user->id)
-                        ->join('users', 'team_user.user_id', '=', 'users.id')
-                        ->select('users.id', 'users.first_name', 'users.last_name')
+                    $teamMembers = User::whereHas('teams', function($query) use ($teamId) {
+                        $query->where('teams.id', $teamId);
+                    })
+                        ->where('is_active', true)
                         ->get()
                         ->map(function($member) {
                             return [
                                 'id' => $member->id,
-                                'name' => $member->first_name . ' ' . $member->last_name
+                                'name' => $member->full_name ?? $member->name,
+                                'email' => $member->email,
                             ];
-                        });
+                        })
+                        ->toArray();
                 }
             }
 
             return response()->json([
-                'role_id' => $user->role_id,
                 'user_id' => $user->id,
+                'role_id' => $user->role_id,
                 'role_name' => $user->role ? $user->role->name : null,
                 'is_team_manager' => $isTeamManager,
                 'team_id' => $teamId,
-                'team_members' => $teamMembers
+                'team_members' => $teamMembers,
+                'has_hr_permissions' => $user->has_hr_permissions ?? false, // Neues Feld
             ]);
         } catch (\Exception $e) {
             Log::error('Fehler beim Abrufen der Benutzerrolle: ' . $e->getMessage());

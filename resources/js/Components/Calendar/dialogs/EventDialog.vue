@@ -14,7 +14,7 @@
                 <Select
                     id="event-type"
                     v-model="event.type"
-                    :options="eventTypes"
+                    :options="filteredEventTypes"
                     optionLabel="name"
                     placeholder="Typ auswählen"
                     class="w-full"
@@ -28,7 +28,7 @@
             </div>
 
             <!-- Mitarbeiterauswahl für HR bei Krankheit -->
-            <div v-if="isHr && event.type && event.type.name === 'Krankheit'" class="mb-3 sm:mb-4">
+            <div v-if="isHr && selectedEventType && selectedEventType.name === 'Krank'" class="mb-3 sm:mb-4">
                 <label for="employee" class="block mb-1 sm:mb-2 font-medium">Mitarbeiter</label>
                 <Select
                     id="employee"
@@ -38,6 +38,7 @@
                     placeholder="Mitarbeiter auswählen"
                     class="w-full"
                     required
+                    filter
                 />
             </div>
 
@@ -65,11 +66,12 @@
                 </div>
             </div>
 
+            <!-- Lokale Refs für Zeitfelder verwenden -->
             <div v-if="syncWithOutlook && !isAllDayLocal">
                 <label class="block mb-1 sm:mb-2 font-medium">Uhrzeit</label>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <DatePicker
-                        v-model="event.startTime"
+                        v-model="localStartTime"
                         dateFormat="HH:mm"
                         placeholder="Startzeit"
                         class="w-full"
@@ -78,7 +80,7 @@
                         :required="syncWithOutlook && !isAllDayLocal"
                     />
                     <DatePicker
-                        v-model="event.endTime"
+                        v-model="localEndTime"
                         dateFormat="HH:mm"
                         placeholder="Endzeit"
                         class="w-full"
@@ -96,7 +98,7 @@
                 </div>
             </div>
 
-            <!-- NEU: Outlook Synchronisierungs-Checkbox -->
+            <!-- Outlook Synchronisierungs-Checkbox -->
             <div class="mb-3 sm:mb-4">
                 <div class="flex items-center gap-2">
                     <Checkbox v-model="syncWithOutlook" :binary="true" inputId="sync-outlook" />
@@ -151,6 +153,7 @@ import Checkbox from 'primevue/checkbox';
 import DatePicker from 'primevue/datepicker';
 import { route } from 'ziggy-js';
 import dayjs from 'dayjs';
+import { useUserRole } from '@/Components/composables/useUserRole';
 
 const props = defineProps({
     visible: {
@@ -197,19 +200,37 @@ const props = defineProps({
 
 const emit = defineEmits(['update:visible', 'update:modelValue', 'close', 'save']);
 
+const { currentUserRoleId } = useUserRole();
+
 const localVisible = ref(props.visible);
 const syncWithOutlook = ref(false);
 const selectedEmployee = ref(null);
+const localStartTime = ref(null);
+const localEndTime = ref(null);
 
-// NEW: Local ref for isAllDay to ensure robust reactivity
 const isAllDayLocal = ref(props.event.is_all_day ?? props.event.isAllDay ?? false);
+
+const selectedEventType = ref(null);
+
+const filteredEventTypes = computed(() => {
+    console.log('[v0] Filtering EventTypes - isHr:', props.isHr);
+    console.log('[v0] All event types:', props.eventTypes.map(t => t.name));
+
+    // Admin (role_id = 1) oder HR (role_id = 2) sehen alle Event Types inklusive "Krank"
+    if (props.isHr) {
+        console.log('[v0] User is Admin/HR, showing all event types including Krank');
+        return props.eventTypes;
+    }
+
+    // Andere User (role_id = 3, 4, etc.) sehen "Krank" nicht
+    const filtered = props.eventTypes.filter(type => type.name !== 'Krank');
+    console.log('[v0] User is not Admin/HR, filtered event types:', filtered.map(t => t.name));
+    return filtered;
+});
 
 watch(() => props.visible, (newValue) => {
     localVisible.value = newValue;
     if (newValue) {
-        // When dialog opens, initialize local state from prop
-
-        // 1. Basis-Felder setzen (außer syncWithOutlook)
         isAllDayLocal.value = props.event.is_all_day ?? false;
 
         console.log('[v0] Event beim Laden:', {
@@ -221,15 +242,16 @@ watch(() => props.visible, (newValue) => {
             end_time: props.event.end_time,
         });
 
-        // 2. Zeiten konvertieren (BEVOR syncWithOutlook gesetzt wird!)
         if (props.event.start_time) {
             const timeParts = props.event.start_time.split(':');
             const hours = parseInt(timeParts[0]);
             const minutes = parseInt(timeParts[1]);
             const startTime = new Date();
             startTime.setHours(hours, minutes, 0, 0);
-            props.event.startTime = startTime;
+            localStartTime.value = startTime;
             console.log('[v0] Start-Zeit konvertiert:', props.event.start_time, '→', startTime);
+        } else {
+            localStartTime.value = null;
         }
 
         if (props.event.end_time) {
@@ -238,20 +260,24 @@ watch(() => props.visible, (newValue) => {
             const minutes = parseInt(timeParts[1]);
             const endTime = new Date();
             endTime.setHours(hours, minutes, 0, 0);
-            props.event.endTime = endTime;
+            localEndTime.value = endTime;
             console.log('[v0] End-Zeit konvertiert:', props.event.end_time, '→', endTime);
+        } else {
+            localEndTime.value = null;
         }
 
-        // 3. JETZT syncWithOutlook setzen (nachdem die Zeiten bereits konvertiert sind)
-        // Der Watch auf syncWithOutlook wird die Zeiten nicht überschreiben, weil sie bereits gesetzt sind
         syncWithOutlook.value = props.event.sync_with_outlook ?? false;
 
         console.log('[v0] Nach Initialisierung:', {
             isAllDayLocal: isAllDayLocal.value,
             syncWithOutlook: syncWithOutlook.value,
-            startTime: props.event.startTime,
-            endTime: props.event.endTime,
+            localStartTime: localStartTime.value,
+            localEndTime: localEndTime.value,
         });
+
+        console.log('[v0] Employees verfügbar:', props.employees);
+        console.log('[v0] isHr:', props.isHr);
+        console.log('[v0] Event Type:', props.event.type);
     }
 });
 
@@ -288,39 +314,36 @@ watch(() => props.event.type, (newType) => {
     if (newType && !isEditMode.value) {
         props.event.title = newType.name;
     }
+    selectedEventType.value = newType;
 });
 
-// NEW: Watch for changes in isAllDayLocal and update event.isAllDay, clearing times if all-day
 watch(isAllDayLocal, (newValue) => {
-    props.event.is_all_day = newValue; // Keep props.event.is_all_day in sync
+    props.event.is_all_day = newValue;
     if (newValue) {
-        props.event.startTime = null;
-        props.event.endTime = null;
+        localStartTime.value = null;
+        localEndTime.value = null;
     }
 });
 
-// NEW: Watch for changes in startTime/endTime and update isAllDayLocal
-watch(() => [props.event.startTime, props.event.endTime], ([newStartTime, newEndTime]) => {
-    if ((newStartTime !== null || newEndTime !== null) && isAllDayLocal.value) {
-        isAllDayLocal.value = false;
-    }
+watch(() => [localStartTime.value, localEndTime.value], ([newStartTime, newEndTime]) => {
+    props.event.startTime = newStartTime;
+    props.event.endTime = newEndTime;
 });
 
 watch(syncWithOutlook, (newValue) => {
     if (newValue) {
-        // Ganztägig automatisch deaktivieren, damit Zeitfelder erscheinen
         isAllDayLocal.value = false;
         props.event.is_all_day = false;
 
-        if (!props.event.startTime) {
+        if (!localStartTime.value) {
             const defaultStart = new Date();
             defaultStart.setHours(9, 0, 0, 0);
-            props.event.startTime = defaultStart;
+            localStartTime.value = defaultStart;
         }
-        if (!props.event.endTime) {
+        if (!localEndTime.value) {
             const defaultEnd = new Date();
             defaultEnd.setHours(17, 0, 0, 0);
-            props.event.endTime = defaultEnd;
+            localEndTime.value = defaultEnd;
         }
     }
 });
@@ -330,13 +353,13 @@ const onClose = () => {
 };
 
 const onSave = () => {
-    if (props.isHr && props.event.type && props.event.type.name === 'Krankheit' && !selectedEmployee.value) {
+    if (props.isHr && selectedEventType.value && selectedEventType.value.name === 'Krank' && !selectedEmployee.value) {
         alert('Bitte wählen Sie einen Mitarbeiter aus.');
         return;
     }
 
     if (syncWithOutlook.value && !isAllDayLocal.value) {
-        if (!props.event.startTime || !props.event.endTime) {
+        if (!localStartTime.value || !localEndTime.value) {
             alert('Bitte geben Sie Start- und Endzeit für das Outlook-Ereignis an.');
             return;
         }
@@ -345,10 +368,9 @@ const onSave = () => {
     let startTime = null;
     let endTime = null;
 
-    if (syncWithOutlook.value && !isAllDayLocal.value && props.event.startTime && props.event.endTime) {
-        // Zeiten als HH:mm:ss formatieren
-        startTime = dayjs(props.event.startTime).format('HH:mm:ss');
-        endTime = dayjs(props.event.endTime).format('HH:mm:ss');
+    if (syncWithOutlook.value && !isAllDayLocal.value && localStartTime.value && localEndTime.value) {
+        startTime = dayjs(localStartTime.value).format('HH:mm:ss');
+        endTime = dayjs(localEndTime.value).format('HH:mm:ss');
     }
 
     const eventToSave = {
@@ -357,8 +379,8 @@ const onSave = () => {
         description: props.event.description,
         start_date: props.event.startDate ? dayjs(props.event.startDate).format('YYYY-MM-DD') : null,
         end_date: props.event.endDate ? dayjs(props.event.endDate).format('YYYY-MM-DD') : null,
-        start_time: startTime, // Separate Zeit als HH:mm:ss
-        end_time: endTime, // Separate Zeit als HH:mm:ss
+        start_time: startTime,
+        end_time: endTime,
         is_all_day: isAllDayLocal.value,
         event_type_id: props.event.type ? props.event.type.id : null,
         user_id: props.event.user_id,

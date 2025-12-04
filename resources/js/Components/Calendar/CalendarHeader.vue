@@ -11,14 +11,14 @@
             <Button icon="pi pi pi-chevron-right" @click="$emit('next')" class="p-button-rounded p-button-text" />
         </div>
         <div class="flex items-center gap-4 w-full md:w-auto">
-            <!-- Toggle-Button für Abteilungsleiter und HR -->
-            <div v-if="isTeamManager || isHrUser" class="mr-2">
+            <!-- Toggle-Button nur für role_id 1, 2, 3 - nicht für role_id 4 -->
+            <div v-if="shouldShowToggle" class="mr-2">
                 <ToggleButton
                     v-model="localShowOnlyOwnEvents"
                     :onLabel="'Nur eigene'"
-                    :offLabel="isHrUser ? 'Alle User' : 'Team'"
+                    :offLabel="toggleOffLabel"
                     onIcon="pi pi-user"
-                    :offIcon="isHrUser ? 'pi pi-users' : 'pi pi-users'"
+                    :offIcon="'pi pi-users'"
                     class="p-button-sm"
                     @change="$emit('toggle-event-filter')"
                 />
@@ -87,6 +87,10 @@ const props = defineProps({
     showOnlyOwnEvents: {
         type: Boolean,
         default: false
+    },
+    currentUserRoleId: {
+        type: Number,
+        default: null
     }
 });
 
@@ -98,6 +102,34 @@ const localShowOnlyOwnEvents = ref(props.showOnlyOwnEvents);
 // Aktualisiere die lokale Variable, wenn sich die Prop ändert
 watch(() => props.showOnlyOwnEvents, (newValue) => {
     localShowOnlyOwnEvents.value = newValue;
+});
+
+const shouldShowToggle = computed(() => {
+    // Debugging
+    console.log('[v0] CalendarHeader - currentUserRoleId:', props.currentUserRoleId);
+    console.log('[v0] CalendarHeader - isTeamManager:', props.isTeamManager);
+    console.log('[v0] CalendarHeader - isHrUser:', props.isHrUser);
+
+    // Wenn role_id explizit 4 ist, niemals Toggle zeigen
+    if (props.currentUserRoleId === 4) {
+        console.log('[v0] CalendarHeader - Toggle versteckt (role_id 4)');
+        return false;
+    }
+
+    // Für Admin (1), HR (2), Abteilungsleiter (3) den Toggle zeigen
+    if (props.currentUserRoleId === 1 || props.currentUserRoleId === 2 || props.currentUserRoleId === 3) {
+        console.log('[v0] CalendarHeader - Toggle angezeigt (role_id 1, 2, oder 3)');
+        return true;
+    }
+
+    // Fallback: Wenn role_id noch null ist, prüfe die anderen Flags
+    const show = props.isHrUser || props.isTeamManager;
+    console.log('[v0] CalendarHeader - Toggle Fallback:', show);
+    return show;
+});
+
+const toggleOffLabel = computed(() => {
+    return props.isHrUser ? 'Alle User' : 'Team';
 });
 
 // Computed Properties

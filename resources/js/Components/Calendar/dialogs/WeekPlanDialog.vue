@@ -70,7 +70,7 @@
                             </Select>
 
                             <!-- Mitarbeiterauswahl für HR bei Krankheit oder Abwesenheit -->
-                            <div v-if="isHr && day.selectedType && (day.selectedType.name === 'Krankheit' || day.selectedType.name === 'Abwesend')" class="mb-3">
+                            <div v-if="isHr && day.selectedType && (day.selectedType.name === 'Krank' || day.selectedType.name === 'Abwesend')" class="mb-3">
                                 <Select
                                     v-model="day.selectedEmployee"
                                     :options="employees"
@@ -229,7 +229,7 @@ const filteredEventTypes = computed(() => {
     return props.eventTypes.filter(type => {
         // Wenn der Event-Typ "Krankheit" oder "Abwesend" ist und der Benutzer nicht die HR-Rolle hat,
         // dann diesen Typ nicht anzeigen
-        if ((type.name === 'Krankheit' || type.name === 'Abwesend') && !props.isHr) {
+        if ((type.name === 'Krank' || type.name === 'Abwesend') && !props.isHr) {
             return false;
         }
         return true;
@@ -240,7 +240,7 @@ const filteredEventTypes = computed(() => {
 const canDeleteEvent = (day) => {
     // Wenn es ein Krankheitseintrag oder Abwesenheitseintrag ist und der Benutzer kein HR-Mitarbeiter ist
     if (day.selectedType &&
-        (day.selectedType.name === 'Krankheit' || day.selectedType.name === 'Abwesend') &&
+        (day.selectedType.name === 'Krank' || day.selectedType.name === 'Abwesend') &&
         !props.isHr) {
         return false;
     }
@@ -320,7 +320,7 @@ const onSave = () => {
     let valid = true;
     props.weekDays.forEach((day, index) => {
         if (props.isHr && day.selectedType &&
-            (day.selectedType.name === 'Krankheit' || day.selectedType.name === 'Abwesend') &&
+            (day.selectedType.name === 'Krank' || day.selectedType.name === 'Abwesend') &&
             !day.selectedEmployee) {
             alert(`Bitte wählen Sie einen Mitarbeiter für den ${day.selectedType.name}-Eintrag am ${props.formatDate(day.date)} aus.`);
             valid = false;
@@ -338,7 +338,7 @@ const onRemoveEvent = (index) => {
 
     // Prüfen, ob es sich um einen Krankheitseintrag oder Abwesenheitseintrag handelt
     if (day.selectedType &&
-        (day.selectedType.name === 'Krankheit' || day.selectedType.name === 'Abwesend') &&
+        (day.selectedType.name === 'Krank' || day.selectedType.name === 'Abwesend') &&
         !props.isHr) {
         alert('Krankheits- und Abwesenheitseinträge können nur von HR-Mitarbeitern gelöscht werden.');
         return;

@@ -47,7 +47,7 @@ class EventController extends Controller
                     $query->where('user_id', $user->id);
 
                     // Wenn HR-Benutzer, dann alle Ereignisse
-                    if ($user->role_id === 2) {
+                    if ($user->role_id === 1 || $user->role_id === 2 || $user->has_hr_permissions) {
                         $query->orWhereNotNull('id'); // Immer wahr
                     }
                     // Wenn Abteilungsleiter, dann Ereignisse der Teammitglieder
@@ -120,8 +120,9 @@ class EventController extends Controller
             ]);
 
             $userId = $validated['user_id'] ?? $user->id;
-            if ($userId != $user->id) {
-                if (!$user->hasPermissionTo('create events for others')) {
+
+            if ($userId && $userId != $user->id) {
+                if ($user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions && !$user->hasPermissionTo('create events for others')) {
                     return response()->json(['error' => 'Nicht autorisiert, Ereignisse für andere zu erstellen.'], 403);
                 }
             }
@@ -216,7 +217,7 @@ class EventController extends Controller
                 $canView = true;
             }
             // HR-Benutzer dürfen alle Ereignisse sehen
-            else if ($user->role_id === 2) {
+            else if ($user->role_id === 1 || $user->role_id === 2 || $user->has_hr_permissions) {
                 $canView = true;
             }
             // Abteilungsleiter dürfen Ereignisse ihrer Teammitglieder sehen
@@ -262,9 +263,10 @@ class EventController extends Controller
             $user = Auth::user();
             $event = Event::findOrFail($id);
 
-            // Überprüfen Sie, ob der Benutzer die Berechtigung hat, das Ereignis zu bearbeiten
-            if ($event->created_by !== $user->id && !$user->hasPermissionTo('edit events for others')) {
-                return response()->json(['error' => 'Nicht autorisiert, dieses Ereignis zu bearbeiten.'], 403);
+            if ($event->created_by !== $user->id) {
+                if ($user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions && !$user->hasPermissionTo('edit events for others')) {
+                    return response()->json(['error' => 'Nicht autorisiert, dieses Ereignis zu bearbeiten.'], 403);
+                }
             }
 
             $validated = $request->validate([
@@ -280,10 +282,11 @@ class EventController extends Controller
                 'end_time' => 'nullable|date_format:H:i:s',
             ]);
 
-            // Wenn eine user_id angegeben ist, überprüfen Sie, ob der aktuelle Benutzer die Berechtigung hat, Ereignisse für andere Benutzer zu bearbeiten
             $userId = $validated['user_id'] ?? $user->id;
-            if ($userId !== $user->id && !$user->hasPermissionTo('edit events for others')) {
-                return response()->json(['error' => 'Nicht autorisiert, Ereignisse für andere Benutzer zu bearbeiten.'], 403);
+            if ($userId !== $event->user_id) {
+                if ($user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions && !$user->hasPermissionTo('edit events for others')) {
+                    return response()->json(['error' => 'Nicht autorisiert, Ereignisse für andere Benutzer zu bearbeiten.'], 403);
+                }
             }
 
             // Überprüfen Sie, ob der Benutzer, für den das Ereignis bearbeitet wird, ein aktives Krankheitsereignis hat
@@ -387,9 +390,10 @@ class EventController extends Controller
             $user = Auth::user();
             $event = Event::findOrFail($id);
 
-            // Überprüfen Sie, ob der Benutzer die Berechtigung hat, das Ereignis zu löschen
-            if ($event->created_by !== $user->id && !$user->hasPermissionTo('delete events for others')) {
-                return response()->json(['error' => 'Nicht autorisiert, dieses Ereignis zu löschen.'], 403);
+            if ($event->created_by !== $user->id) {
+                if ($user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions && !$user->hasPermissionTo('delete events for others')) {
+                    return response()->json(['error' => 'Nicht autorisiert, dieses Ereignis zu löschen.'], 403);
+                }
             }
 
             // Outlook-Ereignis löschen, bevor das lokale Ereignis gelöscht wird
@@ -406,11 +410,6 @@ class EventController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-
-    // Die folgenden Methoden sind nicht mehr Teil dieses Controllers, da sie in den OutlookController verschoben wurden
-    // private function syncEventToOutlook(Event $event, User $user): ?string { ... }
-    // private function updateOutlookEvent(Event $event, User $user): bool { ... }
-    // private function deleteOutlookEvent(Event $event, User $user): bool { ... }
 
     /**
      * Store multiple events for a week plan.
@@ -457,7 +456,7 @@ class EventController extends Controller
                 // Wenn ein anderer Benutzer als der aktuelle ausgewählt wurde
                 if ($userId != $user->id) {
                     // HR-Benutzer dürfen für alle Benutzer Ereignisse erstellen
-                    if ($user->role_id === 2) {
+                    if ($user->role_id === 1 || $user->role_id === 2 || $user->has_hr_permissions) {
                         // Erlaubt
                     }
                     // Abteilungsleiter dürfen nur für Mitglieder ihres Teams Ereignisse erstellen
@@ -478,7 +477,7 @@ class EventController extends Controller
 
                     // Prüfen, ob es sich um einen Krankheitseintrag handelt
                     $eventType = EventType::find($eventData['event_type_id']);
-                    if ($eventType && $eventType->name === 'Krankheit' && $user->role_id !== 2) {
+                    if ($eventType && $eventType->name === 'Krankheit' && $user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions) {
                         continue; // Überspringe dieses Ereignis
                     }
                 }
@@ -508,6 +507,106 @@ class EventController extends Controller
             return response()->json($createdEvents, 201);
         } catch (\Exception $e) {
             Log::error('Fehler beim Erstellen der Wochenplanung: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Store multiple events in bulk.
+     */
+    public function bulkStore(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+
+                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->value('role');
+
+                $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
+            }
+
+            // Validierung
+            $validated = $request->validate([
+                'events' => 'required|array',
+                'events.*.title' => 'required|string|max:255',
+                'events.*.description' => 'nullable|string',
+                'events.*.start_date' => 'required|date',
+                'events.*.end_date' => 'required|date|after_or_equal:events.*.start_date',
+                'events.*.is_all_day' => 'boolean',
+                'events.*.event_type_id' => 'required|exists:event_types,id',
+                'events.*.user_id' => 'nullable|exists:users,id'
+            ]);
+
+            $createdEvents = [];
+
+            foreach ($validated['events'] as $eventData) {
+                // Prüfen, ob der Benutzer berechtigt ist, für andere Benutzer Ereignisse zu erstellen
+                $userId = $eventData['user_id'] ?? $user->id;
+
+                // Wenn ein anderer Benutzer als der aktuelle ausgewählt wurde
+                if ($userId != $user->id) {
+                    // HR-Benutzer dürfen für alle Benutzer Ereignisse erstellen
+                    if ($user->role_id === 1 || $user->role_id === 2 || $user->has_hr_permissions) {
+                        // Erlaubt
+                    }
+                    // Abteilungsleiter dürfen nur für Mitglieder ihres Teams Ereignisse erstellen
+                    else if ($isTeamManager) {
+                        // Prüfen, ob der ausgewählte Benutzer im Team des Abteilungsleiters ist
+                        $isTeamMember = DB::table('team_user')
+                            ->where('team_id', $teamId)
+                            ->where('user_id', $userId)
+                            ->exists();
+
+                        if (!$isTeamMember) {
+                            continue; // Überspringe dieses Ereignis
+                        }
+                    }
+                    else {
+                        continue; // Überspringe dieses Ereignis
+                    }
+
+                    // Prüfen, ob es sich um einen Krankheitseintrag handelt
+                    $eventType = EventType::find($eventData['event_type_id']);
+                    if ($eventType && $eventType->name === 'Krankheit' && $user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions) {
+                        continue; // Überspringe dieses Ereignis
+                    }
+                }
+
+                // Ereignis erstellen
+                $event = new Event();
+                $event->title = $eventData['title'];
+                $event->description = $eventData['description'] ?? null;
+                $event->start_date = $eventData['start_date'];
+                $event->end_date = $eventData['end_date'];
+                $event->start_time = $eventData['start_time'] ?? null; // Zeit separat
+                $event->end_time = $eventData['end_time'] ?? null; // Zeit separat
+                $event->is_all_day = $eventData['is_all_day'] ?? true;
+                $event->event_type_id = $eventData['event_type_id'];
+                $event->user_id = $userId;
+                // Team-ID des Benutzers ermitteln und setzen
+                $userTeamId = User::find($userId)->current_team_id;
+                $event->team_id = $userTeamId;
+                $event->created_by = $user->id;
+                $event->status = 'approved'; // Standardmäßig genehmigt
+
+                $event->save();
+
+                $createdEvents[] = $event;
+            }
+
+            return response()->json($createdEvents, 201);
+        } catch (\Exception $e) {
+            Log::error('Fehler beim Erstellen der Ereignisse in Bulk: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

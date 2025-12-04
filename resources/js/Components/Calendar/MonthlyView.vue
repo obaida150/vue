@@ -648,7 +648,7 @@ const toggleEventTypeFilter = (typeId) => {
 const openEventDetails = (event) => {
     // Prüfen, ob es sich um einen Krankheitseintrag handelt und der Benutzer kein HR-Mitarbeiter ist
     if (event.type &&
-        event.type.name === 'Krankheit' &&
+        event.type.name === 'Krank' &&
         !props.isHrUser) {
         // Trotzdem Details anzeigen, aber eine Warnung in der Konsole ausgeben
         console.warn('Hinweis: Krankheitseinträge können nur von HR-Mitarbeitern bearbeitet oder gelöscht werden.');

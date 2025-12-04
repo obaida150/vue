@@ -22,13 +22,22 @@ class UserController extends Controller
     public function index()
     {
         try {
-            // Prüfen, ob der Benutzer berechtigt ist
             $currentUser = Auth::user();
-            $role = $currentUser->role ? $currentUser->role->name : null;
 
-            if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
-                return response()->json(['error' => 'Nicht autorisiert'], 403);
+            // HR-User (role_id = 2) oder Admin haben vollen Zugriff
+            if ($currentUser->role_id !== 2 && $currentUser->role_id !== 1 && !$currentUser->has_hr_permissions) {
+                $role = $currentUser->role ? $currentUser->role->name : null;
+                if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
+                    return response()->json(['error' => 'Nicht autorisiert'], 403);
+                }
             }
+
+            Log::info('UserController::index called', [
+                'user_id' => $currentUser->id,
+                'role_id' => $currentUser->role_id,
+                'has_hr_permissions' => $currentUser->has_hr_permissions ?? false,
+                'role_name' => $currentUser->role ? $currentUser->role->name : null
+            ]);
 
             $users = User::with(['role', 'currentTeam', 'mentor', 'apprentices', 'vacationBalances'])->get()->map(function ($user) {
                 // NEU: Hole den aktuellen Urlaubssaldo
@@ -85,6 +94,8 @@ class UserController extends Controller
                     'updated_at' => $user->updated_at->format('Y-m-d H:i:s')
                 ];
             });
+
+            Log::info('UserController::index returning users', ['count' => $users->count()]);
 
             return response()->json($users);
         } catch (\Exception $e) {
