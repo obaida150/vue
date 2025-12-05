@@ -23,7 +23,7 @@
                         'bg-red-50 dark:bg-red-900/20': isHoliday(dayjs(day.date)),
                         'vacation-day': hasVacationsForDay(day.date),
                         'bg-amber-50 dark:bg-amber-900/20': isUserAbsent(day.date) && !isTeamManager,
-                        'team-absence-day': isTeamManager && isUserAbsent(day.date) && !hasVacationsForDay(day.date) && !showOnlyOwnEvents,
+                        'team-absence-day': isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacationsForDay(day.date) && !showOnlyOwnEvents,
                         'cursor-pointer': day.currentMonth && !hasVacationsForDay(day.date) && !(isUserAbsent(day.date) && !isTeamManager && !isHrUser),
                         'cursor-not-allowed': hasVacationsForDay(day.date) || (isUserAbsent(day.date) && !isTeamManager && !isHrUser)
                     },
@@ -63,7 +63,33 @@
                     Als abwesend markiert
                 </div>
 
-                <!-- HR-Abwesenheitsanzeige - zeigt alle Abwesenheitseinträge an -->
+                <!-- Urlaubsanzeige -->
+                <div v-if="hasVacationsForDay(day.date)" class="vacation-blocked">
+                    <div class="text-xs text-purple-600 dark:text-purple-400 mb-1">
+                        Urlaub
+                    </div>
+                    <div class="flex flex-col items-center justify-center mt-2 p-2 bg-purple-50/80 dark:bg-purple-900/30 rounded">
+                        <i class="pi pi-ban text-purple-500 dark:text-purple-400 text-lg mb-1"></i>
+                        <div class="text-xs text-purple-600 dark:text-purple-400 text-center">
+                            Urlaub - Keine Einträge möglich
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Abwesenheitsanzeige für Teammitglieder (nur für Abteilungsleiter in Teamansicht) -->
+                <div v-if="isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacationsForDay(day.date)" class="team-absence-indicator">
+                    <div class="text-xs text-amber-600 dark:text-amber-400 mb-1">
+                        Teammitglied abwesend
+                    </div>
+                    <div class="flex items-center justify-center mt-1 p-1 bg-amber-50/80 dark:bg-amber-900/30 rounded">
+                        <i class="pi pi-user-minus text-amber-500 dark:text-amber-400 text-sm mr-1"></i>
+                        <div class="text-xs text-amber-600 dark:text-amber-400">
+                            Abwesend
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kompakte, moderne Darstellung für alle Ereignisse (wie Abwesenheiten-Style) -->
                 <div v-if="isHrUser && getAllAbsenceEntriesForDay && getAllAbsenceEntriesForDay(day.date).length > 0" class="hr-absence-section mb-2">
                     <div class="text-xs text-amber-600 dark:text-amber-400 mb-1">
                         Abwesenheiten ({{ getAllAbsenceEntriesForDay(day.date).length }})
@@ -93,106 +119,36 @@
                     </div>
                 </div>
 
-                <!-- Ersetzen Sie den bestehenden Urlaubsanzeige-Block mit: -->
-                <div v-if="hasVacationsForDay(day.date)" class="vacation-blocked">
-                    <div class="text-xs text-purple-600 dark:text-purple-400 mb-1">
-                        Urlaub
-                    </div>
-                    <div class="flex flex-col items-center justify-center mt-2 p-2 bg-purple-50/80 dark:bg-purple-900/30 rounded">
-                        <i class="pi pi-ban text-purple-500 dark:text-purple-400 text-lg mb-1"></i>
-                        <div class="text-xs text-purple-600 dark:text-purple-400 text-center">
-                            Urlaub - Keine Einträge möglich
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Abwesenheitsanzeige für Teammitglieder (nur für Abteilungsleiter in Teamansicht) -->
-                <div v-if="isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacationsForDay(day.date)" class="team-absence-indicator">
-                    <div class="text-xs text-amber-600 dark:text-amber-400 mb-1">
-                        Teammitglied abwesend
-                    </div>
-                    <div class="flex items-center justify-center mt-1 p-1 bg-amber-50/80 dark:bg-amber-900/30 rounded">
-                        <i class="pi pi-user-minus text-amber-500 dark:text-amber-400 text-sm mr-1"></i>
-                        <div class="text-xs text-amber-600 dark:text-amber-400">
-                            Abwesend
-                        </div>
-                    </div>
-                </div>
-
-                <!-- HR-Ansicht oder Abteilungsleiter-Ansicht mit Zusammenfassung für Tage mit vielen Ereignissen -->
-                <div v-if="(isHrUser || isTeamManager) && day.currentMonth && !hasVacationsForDay(day.date)">
-                    <!-- Zusammenfassung anzeigen, wenn zu viele Ereignisse vorhanden sind -->
-                    <div v-if="getEventsForDay(day.date).length > eventDisplayLimit" class="event-summary">
-                        <button
-                            @click.stop="showAllEventsForDay(day.date)"
-                            class="w-full text-left p-1 mb-1 text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-800/50 rounded flex justify-between items-center"
-                        >
-                            <span>{{ getEventsForDay(day.date).length }} Ereignisse</span>
-                            <i class="pi pi-list"></i>
-                        </button>
-
-                        <!-- Zeige die ersten paar Ereignisse an -->
-                        <template v-for="(event, eventIndex) in getEventsForDay(day.date).slice(0, eventDisplayLimit)" :key="eventIndex">
-                            <div
-                                class="event-item text-xs p-1 mb-1 rounded truncate cursor-pointer"
-                                :style="{ backgroundColor: event.color + '40' }"
-                                @click.stop="$emit('event-click', event)"
-                                :title="`${event.title} (${event.employee_name || 'Unbekannt'})`"
-                            >
-                                <div class="flex items-center">
-                                    <div class="w-2 h-2 rounded-full mr-1" :style="{ backgroundColor: event.color }"></div>
-                                    <span class="font-medium">{{ truncateText(event.employee_name || 'Unbekannt', 12) }}</span>
-                                </div>
-                                <div class="pl-3 truncate">{{ truncateText(event.title, 15) }}</div>
-                            </div>
-                        </template>
-                    </div>
-
-                    <!-- Normale Anzeige, wenn nicht zu viele Ereignisse -->
-                    <template v-else>
-                        <div
-                            v-for="(event, eventIndex) in getEventsForDay(day.date)"
-                            :key="eventIndex"
-                            class="event-item text-xs p-1 mb-1 rounded truncate cursor-pointer"
-                            :style="{ backgroundColor: event.color + '40' }"
-                            @click.stop="$emit('event-click', event)"
-                            :title="`${event.title} (${event.employee_name || 'Unbekannt'})`"
-                        >
-                            <div class="flex items-center">
-                                <div class="w-2 h-2 rounded-full mr-1" :style="{ backgroundColor: event.color }"></div>
-                                <span class="font-medium">{{ truncateText(event.employee_name || 'Unbekannt', 12) }}</span>
-                            </div>
-                            <div class="pl-3 truncate">{{ truncateText(event.title, 15) }}</div>
-
-                            <div class="pl-3">
-                                <template v-if="event.start_time && event.end_time">
-                                    von {{ formatTime(event.start_time) }} bis {{ formatTime(event.end_time) }}
-                                </template>
-                                <template v-else-if="event.start_time">
-                                    von {{ formatTime(event.start_time) }}
-                                </template>
-                                <template v-else-if="event.end_time">
-                                    bis {{ formatTime(event.end_time) }}
-                                </template>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-
-                <!-- Standard-Benutzeransicht (nur eigene Ereignisse) -->
-                <div v-else-if="day.currentMonth && !hasVacationsForDay(day.date)">
+                <!-- Standard-Benutzeransicht mit kompaktem Style und Zeitangaben -->
+                <div v-else-if="day.currentMonth && !hasVacationsForDay(day.date)" class="space-y-1">
                     <div
                         v-for="(event, eventIndex) in getEventsForDay(day.date)"
                         :key="eventIndex"
-                        class="event-item text-xs p-1 mb-1 rounded truncate cursor-pointer"
-                        :style="{ backgroundColor: event.color + '40' }"
+                        class="text-xs p-1 rounded cursor-pointer hover:brightness-95 transition-all"
+                        :style="{ backgroundColor: event.color + '20' }"
                         @click.stop="$emit('event-click', event)"
+                        :title="`${event.title} - ${event.employee_name || 'Unbekannt'}`"
                     >
                         <div class="flex items-center">
                             <div class="w-2 h-2 rounded-full mr-1" :style="{ backgroundColor: event.color }"></div>
-                            <span class="font-medium">{{ event.employee_name || 'Unbekannt' }}</span>
+                            <span class="font-medium" :style="{ color: event.color }">
+                                {{ event.title }}
+                            </span>
                         </div>
-                        <div class="pl-3 truncate">{{ event.title }}</div>
+                        <div class="pl-3 text-gray-600 dark:text-gray-400">
+                            <div class="text-xs mb-1">
+                                {{ truncateText(event.employee_name || 'Unbekannt', 15) }}
+                            </div>
+                            <template v-if="event.start_time && event.end_time">
+                                von {{ formatTime(event.start_time) }} bis {{ formatTime(event.end_time) }}
+                            </template>
+                            <template v-else-if="event.start_time">
+                                von {{ formatTime(event.start_time) }}
+                            </template>
+                            <template v-else-if="event.end_time">
+                                bis {{ formatTime(event.end_time) }}
+                            </template>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -294,7 +250,7 @@ const props = defineProps({
         type: Array,
         default: () => []
     },
-    vacations: { // This prop is expected to be the 'bookedDates' array from the backend
+    vacations: {
         type: Array,
         default: () => []
     },
@@ -310,7 +266,7 @@ const props = defineProps({
         type: Function,
         required: true
     },
-    hasVacations: { // This prop is still here, and now used with a workaround
+    hasVacations: {
         type: Function,
         required: true
     },
@@ -362,17 +318,14 @@ const props = defineProps({
 
 const emit = defineEmits(['day-click', 'event-click', 'vacation-click', 'week-plan', 'absence-details']);
 
-// Limit für die Anzahl der angezeigten Ereignisse pro Tag
 const eventDisplayLimit = 2;
 
-// Dialog für alle Ereignisse eines Tages
 const dayEventsDialogVisible = ref(false);
 const selectedDayEvents = ref([]);
 const selectedDayDate = ref(null);
 const eventSearchQuery = ref('');
 const selectedEventTypes = ref([]);
 
-// Korrigierte hasVacationsForDay Funktion mit Workaround für den "heute"-Bug
 const hasVacationsForDay = (date) => {
     if (!date || !props.currentUserId) {
         return false;
@@ -380,47 +333,35 @@ const hasVacationsForDay = (date) => {
 
     const dateStr = dayjs(date).format('YYYY-MM-DD');
 
-    // 1. Prüfe auf explizite Urlaubsanträge in der 'vacations'-Liste (props.vacations kommt von bookedDates)
     const isExplicitVacationInVacationsArray = props.vacations.some(vacation => {
-        // Stellen Sie sicher, dass der Urlaub dem aktuellen Benutzer gehört
-        // Verwenden Sie 'userId' und 'start'/'end' wie in der 'bookedDates'-Struktur des Controllers
         if (vacation.userId !== props.currentUserId) return false;
 
         const startDate = dayjs(vacation.start).format('YYYY-MM-DD');
         const endDate = dayjs(vacation.end).format('YYYY-MM-DD');
 
-        // KEINE Prüfung auf vacation.status === 'approved' hier, da bookedDates bereits genehmigt sind
         return dateStr >= startDate && dateStr <= endDate;
     });
 
-    // 2. Prüfe auf "Übertragstage" oder andere allgemeine Urlaubsverfügbarkeit mit der übergebenen hasVacations-Funktion
-    // Diese Funktion kommt von der Elternkomponente und könnte das Problem verursachen, dass "heute" markiert wird.
     const isTransferDayVacation = props.hasVacations(date);
 
-    // Workaround für den "heute wird immer noch als Urlaub markiert"-Bug:
-    // Wenn es der heutige Tag ist UND es KEIN expliziter Urlaub ist UND isTransferDayVacation TRUE ist (was den Bug verursacht),
-    // dann geben wir FALSE zurück, um die fälschliche Markierung zu verhindern.
-    // Dies ist ein Workaround, der darauf hindeutet, dass props.hasVacations(date) nicht datumsspezifisch genug ist.
     if (dayjs(date).isSame(dayjs(), 'day') && !isExplicitVacationInVacationsArray && isTransferDayVacation) {
         return false;
     }
 
-    // Ein Tag ist Urlaub, wenn er entweder ein expliziter Urlaub ist ODER ein Übertragstag (der nicht der heutige Tag ist und den Bug verursacht).
     return isExplicitVacationInVacationsArray || isTransferDayVacation;
 };
 
-// Neue Funktion für Urlaubsdetails
 const getVacationDetailsForDay = (date) => {
     if (!date || !props.currentUserId) return null;
 
     const dateStr = dayjs(date).format('YYYY-MM-DD');
     const vacation = props.vacations.find(vacation => {
-        if (vacation.userId !== props.currentUserId) return false; // Angepasst an bookedDates Struktur
+        if (vacation.userId !== props.currentUserId) return false;
 
-        const startDate = dayjs(vacation.start).format('YYYY-MM-DD'); // Angepasst an bookedDates Struktur
-        const endDate = dayjs(vacation.end).format('YYYY-MM-DD');     // Angepasst an bookedDates Struktur
+        const startDate = dayjs(vacation.start).format('YYYY-MM-DD');
+        const endDate = dayjs(vacation.end).format('YYYY-MM-DD');
 
-        return dateStr >= startDate && dateStr <= endDate; // Keine Statusprüfung
+        return dateStr >= startDate && dateStr <= endDate;
     });
 
     return vacation;
@@ -428,26 +369,21 @@ const getVacationDetailsForDay = (date) => {
 
 function formatTime(timeStr) {
     if (!timeStr) return ''
-    // deckt "09:00:00" (DB) ab
     if (/^\d{2}:\d{2}:\d{2}$/.test(timeStr)) {
         return dayjs(timeStr, 'HH:mm:ss').format('HH:mm')
     }
-    // falls die Zeit schon in "HH:mm" kommt
     if (/^\d{2}:\d{2}$/.test(timeStr)) {
         return timeStr
     }
-    // falls es ein ISO-String ist wie "2025-10-30T09:00:00"
     const d = dayjs(timeStr)
     return d.isValid() ? d.format('HH:mm') : String(timeStr)
 }
 
-// Berechne den Header für den Dialog
 const selectedDayHeader = computed(() => {
     if (!selectedDayDate.value) return 'Ereignisse';
     return `Ereignisse am ${dayjs(selectedDayDate.value).format('DD.MM.YYYY')}`;
 });
 
-// Verfügbare Ereignistypen für den Filter
 const availableEventTypes = computed(() => {
     if (!selectedDayEvents.value.length) return [];
 
@@ -465,11 +401,9 @@ const availableEventTypes = computed(() => {
     return Array.from(types.values());
 });
 
-// Gefilterte Ereignisse basierend auf Suchbegriff und ausgewählten Typen
 const filteredDayEvents = computed(() => {
     let filtered = [...selectedDayEvents.value];
 
-    // Textsuche
     if (eventSearchQuery.value.trim()) {
         const query = eventSearchQuery.value.toLowerCase();
         filtered = filtered.filter(event =>
@@ -479,14 +413,12 @@ const filteredDayEvents = computed(() => {
         );
     }
 
-    // Typ-Filter
     if (selectedEventTypes.value.length > 0) {
         filtered = filtered.filter(event =>
             event.type && selectedEventTypes.value.includes(event.type.id)
         );
     }
 
-    // Sortieren nach Mitarbeitername
     return filtered.sort((a, b) => {
         const nameA = (a.employee_name || '').toLowerCase();
         const nameB = (b.employee_name || '').toLowerCase();
@@ -494,18 +426,15 @@ const filteredDayEvents = computed(() => {
     });
 });
 
-// Tage des aktuellen Monats generieren
 const days = computed(() => {
     const startOfMonth = props.currentDate.startOf('month');
     const endOfMonth = props.currentDate.endOf('month');
 
-    // Finde den ersten Tag der ersten Woche des Monats (Montag)
     let firstDay = startOfMonth.day();
-    firstDay = firstDay === 0 ? 6 : firstDay - 1; // Anpassung für Montag als ersten Tag der Woche
+    firstDay = firstDay === 0 ? 6 : firstDay - 1;
 
     const daysInMonth = [];
 
-    // Tage aus dem vorherigen Monat hinzufügen
     const prevMonth = startOfMonth.subtract(1, 'day');
     for (let i = firstDay - 1; i >= 0; i--) {
         const date = prevMonth.subtract(i, 'day');
@@ -519,7 +448,6 @@ const days = computed(() => {
         });
     }
 
-    // Tage des aktuellen Monats hinzufügen
     for (let i = 0; i < endOfMonth.date(); i++) {
         const date = startOfMonth.add(i, 'day');
         daysInMonth.push({
@@ -532,8 +460,7 @@ const days = computed(() => {
         });
     }
 
-    // Tage aus dem nächsten Monat hinzufügen, um das Raster zu füllen
-    const daysNeeded = 42 - daysInMonth.length; // 6 Wochen * 7 Tage = 42
+    const daysNeeded = 42 - daysInMonth.length;
     const nextMonth = endOfMonth.add(1, 'day');
     for (let i = 0; i < daysNeeded; i++) {
         const date = nextMonth.add(i, 'day');
@@ -550,7 +477,6 @@ const days = computed(() => {
     return daysInMonth;
 });
 
-// Tage einer Woche für die Wochenplanung ermitteln
 const getWeekDays = (date) => {
     const dayOfWeek = dayjs(date).day();
     const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -571,12 +497,9 @@ const getWeekDays = (date) => {
     return weekDays;
 };
 
-// Klick auf einen Tag behandeln
 const handleDayClick = (date, isCurrentMonth) => {
-    // Wenn der Tag nicht zum aktuellen Monat gehört, ignoriere den Klick
     if (!isCurrentMonth) return;
 
-    // Wenn der Benutzer an diesem Tag Urlaub hat, blockiere den Klick
     if (hasVacationsForDay(date)) {
         const toast = document.querySelector('.p-toast') ?
             document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
@@ -594,8 +517,6 @@ const handleDayClick = (date, isCurrentMonth) => {
         return;
     }
 
-    // Wenn der Benutzer an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter oder Abteilungsleiter ist,
-    // blockiere die Aktion
     if (props.isUserAbsent(date) && !props.isTeamManager && !props.isHrUser) {
         const toast = document.querySelector('.p-toast') ?
             document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
@@ -616,25 +537,22 @@ const handleDayClick = (date, isCurrentMonth) => {
     emit('day-click', date);
 };
 
-// Alle Ereignisse eines Tages anzeigen
 const showAllEventsForDay = (date) => {
     selectedDayDate.value = date;
     selectedDayEvents.value = props.getEventsForDay(date);
-    selectedEventTypes.value = []; // Filter zurücksetzen
-    eventSearchQuery.value = ''; // Suche zurücksetzen
+    selectedEventTypes.value = [];
+    eventSearchQuery.value = '';
     dayEventsDialogVisible.value = true;
 };
 
-// Alle Abwesenheitseinträge eines Tages anzeigen
 const showAllAbsenceEntriesForDay = (date) => {
     selectedDayDate.value = date;
     selectedDayEvents.value = props.getAllAbsenceEntriesForDay ? props.getAllAbsenceEntriesForDay(date) : [];
-    selectedEventTypes.value = []; // Filter zurücksetzen
-    eventSearchQuery.value = ''; // Suche zurücksetzen
+    selectedEventTypes.value = [];
+    eventSearchQuery.value = '';
     dayEventsDialogVisible.value = true;
 };
 
-// Ereignistyp-Filter umschalten
 const toggleEventTypeFilter = (typeId) => {
     const index = selectedEventTypes.value.indexOf(typeId);
     if (index === -1) {
@@ -644,13 +562,10 @@ const toggleEventTypeFilter = (typeId) => {
     }
 };
 
-// Ereignisdetails öffnen
 const openEventDetails = (event) => {
-    // Prüfen, ob es sich um einen Krankheitseintrag handelt und der Benutzer kein HR-Mitarbeiter ist
     if (event.type &&
         event.type.name === 'Krank' &&
         !props.isHrUser) {
-        // Trotzdem Details anzeigen, aber eine Warnung in der Konsole ausgeben
         console.warn('Hinweis: Krankheitseinträge können nur von HR-Mitarbeitern bearbeitet oder gelöscht werden.');
     }
 
@@ -677,12 +592,10 @@ const closeDayEventsDialog = () => {
     filter: brightness(0.95);
 }
 
-/* Scrollbar-Styling für den Dialog */
 .day-events-dialog :deep(.p-dialog-content) {
     padding: 1.5rem;
 }
 
-/* Scrollbar-Styling */
 .max-h-\[60vh\]::-webkit-scrollbar {
     width: 6px;
 }
@@ -701,14 +614,12 @@ const closeDayEventsDialog = () => {
     background: #555;
 }
 
-/* Styling für Urlaubstage */
 .vacation-blocked {
     display: flex;
     flex-direction: column;
     height: 100%;
 }
 
-/* Spezifisches Styling für Urlaubstage */
 .vacation-day {
     background-color: rgba(156, 39, 176, 0.1) !important;
 }
@@ -717,22 +628,12 @@ const closeDayEventsDialog = () => {
     background-color: rgba(156, 39, 176, 0.2) !important;
 }
 
-/* Styling für Team-Abwesenheitstage */
 .team-absence-day {
-    background-color: rgba(251, 191, 36, 0.3) !important; /* Amber-Ton */
+    background-color: rgba(251, 191, 36, 0.3) !important;
 }
 
 :deep(.dark) .team-absence-day {
-    background-color: rgba(251, 191, 36, 0.4) !important; /* Dunklerer Amber-Ton */
-}
-
-/* Styling für Teammitglieder-Abwesenheiten */
-.team-absence-day {
-    background-color: rgba(245, 158, 11, 0.1) !important;
-}
-
-:deep(.dark) .team-absence-day {
-    background-color: rgba(245, 158, 11, 0.2) !important;
+    background-color: rgba(251, 191, 36, 0.4) !important;
 }
 
 .team-absence-indicator {
@@ -740,7 +641,6 @@ const closeDayEventsDialog = () => {
     flex-direction: column;
 }
 
-/* Styling für HR-Abwesenheitsanzeige */
 .hr-absence-indicator {
     display: flex;
     flex-direction: column;

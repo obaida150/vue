@@ -290,6 +290,29 @@ const weekDays = computed(() => {
     return days
 })
 
+const getEmployeeMonthSummary = (employee) => {
+    const daysCount = currentDate.value.daysInMonth()
+    const summary = {
+        totalDays: 0,
+        eventsByType: {}
+    }
+
+    for (let i = 1; i <= daysCount; i++) {
+        const date = currentDate.value.startOf('month').date(i)
+        const events = getEmployeeEventsForDay(employee, date)
+
+        if (events.length > 0) {
+            summary.totalDays++
+            events.forEach(event => {
+                const typeValue = event.type?.value || event.type
+                summary.eventsByType[typeValue] = (summary.eventsByType[typeValue] || 0) + 1
+            })
+        }
+    }
+
+    return summary
+}
+
 const daysInMonth = computed(() => {
     const lastDay = currentDate.value.endOf('month')
     return Array.from({ length: lastDay.date() }, (_, i) => i + 1)
