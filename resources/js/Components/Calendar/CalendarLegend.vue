@@ -6,10 +6,10 @@
         <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: type.color }"></div>
         <span class="text-xs">{{ type.name }}</span>
       </div>
-      <div class="flex items-center gap-1">
-        <div class="w-3 h-3 rounded-full bg-purple-600"></div>
-        <span class="text-xs">Urlaub</span>
-      </div>
+<!--      <div class="flex items-center gap-1">-->
+<!--        <div class="w-3 h-3 rounded-full bg-purple-600"></div>-->
+<!--        <span class="text-xs">Urlaub</span>-->
+<!--      </div>-->
       <div class="flex items-center gap-1">
         <div class="w-3 h-3 rounded-full bg-red-500"></div>
         <span class="text-xs">Feiertag</span>

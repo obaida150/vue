@@ -477,7 +477,7 @@ class EventController extends Controller
 
                     // Prüfen, ob es sich um einen Krankheitseintrag handelt
                     $eventType = EventType::find($eventData['event_type_id']);
-                    if ($eventType && $eventType->name === 'Krankheit' && $user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions) {
+                    if ($eventType && $eventType->name === 'Krank' && $user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions) {
                         continue; // Überspringe dieses Ereignis
                     }
                 }
@@ -577,7 +577,7 @@ class EventController extends Controller
 
                     // Prüfen, ob es sich um einen Krankheitseintrag handelt
                     $eventType = EventType::find($eventData['event_type_id']);
-                    if ($eventType && $eventType->name === 'Krankheit' && $user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions) {
+                    if ($eventType && $eventType->name === 'Krank' && $user->role_id !== 1 && $user->role_id !== 2 && !$user->has_hr_permissions) {
                         continue; // Überspringe dieses Ereignis
                     }
                 }

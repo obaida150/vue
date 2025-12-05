@@ -28,7 +28,7 @@
             </div>
 
             <!-- Mitarbeiterauswahl für HR bei Krankheit -->
-            <div v-if="isHr && selectedEventType && selectedEventType.name === 'Krank'" class="mb-3 sm:mb-4">
+            <div v-if="isHr && selectedEventType" class="mb-3 sm:mb-4">
                 <label for="employee" class="block mb-1 sm:mb-2 font-medium">Mitarbeiter</label>
                 <Select
                     id="employee"
