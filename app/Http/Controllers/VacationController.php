@@ -10,6 +10,7 @@ use App\Models\Notification;
 use App\Mail\VacationApprovedMail;
 use App\Mail\VacationRejectedMail;
 use App\Mail\VacationRequestMail;
+use App\Mail\HrVacationEntryMail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -295,6 +296,325 @@ class VacationController extends Controller
             ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+    /**
+     * HR-Funktion: Urlaub im Nachhinein für Mitarbeiter eintragen
+     * Diese Methode erlaubt HR-Mitarbeitern, Urlaub für Mitarbeiter nachträglich einzutragen
+     */
+    public function storeForEmployee(Request $request)
+    {
+        try {
+            $hrUser = Auth::user();
+            $role = $hrUser->role ? $hrUser->role->name : null;
+
+            // Prüfe, ob der Benutzer HR-Berechtigung hat
+            if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
+                return response()->json([
+                    'error' => 'Sie sind nicht berechtigt, Urlaub für andere Mitarbeiter einzutragen.'
+                ], 403);
+            }
+
+            // Validiere die Eingabedaten
+            $validated = $request->validate([
+                'employee_id' => 'required|integer|exists:users,id',
+                'periods' => 'required|array',
+                'periods.*.startDate' => 'required|date',
+                'periods.*.endDate' => 'required|date|after_or_equal:periods.*.startDate',
+                'periods.*.days' => 'required|numeric|min:0.5',
+                'periods.*.dayType' => 'nullable|in:full_day,morning,afternoon',
+                'reason' => 'required|string|max:1000',
+                'notes' => 'nullable|string'
+            ]);
+
+            Log::info('HR erstellt Urlaubseintrag für Mitarbeiter', [
+                'hr_user_id' => $hrUser->id,
+                'hr_user_name' => $hrUser->full_name,
+                'employee_id' => $validated['employee_id'],
+                'periods_count' => count($validated['periods']),
+                'reason' => $validated['reason']
+            ]);
+
+            // Hole den Mitarbeiter
+            $employee = User::findOrFail($validated['employee_id']);
+
+            // Prüfe, ob der Mitarbeiter aktiv ist
+            if (!$employee->is_active) {
+                return response()->json([
+                    'error' => 'Der ausgewählte Mitarbeiter ist nicht mehr aktiv.'
+                ], 400);
+            }
+
+            // Berechne die Gesamtanzahl der benötigten Urlaubstage
+            $totalDaysNeeded = 0;
+            foreach ($validated['periods'] as $period) {
+                $totalDaysNeeded += $period['days'];
+            }
+
+            // Hole die aktuelle Urlaubsbilanz
+            $currentYear = Carbon::now()->year;
+            $vacationBalance = VacationBalance::where('user_id', $employee->id)
+                ->where('year', $currentYear)
+                ->first();
+
+            if (!$vacationBalance) {
+                $vacationBalance = VacationBalance::create([
+                    'user_id' => $employee->id,
+                    'year' => $currentYear,
+                    'total_days' => $employee->vacation_days_per_year,
+                    'used_days' => 0,
+                    'carry_over_days' => 0,
+                    'carry_over_used' => 0,
+                    'carry_over_expires_at' => Carbon::create($currentYear, 7, 31),
+                    'max_carry_over' => 10
+                ]);
+            }
+
+            // Berechne verfügbare Urlaubstage
+            $holidays = $this->getHolidaysForYear($currentYear);
+            $currentUsedDays = $this->calculateTotalUniqueApprovedWorkDays($employee, $currentYear, $holidays);
+            $totalAvailable = $vacationBalance->total_days + ($vacationBalance->carry_over_days ?? 0);
+            $remainingDays = $totalAvailable - $currentUsedDays;
+
+            // Prüfe, ob genügend Urlaubstage verfügbar sind
+            if ($totalDaysNeeded > $remainingDays) {
+                return response()->json([
+                    'error' => "Der Mitarbeiter hat nicht genügend Urlaubstage. Benötigt: {$totalDaysNeeded} Tage, Verfügbar: {$remainingDays} Tage.",
+                    'needed' => $totalDaysNeeded,
+                    'available' => $remainingDays
+                ], 400);
+            }
+
+            $teamId = $employee->currentTeam ? $employee->currentTeam->id : null;
+            $createdRequests = [];
+
+            // Erstelle Urlaubseinträge für jeden Zeitraum
+            foreach ($validated['periods'] as $period) {
+                $vacationRequest = new VacationRequest();
+                $vacationRequest->user_id = $employee->id;
+                $vacationRequest->team_id = $teamId;
+                $vacationRequest->substitute_id = null; // Keine Vertretung bei nachträglichem Eintrag
+                $vacationRequest->notes = $validated['notes'] ?? '';
+
+                // Status direkt auf "approved" setzen, da HR den Urlaub einträgt
+                $vacationRequest->status = 'approved';
+                $vacationRequest->approved_by = $hrUser->id;
+                $vacationRequest->approved_date = now();
+
+                $startDate = Carbon::parse($period['startDate'])->startOfDay();
+                $endDate = Carbon::parse($period['endDate'])->startOfDay();
+
+                $vacationRequest->start_date = $startDate;
+                $vacationRequest->end_date = $endDate;
+                $vacationRequest->days = $period['days'];
+                $vacationRequest->day_type = $period['dayType'] ?? 'full_day';
+
+                // HR-spezifische Felder
+                $vacationRequest->created_by_hr = true;
+                $vacationRequest->created_by_hr_user_id = $hrUser->id;
+                $vacationRequest->hr_entry_reason = $validated['reason'];
+
+                $vacationRequest->save();
+
+                Log::info('HR-Urlaubseintrag erstellt', [
+                    'request_id' => $vacationRequest->id,
+                    'employee_id' => $employee->id,
+                    'start_date' => $vacationRequest->start_date->format('Y-m-d'),
+                    'end_date' => $vacationRequest->end_date->format('Y-m-d'),
+                    'days' => $vacationRequest->days,
+                    'day_type' => $vacationRequest->day_type,
+                    'created_by_hr_user_id' => $hrUser->id
+                ]);
+
+                $createdRequests[] = $vacationRequest;
+            }
+
+            // Aktualisiere die Urlaubsbilanz
+            $this->recalculateAndSaveVacationBalance($employee, $currentYear);
+
+            // Erstelle Benachrichtigung für den Mitarbeiter
+            Notification::create([
+                'user_id' => $employee->id,
+                'title' => 'Urlaub wurde eingetragen',
+                'message' => "Die Personalabteilung hat für Sie Urlaub vom {$createdRequests[0]->start_date->format('d.m.Y')} bis {$createdRequests[0]->end_date->format('d.m.Y')} eingetragen. Grund: {$validated['reason']}",
+                'type' => 'info',
+                'is_read' => false,
+                'related_entity_type' => 'vacation_request',
+                'related_entity_id' => $createdRequests[0]->id,
+                'created_at' => now()
+            ]);
+
+            // Sende E-Mail an den Mitarbeiter
+            try {
+                if ($employee->email) {
+                    Mail::to($employee->email)->send(new HrVacationEntryMail(
+                        $createdRequests[0],
+                        $employee,
+                        $hrUser,
+                        $validated['reason'],
+                        $createdRequests
+                    ));
+
+                    Log::info('HR-Urlaubseintrags-E-Mail gesendet', [
+                        'employee_id' => $employee->id,
+                        'employee_email' => $employee->email
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Fehler beim Senden der HR-Urlaubseintrags-E-Mail', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+
+//            return response()->json([
+//                'message' => 'Urlaub wurde erfolgreich für den Mitarbeiter eingetragen',
+//                'requests' => $createdRequests,
+//                'employee' => [
+//                    'id' => $employee->id,
+//                    'name' => $employee->full_name,
+//                    'remaining_days' => $remainingDays - $totalDaysNeeded
+//                ]
+//            ], 201);
+
+        } catch (\Exception $e) {
+            Log::error('Fehler beim Eintragen des Urlaubs durch HR', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'error' => 'Fehler beim Eintragen des Urlaubs: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Hole alle aktiven Mitarbeiter für HR-Urlaubseintragung
+     */
+    public function getAllEmployees()
+    {
+        try {
+            $hrUser = Auth::user();
+            $role = $hrUser->role ? $hrUser->role->name : null;
+
+            // Prüfe HR-Berechtigung
+            if (!in_array($role, ['HR', 'Admin', 'Personal'])) {
+                return response()->json([
+                    'error' => 'Nicht autorisiert'
+                ], 403);
+            }
+
+            $currentYear = Carbon::now()->year;
+
+            $employees = User::where('is_active', true)
+                ->with(['currentTeam', 'vacationBalances' => function($query) use ($currentYear) {
+                    $query->where('year', $currentYear);
+                }])
+                ->orderBy('full_name')
+                ->get()
+                ->map(function($user) use ($currentYear) {
+                    $balance = $user->vacationBalances->where('year', $currentYear)->first();
+
+                    if (!$balance) {
+                        $balance = new VacationBalance([
+                            'total_days' => $user->vacation_days_per_year,
+                            'used_days' => 0,
+                            'carry_over_days' => 0,
+                            'carry_over_used' => 0
+                        ]);
+                    }
+
+                    $holidays = $this->getHolidaysForYear($currentYear);
+                    $usedDays = $this->calculateTotalUniqueApprovedWorkDays($user, $currentYear, $holidays);
+                    $totalAvailable = $balance->total_days + ($balance->carry_over_days ?? 0);
+                    $remainingDays = $totalAvailable - $usedDays;
+
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->full_name,
+                        'initials' => $user->initials,
+                        'employee_number' => $user->employee_number ?? '-',
+                        'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
+                        'vacation_days_per_year' => $user->vacation_days_per_year,
+                        'total_available' => $totalAvailable,
+                        'used_days' => $usedDays,
+                        'remaining_days' => $remainingDays
+                    ];
+                });
+
+            return response()->json([
+                'employees' => $employees
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Fehler beim Laden der Mitarbeiter für HR', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Zeigt die HR-Urlaubseintragungsseite an
+     */
+    public function showHrEntry()
+    {
+        $user = Auth::user();
+        $role = $user->role ? $user->role->name : null;
+
+        // Prüfe HR-Berechtigung
+        if (!in_array($role, ['HR', 'Admin', 'Personal']) && $user->role_id !== 1 && $user->role_id !== 2) {
+            abort(403, 'Nicht autorisiert');
+        }
+
+        $currentYear = Carbon::now()->year;
+
+        // Lade alle aktiven Mitarbeiter mit Urlaubskontingent (ähnlich wie EventController)
+        $employees = User::where('is_active', true)
+            ->with(['currentTeam', 'vacationBalances' => function($query) use ($currentYear) {
+                $query->where('year', $currentYear);
+            }])
+            ->orderBy('last_name')
+            ->get()
+            ->map(function($user) use ($currentYear) {
+                $balance = $user->vacationBalances->where('year', $currentYear)->first();
+
+                if (!$balance) {
+                    $balance = new VacationBalance([
+                        'total_days' => $user->vacation_days_per_year,
+                        'used_days' => 0,
+                        'carry_over_days' => 0,
+                        'carry_over_used' => 0
+                    ]);
+                }
+
+                $holidays = $this->getHolidaysForYear($currentYear);
+                $usedDays = $this->calculateTotalUniqueApprovedWorkDays($user, $currentYear, $holidays);
+                $totalAvailable = $balance->total_days + ($balance->carry_over_days ?? 0);
+                $remainingDays = $totalAvailable - $usedDays;
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->full_name,
+                    'initials' => $user->initials,
+                    'employee_number' => $user->employee_number ?? '-',
+                    'department' => $user->currentTeam ? $user->currentTeam->name : 'Keine Abteilung',
+                    'vacation_days_per_year' => $user->vacation_days_per_year,
+                    'total_available' => $totalAvailable,
+                    'used_days' => $usedDays,
+                    'remaining_days' => $remainingDays
+                ];
+            });
+
+        // Lade Feiertage für das aktuelle Jahr
+        $holidays = $this->getHolidaysForYear($currentYear);
+
+        return inertia('VacationHrEntry', [
+            'employees' => $employees,
+            'holidays' => $holidays,
+            'currentYear' => $currentYear
+        ]);
     }
 
     /**

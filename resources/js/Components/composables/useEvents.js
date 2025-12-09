@@ -55,7 +55,7 @@ export function useEvents(
             try {
                 const eventsResponse = await axios.get("/api/events", config)
 
-                console.log("[v0] Raw events from backend (first 2):", eventsResponse.data.slice(0, 2))
+                console.log("Raw events from backend (first 2):", eventsResponse.data.slice(0, 2))
 
                 allEvents = eventsResponse.data.map((event) => {
                     const eventTypeName = event.event_type || event.title
@@ -90,7 +90,7 @@ export function useEvents(
                             event.event_type.toLowerCase().includes("urlaub"))
 
                     if (event.outlook_event_id) {
-                        console.log("[v0] Event with Outlook sync:", {
+                        console.log("Event with Outlook sync:", {
                             id: event.id,
                             title: event.title,
                             sync_with_outlook: event.sync_with_outlook,
@@ -127,7 +127,7 @@ export function useEvents(
 
                 const outlookEvents = allEvents.filter((e) => e.outlook_event_id)
                 if (outlookEvents.length > 0) {
-                    console.log("[v0] Transformed events with Outlook sync:", outlookEvents.slice(0, 2))
+                    console.log("Transformed events with Outlook sync:", outlookEvents.slice(0, 2))
                 }
             } catch (error) {
                 console.error("Fehler beim Laden der Ereignisse:", error)

@@ -109,6 +109,9 @@
                                                 <DropdownLink href="/vacation/info-list">
                                                     Urlaub-Info-Liste
                                                 </DropdownLink>
+                                                <DropdownLink href="/vacation/hr-entry" :active="$page.component === 'VacationHrEntry'">
+                                                    Urlaub für MA eintragen
+                                                </DropdownLink>
                                                 <DropdownLink href="/users">
                                                     Benutzerverwaltung
                                                 </DropdownLink>
@@ -122,28 +125,28 @@
                             </div>
                         </div>
                         <div class="hidden sm:flex sm:items-center sm:ml-6">
-<!--                            <ThemeSwitcher>-->
-<!--                                <template #icon>-->
-<!--                                    <Button icon="pi pi-sun" v-if="isDarkMode" @click="toggleDarkMode" class="p-button-rounded p-button-text h-full" aria-label="Light Mode" />-->
-<!--                                    <Button icon="pi pi-moon" v-else @click="toggleDarkMode" class="p-button-rounded p-button-text h-full" aria-label="Dark Mode" />-->
-<!--                                </template>-->
-<!--                            </ThemeSwitcher>-->
-<!--                            <div class="flex items-center h-10">-->
-<!--                                <Button-->
-<!--                                    icon="pi pi-sun"-->
-<!--                                    v-if="isDarkMode"-->
-<!--                                    @click="toggleDarkMode"-->
-<!--                                    class="p-button-rounded p-button-text h-full"-->
-<!--                                    aria-label="Light Mode"-->
-<!--                                />-->
-<!--                                <Button-->
-<!--                                    icon="pi pi-moon"-->
-<!--                                    v-else-->
-<!--                                    @click="toggleDarkMode"-->
-<!--                                    class="p-button-rounded p-button-text h-full"-->
-<!--                                    aria-label="Dark Mode"-->
-<!--                                />-->
-<!--                            </div>-->
+                            <!--                            <ThemeSwitcher>-->
+                            <!--                                <template #icon>-->
+                            <!--                                    <Button icon="pi pi-sun" v-if="isDarkMode" @click="toggleDarkMode" class="p-button-rounded p-button-text h-full" aria-label="Light Mode" />-->
+                            <!--                                    <Button icon="pi pi-moon" v-else @click="toggleDarkMode" class="p-button-rounded p-button-text h-full" aria-label="Dark Mode" />-->
+                            <!--                                </template>-->
+                            <!--                            </ThemeSwitcher>-->
+                            <!--                            <div class="flex items-center h-10">-->
+                            <!--                                <Button-->
+                            <!--                                    icon="pi pi-sun"-->
+                            <!--                                    v-if="isDarkMode"-->
+                            <!--                                    @click="toggleDarkMode"-->
+                            <!--                                    class="p-button-rounded p-button-text h-full"-->
+                            <!--                                    aria-label="Light Mode"-->
+                            <!--                                />-->
+                            <!--                                <Button-->
+                            <!--                                    icon="pi pi-moon"-->
+                            <!--                                    v-else-->
+                            <!--                                    @click="toggleDarkMode"-->
+                            <!--                                    class="p-button-rounded p-button-text h-full"-->
+                            <!--                                    aria-label="Dark Mode"-->
+                            <!--                                />-->
+                            <!--                            </div>-->
                             <div class="ml-3 relative">
                                 <!-- Teams Dropdown (temporär deaktiviert) -->
 
@@ -171,15 +174,15 @@
                                                     Team Settings
                                                 </DropdownLink>
 
-<!--                                                <DropdownLink v-if="$page.props.jetstream.canCreateTeams" href="/teams/create">-->
-<!--                                                    Create New Team-->
-<!--                                                </DropdownLink>-->
+                                                <!--                                                <DropdownLink v-if="$page.props.jetstream.canCreateTeams" href="/teams/create">-->
+                                                <!--                                                    Create New Team-->
+                                                <!--                                                </DropdownLink>-->
 
-<!--                                                <div class="border-t border-gray-200 dark:border-gray-600" />-->
+                                                <!--                                                <div class="border-t border-gray-200 dark:border-gray-600" />-->
 
-<!--                                                <div class="block px-4 py-2 text-xs text-gray-400">-->
-<!--                                                    Switch Teams-->
-<!--                                                </div>-->
+                                                <!--                                                <div class="block px-4 py-2 text-xs text-gray-400">-->
+                                                <!--                                                    Switch Teams-->
+                                                <!--                                                </div>-->
 
                                                 <template v-for="team in $page.props.auth.user.all_teams" :key="team.id">
                                                     <form @submit.prevent="switchToTeam(team)">
@@ -326,6 +329,9 @@
                             </ResponsiveNavLink>
                             <ResponsiveNavLink href="/vacation/info-list" :active="$page.component === 'VacationInfoList'">
                                 Urlaub-Info-Liste
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink href="/vacation/hr-entry" :active="$page.component === 'VacationHrEntry'">
+                                Urlaub für MA eintragen
                             </ResponsiveNavLink>
                             <ResponsiveNavLink href="/users" :active="$page.component === 'Users/Index'">
                                 Benutzerverwaltung
@@ -495,7 +501,7 @@ export default defineComponent({
             return this.$page.props.auth.user;
         },
         isAdminPageActive() {
-            return ['VacationHrOverview', 'VacationInfoList', 'Users/Index', 'Admin/Parking/Index'].includes(this.$page.component);
+            return ['VacationHrOverview', 'VacationInfoList', 'VacationHrEntry', 'Users/Index', 'Admin/Parking/Index'].includes(this.$page.component);
         },
         isReportPageActive() {
             return ['Reports/Index', 'Reports/Create', 'Subjects/Index'].includes(this.$page.component);

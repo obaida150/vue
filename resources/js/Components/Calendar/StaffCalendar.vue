@@ -797,23 +797,23 @@ watch(eventTypes, () => {
 onMounted(async () => {
     primevue.config.locale = de;
 
-    console.log('[v0] StaffCalendar mounted - Before fetchUserRole');
-    console.log('[v0] isHrUser before fetch:', isHrUser.value);
-    console.log('[v0] currentUserId before fetch:', currentUserId.value);
+    // console.log('   StaffCalendar mounted - Before fetchUserRole');
+    // console.log('isHrUser before fetch:', isHrUser.value);
+    // console.log('currentUserId before fetch:', currentUserId.value);
 
     // Lade Benutzerrolle und warte auf Abschluss
     await fetchUserRole();
 
-    console.log('[v0] StaffCalendar - After fetchUserRole');
-    console.log('[v0] User Role geladen. isHrUser:', isHrUser.value, 'isTeamManager:', isTeamManager.value);
-    console.log('[v0] currentUserRoleId:', useUserRole().currentUserRoleId.value);
+    // console.log('StaffCalendar - After fetchUserRole');
+    // console.log('User Role geladen. isHrUser:', isHrUser.value, 'isTeamManager:', isTeamManager.value);
+    // console.log('currentUserRoleId:', useUserRole().currentUserRoleId.value);
 
     if (isHrUser.value || isTeamManager.value) {
-        console.log('[v0] Lade Employees...');
+        // console.log('Lade Employees...');
         await fetchEmployees();
-        console.log('[v0] Employees geladen:', employees.value);
-        console.log('[v0] Anzahl Employees:', employees.value?.length);
-        console.log('[v0] Employees Details:', JSON.stringify(employees.value, null, 2));
+        // console.log('Employees geladen:', employees.value);
+        // console.log('Anzahl Employees:', employees.value?.length);
+        // console.log('Employees Details:', JSON.stringify(employees.value, null, 2));
     }
 
     // Für HR-Benutzer und Abteilungsleiter: Intelligente Standardeinstellung

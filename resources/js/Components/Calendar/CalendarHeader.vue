@@ -106,25 +106,25 @@ watch(() => props.showOnlyOwnEvents, (newValue) => {
 
 const shouldShowToggle = computed(() => {
     // Debugging
-    console.log('[v0] CalendarHeader - currentUserRoleId:', props.currentUserRoleId);
-    console.log('[v0] CalendarHeader - isTeamManager:', props.isTeamManager);
-    console.log('[v0] CalendarHeader - isHrUser:', props.isHrUser);
+    // console.log('CalendarHeader - currentUserRoleId:', props.currentUserRoleId);
+    // console.log('CalendarHeader - isTeamManager:', props.isTeamManager);
+    // console.log('CalendarHeader - isHrUser:', props.isHrUser);
 
     // Wenn role_id explizit 4 ist, niemals Toggle zeigen
     if (props.currentUserRoleId === 4) {
-        console.log('[v0] CalendarHeader - Toggle versteckt (role_id 4)');
+        // console.log('CalendarHeader - Toggle versteckt (role_id 4)');
         return false;
     }
 
     // Für Admin (1), HR (2), Abteilungsleiter (3) den Toggle zeigen
     if (props.currentUserRoleId === 1 || props.currentUserRoleId === 2 || props.currentUserRoleId === 3) {
-        console.log('[v0] CalendarHeader - Toggle angezeigt (role_id 1, 2, oder 3)');
+        // console.log('CalendarHeader - Toggle angezeigt (role_id 1, 2, oder 3)');
         return true;
     }
 
     // Fallback: Wenn role_id noch null ist, prüfe die anderen Flags
     const show = props.isHrUser || props.isTeamManager;
-    console.log('[v0] CalendarHeader - Toggle Fallback:', show);
+    // console.log('CalendarHeader - Toggle Fallback:', show);
     return show;
 });
 

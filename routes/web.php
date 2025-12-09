@@ -315,6 +315,11 @@ Route::middleware([
     });
 });
 
+Route::middleware(['auth'])->group(function () {
+    Route::get('/vacation/hr-entry', [VacationController::class, 'showHrEntry'])->name('vacation.hr.entry');
+    Route::post('/vacation/hr/store-for-employee', [VacationController::class, 'storeForEmployee'])->name('vacation.hr.store');
+});
+
 Route::middleware([
     'auth:sanctum',
     config('jetstream.auth_session'),

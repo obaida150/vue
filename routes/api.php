@@ -506,5 +506,8 @@ Route::post('/events', function(Request $request) {
     Route::post('/vacation/requests/{vacationRequest}/reject', [VacationController::class, 'reject']);
     Route::delete('/vacation/requests/{vacationRequest}', [VacationController::class, 'cancel']);
     Route::get('/vacation/substitutes', [VacationController::class, 'getAvailableSubstitutes']);
+    // HR: Alle Mitarbeiter abrufen
+    Route::get('/vacation/hr-entry', [VacationController::class, 'showHrEntry'])->name('vacation.hr.entry');
+    Route::post('/vacation/hr/store-for-employee', [VacationController::class, 'storeForEmployee'])->name('vacation.hr.store');
 });
 
