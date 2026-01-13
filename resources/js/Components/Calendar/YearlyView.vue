@@ -1,57 +1,71 @@
 <template>
+    <!-- Optimized grid layout for 6x2 with better proportions -->
     <div
-        class="grid gap-2 sm:gap-4 w-full"
+        class="w-full px-2 sm:px-4 lg:px-6"
         :class="{
-      'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-6': yearLayout === '6x2',
-      'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4': yearLayout === '4x3'
+      'grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-6': yearLayout === '6x2',
+      'grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4': yearLayout === '4x3'
     }"
     >
         <div
             v-for="month in 12"
             :key="month"
-            class="border border-gray-200 dark:border-gray-700 rounded-lg p-1 sm:p-2 cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
+            class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4 cursor-pointer transition-all duration-300 hover:shadow-xl hover:border-blue-400 dark:hover:border-blue-500 hover:scale-105 group"
             @click="$emit('month-click', month - 1)"
         >
-            <h3 class="text-center font-medium mb-1 sm:mb-2 text-sm sm:text-base">{{ getMonthName(month - 1) }}</h3>
-            <div class="flex w-full border-b border-gray-200 dark:border-gray-700 mb-1">
-                <div class="w-[20px] sm:w-[30px] text-[8px] sm:text-[10px] font-bold text-center p-0.5">KW</div>
-                <div v-for="day in weekdaysShort" :key="day" class="flex-1 text-center text-[8px] sm:text-[10px] p-0.5">{{ day }}</div>
+            <!-- Month header with improved styling -->
+            <h3 class="text-center font-semibold mb-3 text-sm text-slate-900 dark:text-slate-50 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                {{ getMonthName(month - 1) }}
+            </h3>
+
+            <!-- Day header row - improved grid alignment with consistent column widths -->
+            <div class="grid grid-cols-8 w-full border-b border-slate-200 dark:border-slate-700 mb-2 pb-2 gap-0.5">
+                <div class="text-[8px] sm:text-xs font-bold text-center text-slate-600 dark:text-slate-400 col-span-1">KW</div>
+                <div v-for="day in weekdaysShort" :key="day" class="text-[8px] sm:text-xs font-semibold text-center text-slate-600 dark:text-slate-400 col-span-1">{{ day }}</div>
             </div>
 
-            <div class="flex flex-col w-full">
+            <!-- Calendar weeks and days with improved grid layout -->
+            <div class="flex flex-col w-full gap-0.5">
                 <div
                     v-for="(week, weekIndex) in getWeeksInMonthForMini(month - 1, currentDate)"
                     :key="'mini-week-' + weekIndex"
-                    class="flex w-full mb-[1px]"
+                    class="grid grid-cols-8 w-full gap-0.5"
                 >
+                    <!-- Week number - aligned to grid -->
                     <div
-                        class="w-[20px] sm:w-[30px] flex items-center justify-center text-[8px] sm:text-[10px] text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 cursor-pointer transition-colors hover:bg-blue-50 dark:hover:bg-blue-900 hover:text-blue-600 dark:hover:text-blue-400"
+                        class="flex items-center justify-center text-[8px] sm:text-xs text-slate-500 dark:text-slate-500 cursor-pointer transition-all duration-150 hover:bg-blue-500 dark:hover:bg-blue-600 hover:text-white font-semibold rounded p-1 col-span-1"
                         @click.stop="$emit('week-plan', week.weekNumber, week.days)"
                     >
                         {{ week.weekNumber }}
                     </div>
 
+                    <!-- Day cells - now using grid for perfect alignment -->
                     <div
                         v-for="(day, dayIndex) in week.days"
                         :key="'mini-day-' + dayIndex"
-                        class="flex-1 flex flex-col items-center justify-center h-4 sm:h-5 text-[9px] sm:text-[11px] text-center relative"
+                        class="flex items-center justify-center h-6 sm:h-7 text-[8px] sm:text-xs text-center relative transition-all duration-150 rounded cursor-pointer hover:scale-105 hover:shadow-sm col-span-1"
                         :class="{
-              'text-gray-400 dark:text-gray-500': !day.currentMonth,
-              'bg-blue-500 text-white rounded-full font-bold': day.isToday,
-              'text-gray-400 dark:text-gray-500': day.isWeekend,
-              'bg-red-500 text-white rounded-full font-bold': isHoliday(dayjs(day.date))
+              'text-slate-300 dark:text-slate-600': !day.currentMonth,
+              'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800': day.currentMonth && !day.isToday && !isHoliday(dayjs(day.date)) && !hasEvents(day.date) && !hasVacations(day.date),
+              'bg-blue-500 text-white font-bold shadow-md': day.isToday,
+              'text-slate-500 dark:text-slate-400': day.isWeekend && !day.isToday && !isHoliday(dayjs(day.date)) && !hasEvents(day.date),
+              'bg-red-500 text-white font-bold shadow-md': isHoliday(dayjs(day.date)) && !day.isToday
             }"
                     >
-                        <div class="z-10">{{ day.dayNumber }}</div>
+                        <!-- Day number with z-index management -->
+                        <div class="z-10 relative font-semibold">{{ day.dayNumber }}</div>
+
+                        <!-- Event indicator -->
                         <div
-                            v-if="hasEvents(day.date)"
-                            class="absolute inset-0 opacity-70 z-0 rounded-full"
+                            v-if="hasEvents(day.date) && !day.isToday && !isHoliday(dayjs(day.date))"
+                            class="absolute inset-0 opacity-80 z-0 rounded hover:opacity-100 transition-opacity"
                             :style="{ backgroundColor: getEventColorForDay(day.date) }"
                         ></div>
-                        <!-- Urlaub-Indikator für Jahresansicht -->
+
+                        <!-- Vacation indicator -->
                         <div
-                            v-if="hasVacations(day.date)"
-                            class="absolute inset-0 opacity-80 z-0 rounded-full bg-purple-600"
+                            v-if="hasVacations(day.date) && !day.isToday && !isHoliday(dayjs(day.date)) && !hasEvents(day.date)"
+                            class="absolute inset-0 opacity-85 z-0 rounded bg-gradient-to-br from-purple-500 to-purple-600 hover:opacity-100 transition-opacity"
                             :title="`Urlaub am ${dayjs(day.date).format('DD.MM.YYYY')}`"
                         ></div>
                     </div>
@@ -61,10 +75,11 @@
     </div>
 </template>
 
+
 <script setup>
 // import { defineProps, defineEmits } from 'vue';
 import dayjs from 'dayjs';
-
+const weekdaysShort = ['Mo','Di','Mi','Do','Fr','Sa','So'];
 const props = defineProps({
     currentDate: {
         type: Object,

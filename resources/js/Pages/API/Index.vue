@@ -18,7 +18,7 @@ defineProps({
         </template>
 
         <div>
-            <div class="max-w-[90rem] mx-auto py-10 sm:px-6 lg:px-8">
+            <div class="max-w-[100rem] mx-auto py-10 sm:px-6 lg:px-8">
                 <ApiTokenManager
                     :tokens="tokens"
                     :available-permissions="availablePermissions"

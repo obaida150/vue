@@ -9,7 +9,7 @@
         </template>
 
         <div class="py-6 transition-colors duration-300 overflow-hidden">
-            <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8 h-full flex flex-col">
+            <div class="max-w-[100rem] mx-auto sm:px-6 lg:px-8 h-full flex flex-col">
                 <!-- Urlaubskontingent Karte -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-6 mb-6 border border-gray-200 dark:border-gray-700 transition-all duration-300 flex-shrink-0">
                     <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
