@@ -4,7 +4,7 @@ import { useToast } from 'primevue/usetoast';
 import axios from 'axios';
 import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import dayjs from 'dayjs'; // Import dayjs
+import dayjs from 'dayjs';
 
 // PrimeVue Komponenten explizit importieren
 import ToggleSwitch from 'primevue/toggleswitch';
@@ -17,21 +17,19 @@ import Tag from 'primevue/tag';
 const toast = useToast();
 const page = usePage();
 
-// Benutzer aus Inertia-Props holen
 const currentUser = computed(() => page.props.auth.user);
-const userRole = computed(() => currentUser.value.role_id || 4); // Standard: Mitarbeiter
+const userRole = computed(() => currentUser.value.role_id || 4);
 
 const selectedEmployee = ref(null);
 const availableEmployees = ref([]);
 const selectedYear = ref(new Date().getFullYear());
 const selectedMonth = ref(null);
 const loading = ref(true);
-const showTeamOverview = ref(false); // Toggle für die Gesamtübersicht
+const showTeamOverview = ref(false);
 
-// Neue Variablen für die Abteilungsfilterung
 const selectedDepartment = ref(null);
 const availableDepartments = ref([]);
-const isHR = computed(() => userRole.value <= 2); // HR-Rolle (1 oder 2)
+const isHR = computed(() => userRole.value <= 2);
 
 const years = ref([
     new Date().getFullYear() - 2,
@@ -41,6 +39,7 @@ const years = ref([
 ]);
 
 const months = ref([
+    { name: 'Alle Monate', value: null },
     { name: 'Januar', value: 1 },
     { name: 'Februar', value: 2 },
     { name: 'März', value: 3 },
@@ -55,7 +54,6 @@ const months = ref([
     { name: 'Dezember', value: 12 }
 ]);
 
-// Statistik-Daten
 const statistics = ref({
     homeoffice: {
         total: 0,
@@ -77,11 +75,10 @@ const statistics = ref({
 });
 
 const vacationData = ref([]);
-const teamVacationOverview = ref([]); // Neue Daten für die Teamübersicht
-const allVacationRequests = ref([]); // Alle Urlaubsanträge
-const allEmployees = ref([]); // Alle Mitarbeiter (ungefiltert)
+const teamVacationOverview = ref([]);
+const allVacationRequests = ref([]);
+const allEmployees = ref([]);
 
-// Chart-Daten
 const homeofficeChartData = computed(() => {
     const labels = selectedMonth.value
         ? Array.from({ length: getDaysInMonth(selectedYear.value, selectedMonth.value) }, (_, i) => i + 1)
@@ -146,8 +143,8 @@ const chartOptions = {
     maintainAspectRatio: false
 };
 
-// Funktionen
 function getMonthName(monthNumber) {
+    if (monthNumber === null) return 'Alle Monate';
     const month = months.value.find(m => m.value === monthNumber);
     return month ? month.name : '';
 }
@@ -170,18 +167,14 @@ function getStatusSeverity(status) {
     }
 }
 
-// NEU: Hilfsfunktion für Halbtags-Anzeige
 const getActualDays = (request) => {
-    // Verwende actualDays falls vorhanden, sonst berechne basierend auf dayType
     if (request.actualDays !== undefined) {
         return request.actualDays
     }
 
-    // Fallback-Berechnung
     if (request.dayType && request.dayType !== 'full_day') {
-        // Prüfe ob es ein einzelner Tag ist
-        const startDate = dayjs(request.start_date) // Use start_date from dashboard data
-        const endDate = dayjs(request.end_date) // Use end_date from dashboard data
+        const startDate = dayjs(request.start_date)
+        const endDate = dayjs(request.end_date)
         if (startDate.isSame(endDate, 'day')) {
             return 0.5
         }
@@ -190,35 +183,27 @@ const getActualDays = (request) => {
     return request.days || 0
 }
 
-// Verbessere die loadTeamVacationOverview-Funktion, um die Abteilungszuweisung zu korrigieren
 async function loadTeamVacationOverview() {
     try {
-        // Nur für Abteilungsleiter und HR
         if (userRole.value > 3) return;
 
-        // Verwende die bereits geladenen Mitarbeiter
         let employees = [...allEmployees.value];
 
-        // Filtere Mitarbeiter basierend auf der Rolle und ausgewählter Abteilung
-        if (userRole.value === 3) { // Abteilungsleiter sieht nur sein Team
+        if (userRole.value === 3) {
             employees = employees.filter(emp =>
                 emp.team_id === currentUser.value.current_team_id
             );
         } else if (isHR.value && selectedDepartment.value && selectedDepartment.value.id) {
-            // HR mit ausgewählter Abteilung
             employees = employees.filter(emp =>
                 emp.team_id === selectedDepartment.value.id
             );
         }
 
-        // Initialisiere die Teamübersicht
         const teamData = [];
 
-        // Lade alle genehmigten Urlaubsanträge
         const allRequestsResponse = await axios.get('/api/vacation/all-requests');
         const allRequests = allRequestsResponse.data || [];
 
-        // Definiere eine Map für Abteilungsnamen
         const teamNames = {
             1: 'IT',
             2: 'Schaden',
@@ -229,21 +214,16 @@ async function loadTeamVacationOverview() {
             7: 'Azubis'
         };
 
-        // Verarbeite die Daten für jeden Mitarbeiter
         for (const employee of employees) {
-            // Filtere Urlaubsanträge für diesen Mitarbeiter und das ausgewählte Jahr
             const employeeRequests = allRequests.filter(req => {
-                // Prüfe, ob die Felder existieren
                 if (!req.start_date || !req.user_id) {
                     console.warn('Ungültiger Urlaubsantrag:', req);
                     return false;
                 }
 
-                // Prüfe, ob die user_id als String oder Zahl vorliegt
                 const reqUserId = typeof req.user_id === 'string' ? parseInt(req.user_id, 10) : req.user_id;
                 const empId = typeof employee.id === 'string' ? parseInt(employee.id, 10) : employee.id;
 
-                // Prüfe das Jahr
                 let startYear;
                 try {
                     startYear = new Date(req.start_date).getFullYear();
@@ -255,41 +235,33 @@ async function loadTeamVacationOverview() {
                 return reqUserId === empId && startYear === selectedYear.value;
             });
 
-            // Berechne die Summe der genehmigten Urlaubstage
             const usedDays = employeeRequests
                 .filter(req => req.status === 'approved')
                 .reduce((sum, req) => {
-                    // Verwende getActualDays für die Berechnung
                     return sum + getActualDays(req);
                 }, 0);
 
-            // Standard-Urlaubsanspruch (kann angepasst werden)
             const totalEntitlement = 30;
 
-            // Hole den Abteilungsnamen
             let teamName = 'Keine Abteilung';
 
-            // Versuche, den Abteilungsnamen aus verschiedenen Quellen zu bekommen
             if (employee.team && employee.team.name) {
                 teamName = employee.team.name;
             } else if (employee.team_id) {
-                // Suche die Abteilung in den verfügbaren Abteilungen
                 const department = availableDepartments.value.find(dept => dept.id === employee.team_id);
                 if (department) {
                     teamName = department.name;
                 } else {
-                    // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
                     teamName = teamNames[employee.team_id] || `Team ${employee.team_id}`;
                 }
             }
 
-            // Füge den Mitarbeiter zur Teamübersicht hinzu - mit vereinfachten Feldnamen
             teamData.push({
                 name: employee.name,
                 abteilung: teamName,
                 tage: usedDays,
                 resttage: totalEntitlement - usedDays,
-                tagelast: 0 // Standardwert, falls keine Daten verfügbar
+                tagelast: 0
             });
         }
 
@@ -298,44 +270,34 @@ async function loadTeamVacationOverview() {
         console.error('Fehler beim Laden der Team-Urlaubsdaten:', error);
         toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Team-Urlaubsdaten', life: 3000 });
 
-        // Setze leere Daten im Fehlerfall
         teamVacationOverview.value = [];
     }
 }
 
 async function loadDepartments() {
     try {
-        // Versuche die Teams aus den Inertia-Props zu lesen
         const userTeams = page.props.auth?.user?.all_teams || [];
 
         if (userTeams && userTeams.length > 0) {
-            // Konvertiere die Teams in das richtige Format
             availableDepartments.value = userTeams.map(team => ({
                 id: team.id,
                 name: team.name
             }));
         }
-        // Unabhängig davon, ob Teams aus Inertia-Props geladen wurden,
-        // rufe immer createLocalDepartmentsFromEmployees auf, um sicherzustellen,
-        // dass alle Abteilungen geladen werden
         createLocalDepartmentsFromEmployees();
-        // Option für "Alle Abteilungen" hinzufügen, falls noch nicht vorhanden
         if (!availableDepartments.value.some(dept => dept.id === null)) {
             availableDepartments.value.unshift({ id: null, name: 'Alle Abteilungen' });
         }
     } catch (error) {
         console.error('Fehler beim Laden der Abteilungen:', error);
-        // Fallback: Verwende Mitarbeiterdaten
         createLocalDepartmentsFromEmployees();
 
-        // Option für "Alle Abteilungen" hinzufügen
         if (!availableDepartments.value.some(dept => dept.id === null)) {
             availableDepartments.value.unshift({ id: null, name: 'Alle Abteilungen' });
         }
     }
 }
 
-// Verbessere die createLocalDepartmentsFromEmployees-Funktion, um sicherzustellen, dass alle Abteilungen geladen werden
 function createLocalDepartmentsFromEmployees() {
     const departments = new Map();
     const teamNames = {
@@ -348,7 +310,6 @@ function createLocalDepartmentsFromEmployees() {
         7: 'Azubis'
     };
 
-    // Füge zuerst alle bekannten Abteilungen aus der teamNames-Map hinzu
     Object.entries(teamNames).forEach(([id, name]) => {
         departments.set(parseInt(id), {
             id: parseInt(id),
@@ -356,39 +317,31 @@ function createLocalDepartmentsFromEmployees() {
         });
     });
 
-    // Wenn Mitarbeiterdaten vorhanden sind, ergänze die Liste
     if (allEmployees.value && allEmployees.value.length > 0) {
         allEmployees.value.forEach(employee => {
             let teamId = null;
             let teamName = null;
 
-            // Versuche, team_id und team-Name aus verschiedenen möglichen Strukturen zu extrahieren
             if (employee.team) {
                 if (typeof employee.team === 'object') {
                     teamId = employee.team.id;
                     teamName = employee.team.name;
                 } else if (typeof employee.team === 'number' || typeof employee.team === 'string') {
                     teamId = employee.team;
-                    // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
-                    teamName = teamNames[teamId] || `Team ${employee.team}`;
+                    teamName = teamNames[teamId] || `Team ${teamId}`;
                 }
             }
 
-            // Alternative: Direkte team_id und department_id/name Felder prüfen
             if (!teamId && employee.team_id) {
                 teamId = employee.team_id;
-                // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
                 teamName = employee.department_name || teamNames[teamId] || `Team ${teamId}`;
             }
 
-            // Weitere mögliche Felder prüfen
             if (!teamId && employee.department_id) {
                 teamId = employee.department_id;
-                // Verwende den benutzerdefinierten Namen aus der Map, falls vorhanden
                 teamName = employee.department_name || teamNames[teamId] || `Abteilung ${teamId}`;
             }
 
-            // Wenn eine Abteilung gefunden wurde, zur Map hinzufügen
             if (teamId && !departments.has(teamId)) {
                 departments.set(teamId, {
                     id: teamId,
@@ -400,7 +353,6 @@ function createLocalDepartmentsFromEmployees() {
         console.log('Keine Mitarbeiterdaten für Abteilungsextraktion verfügbar');
     }
 
-    // Wenn keine Abteilungen gefunden wurden, verwende Standard-Abteilungen
     if (departments.size === 0) {
         availableDepartments.value = [
             { id: 1, name: 'IT' },
@@ -410,43 +362,35 @@ function createLocalDepartmentsFromEmployees() {
             { id: 5, name: 'Betrieb' },
             { id: 6, name: 'Geschäftsleitung' },
             { id: 7, name: 'Azubis' },
-            { id: null, name: 'Alle Abteilungen' } // Fallback für alle Abteilungen
+            { id: null, name: 'Alle Abteilungen' }
         ];
     } else {
         availableDepartments.value = Array.from(departments.values());
     }
 }
 
-// Aktualisiere die initializeDashboard-Funktion, um die Debug-Funktion aufzurufen
 async function initializeDashboard() {
     try {
         loading.value = true;
 
-        // Lade Abteilungen ZUERST (für HR)
         if (isHR.value) {
             await loadDepartments();
-            // Setze die erste Abteilung als Standard
             if (availableDepartments.value.length > 0) {
-                selectedDepartment.value = availableDepartments.value[0]; // "Alle Abteilungen"
+                selectedDepartment.value = availableDepartments.value[0];
             }
         }
 
-        // Lade verfügbare Mitarbeiter basierend auf der Rolle (nach Abteilungen)
         await loadAvailableEmployees();
 
-        // Setze den aktuellen Benutzer als ausgewählten Mitarbeiter
         selectedEmployee.value = {
             id: currentUser.value.id,
             name: currentUser.value.name
         };
 
-        // Lade alle Urlaubsanträge (für die Teamübersicht)
         await loadAllVacationRequests();
 
-        // Lade Daten für den aktuellen Benutzer
         await loadEmployeeData();
 
-        // Wenn Abteilungsleiter oder HR und Teamübersicht aktiviert, lade auch die Teamübersicht
         if (userRole.value <= 3 && showTeamOverview.value) {
             await loadTeamVacationOverview();
         }
@@ -463,12 +407,14 @@ async function loadAvailableEmployees() {
         let employees = [];
 
         if (userRole.value <= 2) {
-            // HR (role_id 1-2) sieht alle Mitarbeiter
             const response = await axios.get('/api/employees');
             allEmployees.value = response.data;
             employees = [...allEmployees.value];
+
+            if (selectedDepartment.value && selectedDepartment.value.id !== null) {
+                employees = employees.filter(emp => emp.team_id === selectedDepartment.value.id);
+            }
         } else if (userRole.value === 3) {
-            // Abteilungsleiter (role_id 3) sieht sich und sein Team
             const response = await axios.get('/api/employees');
             allEmployees.value = response.data;
             employees = allEmployees.value.filter(emp =>
@@ -476,7 +422,6 @@ async function loadAvailableEmployees() {
                 emp.team_id === currentUser.value.current_team_id
             );
         } else {
-            // Mitarbeiter (role_id 4) sieht nur sich selbst
             employees = [{
                 id: currentUser.value.id,
                 name: currentUser.value.name
@@ -484,19 +429,20 @@ async function loadAvailableEmployees() {
         }
 
         availableEmployees.value = employees;
+
+        if (selectedEmployee.value && !employees.find(emp => emp.id === selectedEmployee.value.id)) {
+            selectedEmployee.value = employees.length > 0 ? employees[0] : null;
+        }
     } catch (error) {
         console.error('Fehler beim Laden der Mitarbeiterdaten:', error);
         toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Mitarbeiterdaten', life: 3000 });
     }
 }
 
-// Lade alle Urlaubsanträge für die Teamübersicht
 async function loadAllVacationRequests() {
     try {
-        // Lade alle Urlaubsanträge
         const response = await axios.get('/api/vacation/user');
         const requests = response.data.requests || [];
-        // Speichere alle Urlaubsanträge
         allVacationRequests.value = requests;
     } catch (error) {
         console.error('Fehler beim Laden aller Urlaubsanträge:', error);
@@ -510,10 +456,8 @@ async function loadEmployeeData() {
     try {
         loading.value = true;
 
-        // Lade Urlaubsdaten
         await loadVacationData();
 
-        // Lade Homeoffice- und Abwesenheitsdaten
         await loadEventsData();
     } catch (error) {
         console.error('Fehler beim Laden der Daten:', error);
@@ -523,41 +467,31 @@ async function loadEmployeeData() {
     }
 }
 
-// Korrigierte Funktion zum Laden der Urlaubsdaten
 async function loadVacationData() {
     try {
-        // Prüfen, ob der ausgewählte Mitarbeiter der angemeldete Benutzer ist
         const isCurrentUser = selectedEmployee.value.id === currentUser.value.id;
 
         if (isCurrentUser) {
-            // Für den angemeldeten Benutzer können wir den normalen Endpunkt verwenden
             const response = await axios.get(`/api/vacation/yearly/${selectedYear.value}`);
             const vacationStats = response.data.stats;
 
-            // Aktualisiere die Urlaubsstatistik
             statistics.value.vacation.total = vacationStats.totalEntitlement;
             statistics.value.vacation.used = vacationStats.used;
         } else {
-            // Standard-Urlaubsanspruch (kann angepasst werden)
             const totalEntitlement = 30;
 
-            // Lade alle Urlaubsanträge
             const allRequestsResponse = await axios.get('/api/vacation/all-requests');
             const allRequests = allRequestsResponse.data || [];
-            // Filtere Urlaubsanträge für den ausgewählten Mitarbeiter und das ausgewählte Jahr
             const employeeRequests = allRequests.filter(req => {
-                // Prüfe, ob die Felder existieren
                 if (!req.start_date || !req.user_id) {
                     console.warn('Ungültiger Urlaubsantrag:', req);
                     return false;
                 }
 
-                // Prüfe, ob die user_id als String oder Zahl vorliegt
                 const reqUserId = typeof req.user_id === 'string' ? parseInt(req.user_id, 10) : req.user_id;
                 const empId = typeof selectedEmployee.value.id === 'string' ?
                     parseInt(selectedEmployee.value.id, 10) : selectedEmployee.value.id;
 
-                // Prüfe das Jahr
                 let startYear;
                 try {
                     startYear = new Date(req.start_date).getFullYear();
@@ -569,36 +503,30 @@ async function loadVacationData() {
                 return reqUserId === empId && startYear === selectedYear.value;
             });
 
-            // Berechne die Summe der genehmigten Urlaubstage
             const usedDays = employeeRequests
                 .filter(req => req.status === 'approved')
                 .reduce((sum, req) => {
-                    // Verwende getActualDays für die Berechnung
                     return sum + getActualDays(req);
                 }, 0);
 
-            // Aktualisiere die Urlaubsstatistik
             statistics.value.vacation.total = totalEntitlement;
             statistics.value.vacation.used = usedDays;
 
-            // Formatiere die Daten für die Tabelle
             vacationData.value = employeeRequests.map(req => ({
                 start_date: req.start_date,
                 end_date: req.end_date,
                 days: req.days,
                 status: req.status,
                 notes: req.notes || '',
-                dayType: req.day_type // Hinzugefügt: day_type vom Backend
+                dayType: req.day_type
             }));
 
-            return; // Wir haben die Daten bereits verarbeitet
+            return;
         }
 
-        // Lade Urlaubsanträge für den angemeldeten Benutzer
         const userResponse = await axios.get('/api/vacation/user');
         const requests = userResponse.data.requests;
 
-        // Filtere Urlaubsanträge für den ausgewählten Benutzer und das ausgewählte Jahr
         const filteredRequests = requests.filter(req => {
             if (!req.startDate) return false;
 
@@ -606,14 +534,13 @@ async function loadVacationData() {
             return startYear === selectedYear.value;
         });
 
-        // Formatiere die Daten für die Tabelle
         vacationData.value = filteredRequests.map(req => ({
             start_date: req.startDate,
             end_date: req.endDate,
             days: req.days,
             status: req.status,
             notes: req.notes || '',
-            dayType: req.dayType // Hinzugefügt: dayType vom Backend
+            dayType: req.dayType
         }));
     } catch (error) {
         console.error('Fehler beim Laden der Urlaubsdaten:', error);
@@ -623,37 +550,29 @@ async function loadVacationData() {
 
 async function loadEventsData() {
     try {
-        // Lade Ereignistypen
         const eventTypesResponse = await axios.get('/api/event-types');
         const eventTypes = eventTypesResponse.data;
 
-        // Finde die IDs für Homeoffice, Abwesend und Außendienst
         const homeofficeTypeId = eventTypes.find(type => type.name === 'Homeoffice')?.id;
         const absenceTypeId = eventTypes.find(type => type.name === 'Abwesend')?.id;
         const fieldServiceTypeId = eventTypes.find(type => type.name === 'Außendienst')?.id;
 
-        // Parameter für die Ereignisabfrage
         const params = {
             start_date: `${selectedYear.value}-01-01`,
             end_date: `${selectedYear.value}-12-31`
         };
 
-        // Lade Ereignisse
         const eventsResponse = await axios.get('/api/events', { params });
         const events = eventsResponse.data;
 
-        // Filtere Ereignisse für den ausgewählten Benutzer
         const userEvents = events.filter(event =>
             event.user_id === selectedEmployee.value.id
         );
 
-        // Verarbeite Homeoffice-Daten
         processHomeofficeData(userEvents, homeofficeTypeId);
 
-        // Verarbeite Abwesenheitsdaten
         processAbsenceData(userEvents, absenceTypeId);
 
-        // Verarbeite Außendienst-Daten
         processFieldServiceData(userEvents, fieldServiceTypeId);
     } catch (error) {
         console.error('Fehler beim Laden der Ereignisdaten:', error);
@@ -664,11 +583,9 @@ async function loadEventsData() {
 function processHomeofficeData(events, homeofficeTypeId) {
     let total = 0;
 
-    // Filtere Homeoffice-Ereignisse
     const homeofficeEvents = events.filter(event => event.event_type_id === homeofficeTypeId);
 
     if (selectedMonth.value) {
-        // Wenn ein Monat ausgewählt ist, erstelle tägliche Daten
         const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
         const dailyData = Array(daysInMonth).fill(0);
 
@@ -678,13 +595,11 @@ function processHomeofficeData(events, homeofficeTypeId) {
 
             let currentDate = new Date(startDate);
             while (currentDate <= endDate) {
-                // Prüfe, ob das Datum im ausgewählten Monat liegt
                 if (currentDate.getFullYear() === selectedYear.value &&
                     currentDate.getMonth() + 1 === selectedMonth.value) {
                     const day = currentDate.getDate() - 1;
                     const dayOfWeek = currentDate.getDay();
 
-                    // Zähle nur Werktage (Mo-Fr)
                     if (dayOfWeek !== 0 && dayOfWeek !== 6 && dailyData[day] === 0) {
                         dailyData[day] = 1;
                         total++;
@@ -696,7 +611,6 @@ function processHomeofficeData(events, homeofficeTypeId) {
 
         statistics.value.homeoffice.monthly = dailyData;
     } else {
-        // Wenn kein Monat ausgewählt ist, verteile auf Monate
         const monthlyData = Array(12).fill(0);
 
         homeofficeEvents.forEach(event => {
@@ -721,14 +635,87 @@ function processHomeofficeData(events, homeofficeTypeId) {
     statistics.value.homeoffice.total = total;
 }
 
+const vacationChartData = computed(() => {
+    if (selectedMonth.value) {
+        const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
+        const dailyData = Array(daysInMonth).fill(0);
+        const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+        vacationData.value
+            .filter(req => req.status === 'approved')
+            .forEach(req => {
+                const startDate = new Date(req.start_date);
+                const endDate = new Date(req.end_date);
+
+                let currentDate = new Date(startDate);
+                while (currentDate <= endDate) {
+                    const dayOfWeek = currentDate.getDay();
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6 &&
+                        currentDate.getFullYear() === selectedYear.value &&
+                        currentDate.getMonth() + 1 === selectedMonth.value) {
+                        const day = currentDate.getDate() - 1;
+                        if (dailyData[day] === 0) {
+                            dailyData[day] = 1;
+                        }
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            });
+
+        return {
+            labels,
+            datasets: [
+                {
+                    label: 'Urlaubstage',
+                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                    borderColor: 'rgb(34, 197, 94)',
+                    data: dailyData
+                }
+            ]
+        };
+    } else {
+        const labels = months.value.map(m => m.name);
+        const monthlyData = Array(12).fill(0);
+
+        vacationData.value
+            .filter(req => req.status === 'approved')
+            .forEach(req => {
+                const startDate = new Date(req.start_date);
+                const endDate = new Date(req.end_date);
+
+                let currentDate = new Date(startDate);
+                while (currentDate <= endDate) {
+                    const dayOfWeek = currentDate.getDay();
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                        if (currentDate.getFullYear() === selectedYear.value) {
+                            const month = currentDate.getMonth();
+                            monthlyData[month]++;
+                        }
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            });
+
+        return {
+            labels,
+            datasets: [
+                {
+                    label: 'Urlaubstage',
+                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                    borderColor: 'rgb(34, 197, 94)',
+                    data: monthlyData
+                }
+            ]
+        };
+    }
+});
+
 function processAbsenceData(events, absenceTypeId) {
     let total = 0;
 
-    // Filtere Abwesenheits-Ereignisse
     const absenceEvents = events.filter(event => event.event_type_id === absenceTypeId);
 
     if (selectedMonth.value) {
-        // Wenn ein Monat ausgewählt ist, erstelle tägliche Daten
         const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
         const dailyData = Array(daysInMonth).fill(0);
 
@@ -738,13 +725,11 @@ function processAbsenceData(events, absenceTypeId) {
 
             let currentDate = new Date(startDate);
             while (currentDate <= endDate) {
-                // Prüfe, ob das Datum im ausgewählten Monat liegt
                 if (currentDate.getFullYear() === selectedYear.value &&
                     currentDate.getMonth() + 1 === selectedMonth.value) {
                     const day = currentDate.getDate() - 1;
                     const dayOfWeek = currentDate.getDay();
 
-                    // Zähle nur Werktage (Mo-Fr)
                     if (dayOfWeek !== 0 && dayOfWeek !== 6 && dailyData[day] === 0) {
                         dailyData[day] = 1;
                         total++;
@@ -756,7 +741,6 @@ function processAbsenceData(events, absenceTypeId) {
 
         statistics.value.absence.monthly = dailyData;
     } else {
-        // Wenn kein Monat ausgewählt ist, verteile auf Monate
         const monthlyData = Array(12).fill(0);
 
         absenceEvents.forEach(event => {
@@ -784,11 +768,9 @@ function processAbsenceData(events, absenceTypeId) {
 function processFieldServiceData(events, fieldServiceTypeId) {
     let total = 0;
 
-    // Filtere Außendienst-Ereignisse
     const fieldServiceEvents = events.filter(event => event.event_type_id === fieldServiceTypeId);
 
     if (selectedMonth.value) {
-        // Wenn ein Monat ausgewählt ist, erstelle tägliche Daten
         const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
         const dailyData = Array(daysInMonth).fill(0);
 
@@ -798,13 +780,11 @@ function processFieldServiceData(events, fieldServiceTypeId) {
 
             let currentDate = new Date(startDate);
             while (currentDate <= endDate) {
-                // Prüfe, ob das Datum im ausgewählten Monat liegt
                 if (currentDate.getFullYear() === selectedYear.value &&
                     currentDate.getMonth() + 1 === selectedMonth.value) {
                     const day = currentDate.getDate() - 1;
                     const dayOfWeek = currentDate.getDay();
 
-                    // Zähle nur Werktage (Mo-Fr)
                     if (dayOfWeek !== 0 && dayOfWeek !== 6 && dailyData[day] === 0) {
                         dailyData[day] = 1;
                         total++;
@@ -816,7 +796,6 @@ function processFieldServiceData(events, fieldServiceTypeId) {
 
         statistics.value.fieldService.monthly = dailyData;
     } else {
-        // Wenn kein Monat ausgewählt ist, verteile auf Monate
         const monthlyData = Array(12).fill(0);
 
         fieldServiceEvents.forEach(event => {
@@ -846,9 +825,8 @@ function calculateWorkingDays(startDate, endDate) {
     let currentDate = new Date(startDate);
 
     while (currentDate <= endDate) {
-        // Zähle nur Werktage (Mo-Fr)
         const dayOfWeek = currentDate.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
             count++;
         }
         currentDate.setDate(currentDate.getDate() + 1);
@@ -860,40 +838,33 @@ function calculateWorkingDays(startDate, endDate) {
 function updateData() {
     loadEmployeeData();
 
-    // Wenn Abteilungsleiter oder HR und Teamübersicht aktiviert, lade auch die Teamübersicht neu
     if (userRole.value <= 3 && showTeamOverview.value) {
         loadTeamVacationOverview();
     }
 }
 
-// Beobachte Änderungen am ausgewählten Mitarbeiter
 watch(selectedEmployee, (newValue) => {
     if (newValue) {
         loadEmployeeData();
     }
 });
 
-// Beobachte Änderungen am Toggle für die Teamübersicht
 watch(showTeamOverview, (newValue) => {
     if (newValue && userRole.value <= 3) {
         loadTeamVacationOverview();
     }
 });
 
-// Beobachte Änderungen an der ausgewählten Abteilung
 watch(selectedDepartment, (newValue) => {
     if (isHR.value) {
-        // Aktualisiere die Mitarbeiterliste basierend auf der ausgewählten Abteilung
         loadAvailableEmployees();
 
-        // Wenn Teamübersicht aktiviert ist, aktualisiere auch diese
         if (showTeamOverview.value) {
             loadTeamVacationOverview();
         }
     }
 });
 
-// Initialisierung
 onMounted(() => {
     initializeDashboard();
 });
@@ -907,70 +878,80 @@ onMounted(() => {
             </h2>
         </template>
 
-        <div class="py-12">
+        <div class="py-6">
             <div class="max-w-[100rem] mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-6">
-                    <!-- Filter Controls -->
-                    <div class="mb-6 flex flex-col md:flex-row gap-4">
-                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4 flex-1">
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Zeitraum</h2>
-                            <div class="flex flex-col sm:flex-row gap-4">
-                                <div class="flex-1">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jahr</label>
-                                    <Select
-                                        v-model="selectedYear"
-                                        :options="years"
-                                        placeholder="Jahr auswählen"
-                                        class="w-full"
-                                        @change="updateData"
-                                    />
-                                </div>
-                                <div class="flex-1">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monat</label>
-                                    <Select
-                                        v-model="selectedMonth"
-                                        :options="months"
-                                        optionLabel="name"
-                                        optionValue="value"
-                                        placeholder="Monat auswählen"
-                                        class="w-full"
-                                        @change="updateData"
-                                    />
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-4">
+                    <!-- Kompakte Filter in einer Reihe -->
+                    <div class="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 rounded-xl shadow-sm p-3">
+                        <div class="flex flex-wrap items-end gap-3">
+                            <!-- Jahr Filter -->
+                            <div class="flex-shrink-0 w-32">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <i class="pi pi-calendar mr-1"></i>Jahr
+                                </label>
+                                <Select
+                                    v-model="selectedYear"
+                                    :options="years"
+                                    placeholder="Jahr"
+                                    class="w-full text-sm"
+                                    @change="updateData"
+                                />
+                            </div>
+
+                            <!-- Monat Filter -->
+                            <div class="flex-shrink-0 w-36">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <i class="pi pi-calendar-plus mr-1"></i>Monat
+                                </label>
+                                <Select
+                                    v-model="selectedMonth"
+                                    :options="months"
+                                    optionLabel="name"
+                                    optionValue="value"
+                                    placeholder="Monat"
+                                    class="w-full text-sm"
+                                    @change="updateData"
+                                />
+                            </div>
+
+                            <!-- Abteilungsfilter (nur für HR) -->
+                            <div v-if="isHR" class="flex-shrink-0 w-44">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <i class="pi pi-building mr-1"></i>Abteilung
+                                </label>
+                                <Select
+                                    v-model="selectedDepartment"
+                                    :options="availableDepartments"
+                                    optionLabel="name"
+                                    placeholder="Abteilung"
+                                    class="w-full text-sm"
+                                />
+                            </div>
+
+                            <!-- Mitarbeiter Selector (nur für Abteilungsleiter und HR) -->
+                            <div v-if="userRole <= 3" class="flex-shrink-0 w-52">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <i class="pi pi-user mr-1"></i>Mitarbeiter
+                                </label>
+                                <Select
+                                    v-model="selectedEmployee"
+                                    :options="availableEmployees"
+                                    optionLabel="name"
+                                    placeholder="Mitarbeiter"
+                                    class="w-full text-sm"
+                                    @change="loadEmployeeData"
+                                />
+                            </div>
+
+                            <!-- Toggle für Teamübersicht (nur für Abteilungsleiter und HR) -->
+                            <div v-if="userRole <= 3" class="flex-shrink-0 ml-auto">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 opacity-0">Toggle</label>
+                                <div class="flex items-center bg-white dark:bg-gray-700 rounded-lg px-3 py-2 shadow-sm">
+                                    <span class="text-xs text-gray-600 dark:text-gray-400 mr-2">Einzeln</span>
+                                    <ToggleSwitch v-model="showTeamOverview" />
+                                    <span class="text-xs text-gray-600 dark:text-gray-400 ml-2">Team</span>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Abteilungsfilter (nur für HR) -->
-                    <div v-if="isHR" class="mb-6">
-                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Abteilungsfilter</h2>
-                            <div class="flex flex-col sm:flex-row gap-4">
-                                <div class="flex-1">
-                                    <Select
-                                        v-model="selectedDepartment"
-                                        :options="availableDepartments"
-                                        optionLabel="name"
-                                        placeholder="Abteilung auswählen"
-                                        class="w-full"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- User Selector (nur für Abteilungsleiter und HR) -->
-                    <div v-if="userRole <= 3" class="mb-6">
-                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-4">
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Mitarbeiter auswählen</h2>
-                            <Select
-                                v-model="selectedEmployee"
-                                :options="availableEmployees"
-                                optionLabel="name"
-                                placeholder="Mitarbeiter auswählen"
-                                class="w-full md:w-80"
-                                @change="loadEmployeeData"
-                            />
                         </div>
                     </div>
 
@@ -980,147 +961,129 @@ onMounted(() => {
                     </div>
 
                     <div v-else>
-                        <!-- Statistics Cards -->
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <!-- Kompaktere Statistics Cards mit weniger Padding -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
                             <!-- Homeoffice Card -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                                <div class="p-5">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 bg-blue-100 dark:bg-blue-900 rounded-md p-3">
-                                            <i class="pi pi-home text-blue-600 dark:text-blue-300 text-xl"></i>
-                                        </div>
-                                        <div class="ml-5 w-0 flex-1">
-                                            <dl>
-                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Homeoffice Tage</dt>
-                                                <dd>
-                                                    <div class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ statistics.homeoffice.total }}</div>
-                                                </dd>
-                                            </dl>
+                            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md overflow-hidden transform transition-all hover:scale-105 hover:shadow-lg">
+                                <div class="p-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
+                                                <i class="pi pi-home text-white text-xl"></i>
+                                            </div>
+                                            <div class="ml-3">
+                                                <dt class="text-xs font-medium text-blue-100">Homeoffice</dt>
+                                                <dd class="text-2xl font-bold text-white">{{ statistics.homeoffice.total }}</dd>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="bg-gray-50 dark:bg-gray-800 px-5 py-3">
-                                    <div class="text-sm">
-                    <span class="font-medium text-blue-700 dark:text-blue-300">
-                      {{ selectedMonth ? `${getMonthName(selectedMonth)} ${selectedYear}` : selectedYear }}
-                    </span>
-                                    </div>
+                                <div class="bg-black/10 px-3 py-1">
+                                    <span class="text-xs font-medium text-white/90">
+                                        {{ selectedMonth ? `${getMonthName(selectedMonth)} ${selectedYear}` : selectedYear }}
+                                    </span>
                                 </div>
                             </div>
 
                             <!-- Abwesenheit Card -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                                <div class="p-5">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 bg-yellow-100 dark:bg-yellow-900 rounded-md p-3">
-                                            <i class="pi pi-calendar-times text-yellow-600 dark:text-yellow-300 text-xl"></i>
-                                        </div>
-                                        <div class="ml-5 w-0 flex-1">
-                                            <dl>
-                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Abwesenheitstage</dt>
-                                                <dd>
-                                                    <div class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ statistics.absence.total }}</div>
-                                                </dd>
-                                            </dl>
+                            <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-md overflow-hidden transform transition-all hover:scale-105 hover:shadow-lg">
+                                <div class="p-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
+                                                <i class="pi pi-calendar-times text-white text-xl"></i>
+                                            </div>
+                                            <div class="ml-3">
+                                                <dt class="text-xs font-medium text-orange-100">Abwesenheit</dt>
+                                                <dd class="text-2xl font-bold text-white">{{ statistics.absence.total }}</dd>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="bg-gray-50 dark:bg-gray-800 px-5 py-3">
-                                    <div class="text-sm">
-                    <span class="font-medium text-yellow-700 dark:text-yellow-300">
-                      {{ selectedYear }}
-                    </span>
-                                    </div>
+                                <div class="bg-black/10 px-3 py-1">
+                                    <span class="text-xs font-medium text-white/90">{{ selectedYear }}</span>
                                 </div>
                             </div>
 
                             <!-- Außendienst Card -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                                <div class="p-5">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 bg-purple-100 dark:bg-purple-900 rounded-md p-3">
-                                            <i class="pi pi-briefcase text-purple-600 dark:text-purple-300 text-xl"></i>
-                                        </div>
-                                        <div class="ml-5 w-0 flex-1">
-                                            <dl>
-                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Außendiensttage</dt>
-                                                <dd>
-                                                    <div class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ statistics.fieldService.total }}</div>
-                                                </dd>
-                                            </dl>
+                            <div class="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-md overflow-hidden transform transition-all hover:scale-105 hover:shadow-lg">
+                                <div class="p-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
+                                                <i class="pi pi-briefcase text-white text-xl"></i>
+                                            </div>
+                                            <div class="ml-3">
+                                                <dt class="text-xs font-medium text-purple-100">Außendienst</dt>
+                                                <dd class="text-2xl font-bold text-white">{{ statistics.fieldService.total }}</dd>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="bg-gray-50 dark:bg-gray-800 px-5 py-3">
-                                    <div class="text-sm">
-                    <span class="font-medium text-purple-700 dark:text-purple-300">
-                      {{ selectedYear }}
-                    </span>
-                                    </div>
+                                <div class="bg-black/10 px-3 py-1">
+                                    <span class="text-xs font-medium text-white/90">{{ selectedYear }}</span>
                                 </div>
                             </div>
 
                             <!-- Urlaub Card -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                                <div class="p-5">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 bg-green-100 dark:bg-green-900 rounded-md p-3">
-                                            <i class="pi pi-calendar-plus text-green-600 dark:text-green-300 text-xl"></i>
-                                        </div>
-                                        <div class="ml-5 w-0 flex-1">
-                                            <dl>
-                                                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">Urlaubstage</dt>
-                                                <dd>
-                                                    <div class="text-lg font-medium text-gray-900 dark:text-gray-100">
-                                                        {{ statistics.vacation.used }} / {{ statistics.vacation.total }}
-                                                    </div>
+                            <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-md overflow-hidden transform transition-all hover:scale-105 hover:shadow-lg">
+                                <div class="p-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
+                                                <i class="pi pi-calendar-plus text-white text-xl"></i>
+                                            </div>
+                                            <div class="ml-3">
+                                                <dt class="text-xs font-medium text-emerald-100">Urlaub</dt>
+                                                <dd class="text-2xl font-bold text-white">
+                                                    {{ statistics.vacation.used }} / {{ statistics.vacation.total }}
                                                 </dd>
-                                            </dl>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="bg-gray-50 dark:bg-gray-800 px-5 py-3">
-                                    <div class="text-sm">
-                    <span class="font-medium text-green-700 dark:text-green-300">
-                      {{ selectedYear }}
-                    </span>
+                                <div class="bg-black/10 px-3 py-1">
+                                    <div class="w-full bg-white/20 rounded-full h-1.5">
+                                        <div
+                                            class="bg-white h-1.5 rounded-full transition-all duration-300"
+                                            :style="{ width: `${(statistics.vacation.used / statistics.vacation.total) * 100}%` }"
+                                        ></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Charts Section -->
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <!-- Kompaktere Charts Section mit reduzierter Höhe -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
                             <!-- Homeoffice Chart -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
-                                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Homeoffice Übersicht</h2>
-                                <Chart type="bar" :data="homeofficeChartData" :options="chartOptions" class="h-80" />
+                            <div class="bg-white dark:bg-gray-700 rounded-xl shadow-md p-3">
+                                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Homeoffice Übersicht</h2>
+                                <Chart type="bar" :data="homeofficeChartData" :options="chartOptions" class="h-48" />
                             </div>
 
                             <!-- Abwesenheit Chart -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
-                                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Abwesenheit Übersicht</h2>
-                                <Chart type="bar" :data="absenceChartData" :options="chartOptions" class="h-80" />
+                            <div class="bg-white dark:bg-gray-700 rounded-xl shadow-md p-3">
+                                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Abwesenheit Übersicht</h2>
+                                <Chart type="bar" :data="absenceChartData" :options="chartOptions" class="h-48" />
                             </div>
 
                             <!-- Außendienst Chart -->
-                            <div class="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
-                                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Außendienst Übersicht</h2>
-                                <Chart type="bar" :data="fieldServiceChartData" :options="chartOptions" class="h-80" />
+                            <div class="bg-white dark:bg-gray-700 rounded-xl shadow-md p-3">
+                                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Außendienst Übersicht</h2>
+                                <Chart type="bar" :data="fieldServiceChartData" :options="chartOptions" class="h-48" />
+                            </div>
+
+                            <!-- Urlaub Chart -->
+                            <div class="bg-white dark:bg-gray-700 rounded-xl shadow-md p-3">
+                                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Urlaub Übersicht</h2>
+                                <Chart type="bar" :data="vacationChartData" :options="chartOptions" class="h-48" />
                             </div>
                         </div>
 
-                        <!-- Urlaub Section -->
-                        <div class="bg-white dark:bg-gray-700 rounded-lg shadow overflow-hidden">
-                            <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
-                                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Urlaubsübersicht</h2>
-
-                                <!-- Toggle für Teamübersicht (nur für Abteilungsleiter und HR) -->
-                                <div v-if="userRole <= 3" class="flex items-center">
-                                    <span class="mr-2 text-sm text-gray-600 dark:text-gray-400">Einzelansicht</span>
-                                    <ToggleSwitch v-model="showTeamOverview" />
-                                    <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Teamübersicht</span>
-                                </div>
+                        <!-- Kompaktere Urlaub Section -->
+                        <div class="bg-white dark:bg-gray-700 rounded-xl shadow-md overflow-hidden">
+                            <div class="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-600 dark:to-gray-700 border-b border-gray-200 dark:border-gray-600">
+                                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Urlaubsübersicht {{ selectedYear }}</h2>
                             </div>
 
                             <!-- Einzelne Urlaubsanträge -->
@@ -1128,10 +1091,10 @@ onMounted(() => {
                                 <DataTable
                                     :value="vacationData"
                                     :paginator="true"
-                                    :rows="5"
+                                    :rows="10"
                                     stripedRows
                                     responsiveLayout="scroll"
-                                    class="p-datatable-sm"
+                                    class="p-datatable-sm text-sm"
                                 >
                                     <Column field="start_date" header="Von" :sortable="true">
                                         <template #body="slotProps">
@@ -1165,10 +1128,10 @@ onMounted(() => {
                                 <DataTable
                                     :value="teamVacationOverview"
                                     :paginator="true"
-                                    :rows="10"
+                                    :rows="15"
                                     stripedRows
                                     responsiveLayout="scroll"
-                                    class="p-datatable-sm"
+                                    class="p-datatable-sm text-sm"
                                 >
                                     <Column field="name" header="Name" :sortable="true"></Column>
                                     <Column field="abteilung" header="Abteilung" :sortable="true" v-if="isHR"></Column>
