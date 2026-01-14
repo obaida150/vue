@@ -737,19 +737,20 @@ const deleteEvent = async () => {
     }
 };
 
-const openWeekPlanDialog = (weekNumber, days) => {
-    openWeekPlanDialogFn(weekNumber, days, getEventsForDay);
-};
-
-const toggleWeekPlanFilter = () => {
-    toggleWeekPlanFilterFn(getEventsForDay);
-};
-
 const handleDayClick = (date) => {
+    console.log('StaffCalendar handleDayClick - date:', date);
+    console.log('StaffCalendar handleDayClick - isHrUser:', isHrUser.value);
+    console.log('StaffCalendar handleDayClick - isTeamManager:', isTeamManager.value);
+    console.log('StaffCalendar handleDayClick - enhancedHasVacations:', enhancedHasVacations(date));
+    console.log('StaffCalendar handleDayClick - isHoliday:', isHoliday(dayjs(date)));
+    console.log('StaffCalendar handleDayClick - isUserAbsent:', isUserAbsent(date));
+
     if (isHoliday(dayjs(date))) {
+        console.log('StaffCalendar handleDayClick - Showing holiday info');
         showHolidayInfo(date);
-    } else if (enhancedHasVacations(date)) {
-        // Wenn der Benutzer an diesem Tag Urlaub hat, zeige eine Meldung an
+    } else if (enhancedHasVacations(date) && !isHrUser.value && !isTeamManager.value) {
+        // Nur normale Benutzer werden blockiert, HR und TeamManager können weiterhin Einträge erstellen
+        console.log('StaffCalendar handleDayClick - Blocked by vacation (normal user)');
         const toastInstance = toast;
         if (toastInstance) {
             toastInstance.add({
@@ -764,6 +765,7 @@ const handleDayClick = (date) => {
     } else if (isUserAbsent(date) && !checkTeamMemberAbsence(date) && !isHrUser.value) {
         // Wenn der Benutzer selbst an diesem Tag als abwesend markiert ist und kein HR-Mitarbeiter ist,
         // zeige eine Meldung an oder blockiere die Aktion
+        console.log('StaffCalendar handleDayClick - Blocked by absence (normal user)');
         const toastInstance = toast;
         if (toastInstance) {
             toastInstance.add({
@@ -776,8 +778,17 @@ const handleDayClick = (date) => {
             alert('Sie sind an diesem Tag als abwesend markiert. Keine Einträge möglich.');
         }
     } else {
+        console.log('StaffCalendar handleDayClick - Opening event dialog');
         openEventDialog(date);
     }
+};
+
+const openWeekPlanDialog = (weekNumber, days) => {
+    openWeekPlanDialogFn(weekNumber, days, getEventsForDay);
+};
+
+const toggleWeekPlanFilter = () => {
+    toggleWeekPlanFilterFn(getEventsForDay);
 };
 
 // Daten neu laden, wenn sich relevante Zustände ändern

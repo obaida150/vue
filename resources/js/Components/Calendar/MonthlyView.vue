@@ -1,31 +1,33 @@
 <template>
     <div class="calendar-container">
-        <div class="grid grid-cols-7 gap-1 mb-1">
+        <!-- Modernized header with better spacing and styling -->
+        <div class="grid grid-cols-7 gap-2 mb-4">
             <div
                 v-for="(day, index) in weekdays"
                 :key="index"
-                class="p-2 text-center font-medium bg-gray-100 dark:bg-gray-800 rounded"
+                class="p-3 text-center font-semibold text-sm bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
             >
                 {{ day }}
             </div>
         </div>
 
-        <div class="grid grid-cols-7 gap-1">
+        <!-- Enhanced calendar grid with better visual hierarchy -->
+        <div class="grid grid-cols-7 gap-2">
             <div
                 v-for="(day, index) in days"
                 :key="index"
                 :class="[
-                    'relative min-h-[100px] p-1 border border-gray-200 dark:border-gray-700 rounded overflow-hidden',
+                    'relative min-h-[120px] max-h-[180px] p-3 rounded-lg border transition-all duration-200 flex flex-col',
                     {
-                        'bg-gray-50 dark:bg-gray-900': day.currentMonth && !isHoliday(dayjs(day.date)) && !hasVacationsForDay(day.date) && !isUserAbsent(day.date),
-                        'bg-gray-100 dark:bg-gray-800': !day.currentMonth,
-                        'border-blue-300 dark:border-blue-700': day.isToday,
-                        'bg-red-50 dark:bg-red-900/20': isHoliday(dayjs(day.date)),
-                        'vacation-day': hasVacationsForDay(day.date),
-                        'bg-amber-50 dark:bg-amber-900/20': isUserAbsent(day.date) && !isTeamManager,
-                        'team-absence-day': isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacationsForDay(day.date) && !showOnlyOwnEvents,
-                        'cursor-pointer': day.currentMonth && !hasVacationsForDay(day.date) && !(isUserAbsent(day.date) && !isTeamManager && !isHrUser),
-                        'cursor-not-allowed': hasVacationsForDay(day.date) || (isUserAbsent(day.date) && !isTeamManager && !isHrUser)
+                        'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-md': day.currentMonth && !isHoliday(dayjs(day.date)) && !hasVacationsForDay(day.date) && !isUserAbsent(day.date),
+                        'bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-600': !day.currentMonth,
+                        'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-200 dark:ring-blue-800': day.isToday,
+                        'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800': isHoliday(dayjs(day.date)),
+                        'vacation-day': hasVacationsForDay(day.date) && !props.isHrUser && !props.isTeamManager,
+                        'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800': isUserAbsent(day.date) && !isTeamManager,
+                        'team-absence-day': isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacationsForDay(day.date),
+                        'cursor-pointer': day.currentMonth && (!hasVacationsForDay(day.date) || props.isHrUser || props.isTeamManager) && !(isUserAbsent(day.date) && !isTeamManager && !isHrUser),
+                        'cursor-not-allowed opacity-60': hasVacationsForDay(day.date) && !props.isHrUser && !props.isTeamManager || (isUserAbsent(day.date) && !isTeamManager && !isHrUser)
                     },
                 ]"
                 @click="handleDayClick(day.date, day.currentMonth)"
@@ -33,11 +35,12 @@
                 <div class="flex justify-between items-start mb-1">
                     <span
                         :class="[
-                            'inline-flex items-center justify-center w-6 h-6 rounded-full text-sm',
+                            'inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold',
                             {
                                 'bg-blue-500 text-white': day.isToday,
-                                'text-gray-400 dark:text-gray-500': !day.currentMonth && !day.isToday,
-                                'font-bold': day.isWeekend || isHoliday(dayjs(day.date)),
+                                'text-slate-400 dark:text-slate-500': !day.currentMonth && !day.isToday,
+                                'text-slate-900 dark:text-slate-100': day.currentMonth && !day.isToday,
+                                'text-slate-600 dark:text-slate-400': day.isWeekend,
                             },
                         ]"
                     >
@@ -46,7 +49,7 @@
 
                     <button
                         v-if="day.weekNumber && index % 7 === 0"
-                        class="text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded px-1"
+                        class="text-xs font-medium bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded px-1.5 py-0.5 transition-colors text-slate-700 dark:text-slate-300"
                         @click.stop="$emit('week-plan', day.weekNumber, getWeekDays(day.date))"
                         title="Wochenplanung"
                     >
@@ -54,108 +57,105 @@
                     </button>
                 </div>
 
-                <div v-if="isHoliday(dayjs(day.date))" class="text-xs text-red-600 dark:text-red-400 mb-1">
-                    {{ getHolidayName(dayjs(day.date)) }}
+                <!-- Holiday indicator -->
+                <div v-if="isHoliday(dayjs(day.date))" class="text-xs font-medium text-red-600 dark:text-red-400 mb-1 flex items-center gap-1">
+                    <i class="pi pi-calendar-times text-sm"></i>
+                    <span class="truncate">{{ getHolidayName(dayjs(day.date)) }}</span>
                 </div>
 
-                <!-- Abwesenheitsanzeige für normale Benutzer -->
-                <div v-if="isUserAbsent(day.date) && !isTeamManager && !isHrUser" class="text-xs text-amber-600 dark:text-amber-400 mb-1">
-                    Als abwesend markiert
-                </div>
-
-                <!-- Urlaubsanzeige -->
-                <div v-if="hasVacationsForDay(day.date)" class="vacation-blocked">
-                    <div class="text-xs text-purple-600 dark:text-purple-400 mb-1">
-                        Urlaub
-                    </div>
-                    <div class="flex flex-col items-center justify-center mt-2 p-2 bg-purple-50/80 dark:bg-purple-900/30 rounded">
-                        <i class="pi pi-ban text-purple-500 dark:text-purple-400 text-lg mb-1"></i>
-                        <div class="text-xs text-purple-600 dark:text-purple-400 text-center">
-                            Urlaub - Keine Einträge möglich
+                <!-- Updated vacation blocked UI -->
+                <div v-if="hasVacationsForDay(day.date) && !props.isHrUser && !props.isTeamManager" class="vacation-blocked">
+                    <div class="flex flex-col items-center justify-center p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                        <i class="pi pi-ban text-purple-500 dark:text-purple-400 text-lg mb-0.5"></i>
+                        <div class="text-xs font-medium text-purple-700 dark:text-purple-300 text-center">
+                            Urlaub
                         </div>
                     </div>
                 </div>
 
-                <!-- Abwesenheitsanzeige für Teammitglieder (nur für Abteilungsleiter in Teamansicht) -->
-                <div v-if="isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacationsForDay(day.date)" class="team-absence-indicator">
-                    <div class="text-xs text-amber-600 dark:text-amber-400 mb-1">
-                        Teammitglied abwesend
-                    </div>
-                    <div class="flex items-center justify-center mt-1 p-1 bg-amber-50/80 dark:bg-amber-900/30 rounded">
-                        <i class="pi pi-user-minus text-amber-500 dark:text-amber-400 text-sm mr-1"></i>
-                        <div class="text-xs text-amber-600 dark:text-amber-400">
-                            Abwesend
-                        </div>
+                <!-- HR vacation indicator -->
+                <div v-else-if="hasVacationsForDay(day.date) && (props.isHrUser || props.isTeamManager)" class="vacation-info mb-1">
+                    <div class="text-xs font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                        <i class="pi pi-calendar text-sm"></i>
+                        Ihr Urlaub
                     </div>
                 </div>
 
-                <!-- Kompakte, moderne Darstellung für alle Ereignisse (wie Abwesenheiten-Style) -->
-                <div v-if="isHrUser && getAllAbsenceEntriesForDay && getAllAbsenceEntriesForDay(day.date).length > 0" class="hr-absence-section mb-2">
-                    <div class="text-xs text-amber-600 dark:text-amber-400 mb-1">
-                        Abwesenheiten ({{ getAllAbsenceEntriesForDay(day.date).length }})
-                    </div>
-                    <div class="space-y-1">
-                        <div
-                            v-for="absence in getAllAbsenceEntriesForDay(day.date).slice(0, 2)"
-                            :key="absence.id"
-                            class="text-xs p-1 bg-amber-50/80 dark:bg-amber-900/30 rounded cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-800/50"
-                            @click.stop="$emit('event-click', absence)"
-                            :title="`${absence.title} - ${absence.employee_name || 'Unbekannt'}`"
-                        >
-                            <div class="flex items-center">
-                                <i class="pi pi-user-minus text-amber-500 dark:text-amber-400 text-xs mr-1"></i>
-                                <span class="font-medium text-amber-700 dark:text-amber-300">
-                                    {{ truncateText(absence.employee_name || 'Unbekannt', 12) }}
-                                </span>
-                            </div>
-                        </div>
-                        <div
-                            v-if="getAllAbsenceEntriesForDay(day.date).length > 2"
-                            class="text-xs text-center p-1 bg-amber-100 dark:bg-amber-800/50 rounded cursor-pointer"
-                            @click.stop="showAllAbsenceEntriesForDay(day.date)"
-                        >
-                            +{{ getAllAbsenceEntriesForDay(day.date).length - 2 }} weitere
-                        </div>
+                <!-- Team absence indicator -->
+                <div v-if="isTeamManager && isUserAbsent(day.date) && !showOnlyOwnEvents && !hasVacationsForDay(day.date)" class="team-absence-indicator mb-1">
+                    <div class="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <i class="pi pi-user-minus text-sm"></i>
+                        <span class="truncate">Teammitglied abwesend</span>
                     </div>
                 </div>
 
-                <!-- Standard-Benutzeransicht mit kompaktem Style und Zeitangaben -->
-                <div v-else-if="day.currentMonth && !hasVacationsForDay(day.date)" class="space-y-1">
+                <!-- Absence indicator for regular users -->
+                <div v-if="isUserAbsent(day.date) && !isTeamManager && !isHrUser" class="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-1">
+                    <i class="pi pi-info-circle text-sm"></i>
+                    <span class="truncate">Abwesend</span>
+                </div>
+
+                <!-- HR absence entries section -->
+                <div v-if="isHrUser && getAllAbsenceEntriesForDay && getAllAbsenceEntriesForDay(day.date).length > 0" class="space-y-0.5 mb-1 flex-1 overflow-hidden">
                     <div
-                        v-for="(event, eventIndex) in getEventsForDay(day.date)"
+                        v-for="(absence, idx) in getAllAbsenceEntriesForDay(day.date).slice(0, 2)"
+                        :key="absence.id"
+                        class="text-xs p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-md cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-800/50 transition-colors border border-amber-200 dark:border-amber-700 truncate"
+                        @click.stop="$emit('event-click', absence)"
+                        :title="`${absence.employee_name || 'Unbekannt'}`"
+                    >
+                        <div class="flex items-center gap-1 min-w-0">
+                            <i class="pi pi-user-minus text-amber-600 dark:text-amber-400 text-xs flex-shrink-0"></i>
+                            <span class="font-semibold text-amber-700 dark:text-amber-300 truncate">
+                                {{ truncateText(absence.employee_name || 'Unbekannt', 12) }}
+                            </span>
+                        </div>
+                    </div>
+                    <!-- Show "and X more" for additional absence entries with click handler -->
+                    <div
+                        v-if="getAllAbsenceEntriesForDay(day.date).length > 2"
+                        class="text-xs text-center p-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-md cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-800/30 transition-colors border border-amber-100 dark:border-amber-800 font-medium text-amber-600 dark:text-amber-400"
+                        @click.stop="showAllAbsenceEntriesForDay(day.date)"
+                    >
+                        +{{ getAllAbsenceEntriesForDay(day.date).length - 2 }}
+                    </div>
+                </div>
+
+                <!-- Events section - Limit to 2 events with "and X more" functionality -->
+                <div v-else-if="day.currentMonth && (!hasVacationsForDay(day.date) || props.isHrUser || props.isTeamManager)" class="space-y-0.5 flex-1 overflow-hidden flex flex-col">
+                    <div
+                        v-for="(event, eventIndex) in getEventsForDay(day.date).slice(0, 2)"
                         :key="eventIndex"
-                        class="text-xs p-1 rounded cursor-pointer hover:brightness-95 transition-all"
-                        :style="{ backgroundColor: event.color + '20' }"
+                        class="text-xs p-1.5 rounded-md cursor-pointer transition-all hover:shadow-sm border-l-3 truncate"
+                        :style="{
+                            backgroundColor: event.color + '15',
+                            borderLeftColor: event.color
+                        }"
                         @click.stop="$emit('event-click', event)"
                         :title="`${event.title} - ${event.employee_name || 'Unbekannt'}`"
                     >
-                        <div class="flex items-center">
-                            <div class="w-2 h-2 rounded-full mr-1" :style="{ backgroundColor: event.color }"></div>
-                            <span class="font-medium" :style="{ color: event.color }">
-                                {{ event.title }}
-                            </span>
+                        <div class="font-semibold truncate" :style="{ color: event.color }">
+                            {{ event.title }}
                         </div>
-                        <div class="pl-3 text-gray-600 dark:text-gray-400">
-                            <div class="text-xs mb-1">
-                                {{ truncateText(event.employee_name || 'Unbekannt', 15) }}
-                            </div>
-                            <template v-if="event.start_time && event.end_time">
-                                von {{ formatTime(event.start_time) }} bis {{ formatTime(event.end_time) }}
-                            </template>
-                            <template v-else-if="event.start_time">
-                                von {{ formatTime(event.start_time) }}
-                            </template>
-                            <template v-else-if="event.end_time">
-                                bis {{ formatTime(event.end_time) }}
-                            </template>
+                        <div class="text-xs text-slate-600 dark:text-slate-400 truncate">
+                            {{ truncateText(event.employee_name || 'Unbekannt', 15) }}
                         </div>
+                    </div>
+
+                    <!-- Show "and X more events" button with popup functionality -->
+                    <div
+                        v-if="getEventsForDay(day.date).length > 2"
+                        class="text-xs text-center p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-colors border border-blue-100 dark:border-blue-800 font-medium text-blue-600 dark:text-blue-400"
+                        @click.stop="showAllEventsForDay(day.date)"
+                    >
+                        +{{ getEventsForDay(day.date).length - 2 }} weitere
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Dialog für alle Ereignisse eines Tages -->
+    <!-- Enhanced dialog for showing all events for a day -->
     <Dialog
         v-model:visible="dayEventsDialogVisible"
         :header="selectedDayHeader"
@@ -163,7 +163,7 @@
         modal
         class="day-events-dialog"
     >
-        <div v-if="selectedDayEvents.length > 0" class="flex flex-col gap-2">
+        <div v-if="selectedDayEvents.length > 0" class="flex flex-col gap-3">
             <div class="mb-2">
                 <InputText
                     v-model="eventSearchQuery"
@@ -177,29 +177,29 @@
                     v-for="type in availableEventTypes"
                     :key="type.id"
                     @click="toggleEventTypeFilter(type.id)"
-                    class="cursor-pointer px-2 py-1 rounded-full text-xs flex items-center gap-1"
-                    :class="selectedEventTypes.includes(type.id) ? 'bg-blue-100 dark:bg-blue-900' : 'bg-gray-100 dark:bg-gray-800'"
+                    class="cursor-pointer px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 transition-all"
+                    :class="selectedEventTypes.includes(type.id) ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'"
                 >
                     <div class="w-2 h-2 rounded-full" :style="{ backgroundColor: type.color }"></div>
                     <span>{{ type.name }}</span>
                 </div>
             </div>
 
-            <div class="max-h-[60vh] overflow-y-auto pr-2">
+            <div class="max-h-[60vh] overflow-y-auto pr-2 space-y-2">
                 <div
                     v-for="event in filteredDayEvents"
                     :key="event.id"
-                    class="p-3 mb-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                    class="p-3 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 transition-all hover:shadow-md"
                     @click="openEventDetails(event)"
                 >
                     <div class="flex items-center gap-2 mb-1">
                         <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: event.color }"></div>
-                        <span class="font-medium">{{ event.type ? event.type.name : 'Ereignis' }}</span>
+                        <span class="font-semibold text-sm">{{ event.type ? event.type.name : 'Ereignis' }}</span>
                     </div>
 
-                    <div class="text-lg font-medium mb-1">{{ event.title }}</div>
+                    <div class="text-base font-bold mb-2 text-slate-900 dark:text-slate-100">{{ event.title }}</div>
 
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-gray-600 dark:text-gray-400">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                         <div class="flex items-center gap-1">
                             <i class="pi pi-user text-xs"></i>
                             <span>{{ event.employee_name || 'Unbekannt' }}</span>
@@ -215,8 +215,8 @@
         </div>
 
         <div v-else class="text-center py-8">
-            <i class="pi pi-calendar text-4xl text-gray-300 dark:text-gray-600 mb-3"></i>
-            <p class="text-gray-500 dark:text-gray-400">Keine Ereignisse an diesem Tag</p>
+            <i class="pi pi-calendar text-5xl text-slate-300 dark:text-slate-600 mb-3"></i>
+            <p class="text-slate-500 dark:text-slate-400 font-medium">Keine Ereignisse an diesem Tag</p>
         </div>
 
         <template #footer>
@@ -233,6 +233,7 @@ import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 dayjs.extend(customParseFormat)
+
 const props = defineProps({
     currentDate: {
         type: Object,
@@ -500,7 +501,7 @@ const getWeekDays = (date) => {
 const handleDayClick = (date, isCurrentMonth) => {
     if (!isCurrentMonth) return;
 
-    if (hasVacationsForDay(date)) {
+    if (hasVacationsForDay(date) && !props.isHrUser && !props.isTeamManager) {
         const toast = document.querySelector('.p-toast') ?
             document.querySelector('.p-toast').__vueParentComponent.ctx.add : null;
 
@@ -618,6 +619,7 @@ const closeDayEventsDialog = () => {
     display: flex;
     flex-direction: column;
     height: 100%;
+    justify-content: center;
 }
 
 .vacation-day {
@@ -625,15 +627,15 @@ const closeDayEventsDialog = () => {
 }
 
 :deep(.dark) .vacation-day {
-    background-color: rgba(156, 39, 176, 0.2) !important;
+    background-color: rgba(156, 39, 176, 0.15) !important;
 }
 
 .team-absence-day {
-    background-color: rgba(251, 191, 36, 0.3) !important;
+    background-color: rgba(251, 191, 36, 0.08) !important;
 }
 
 :deep(.dark) .team-absence-day {
-    background-color: rgba(251, 191, 36, 0.4) !important;
+    background-color: rgba(251, 191, 36, 0.1) !important;
 }
 
 .team-absence-indicator {
@@ -647,10 +649,16 @@ const closeDayEventsDialog = () => {
 }
 
 .hr-absence-indicator .cursor-pointer:hover {
-    background-color: rgba(245, 158, 11, 0.2) !important;
+    background-color: rgba(245, 158, 11, 0.1) !important;
+}
+
+.vacation-info {
+    padding: 0.25rem;
+    border-left: 3px solid rgb(156, 39, 176);
+    padding-left: 0.5rem;
 }
 
 :deep(.dark) .hr-absence-indicator .cursor-pointer:hover {
-    background-color: rgba(245, 158, 11, 0.3) !important;
+    background-color: rgba(245, 158, 11, 0.15) !important;
 }
 </style>
