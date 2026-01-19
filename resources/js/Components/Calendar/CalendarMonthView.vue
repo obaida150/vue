@@ -26,8 +26,8 @@
                     class="flex border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                     <div class="w-[200px] min-w-[200px] p-2 flex items-center gap-3">
-                        <div 
-                            class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" 
+                        <div
+                            class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
                             :style="{ backgroundColor: getInitialsColor(employee.name) }"
                         >
                             {{ getInitials(employee.name) }}
@@ -70,8 +70,8 @@
                 class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm"
             >
                 <div class="p-3 bg-gray-100 dark:bg-gray-800 flex items-center gap-3">
-                    <div 
-                        class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm" 
+                    <div
+                        class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
                         :style="{ backgroundColor: getInitialsColor(employee.name) }"
                     >
                         {{ getInitials(employee.name) }}

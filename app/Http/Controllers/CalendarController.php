@@ -152,6 +152,16 @@ class CalendarController extends Controller
                 ];
             }
 
+            // Urlaubs-Eventtyp hinzufügen, falls noch nicht vorhanden
+            $hasVacationType = collect($eventTypes)->contains('value', 'vacation');
+            if (!$hasVacationType) {
+                $eventTypes[] = [
+                    'name' => 'Urlaub',
+                    'value' => 'vacation',
+                    'color' => '#9C27B0'
+                ];
+            }
+
             // Urlaubsanträge laden
             try {
                 $vacationRequests = VacationRequest::with(['user', 'user.currentTeam'])
@@ -179,6 +189,7 @@ class CalendarController extends Controller
                             'start_date' => $request->start_date->format('Y-m-d'),
                             'end_date' => $request->end_date->format('Y-m-d'),
                             'work_days' => $workDays, // Liste der tatsächlichen Arbeitstage
+                            'day_type' => $request->day_type, // Hinzufügen des day_type
                             'days' => $request->days,
                             'notes' => $request->notes,
                             'status' => $request->status,
@@ -189,9 +200,12 @@ class CalendarController extends Controller
 
                 // Für jeden Urlaubsantrag die Werktage berechnen und als separate Ereignisse hinzufügen
                 foreach ($vacationRequests as $request) {
-                    // Finde den entsprechenden Mitarbeiter
-                    $employee = $mappedEmployees->firstWhere('id', $request['user_id']);
-                    if ($employee) {
+                    // Finde den Index des entsprechenden Mitarbeiters
+                    $employeeIndex = $mappedEmployees->search(function ($item) use ($request) {
+                        return $item['id'] === $request['user_id'];
+                    });
+
+                    if ($employeeIndex !== false) {
                         foreach ($request['work_days'] as $workDay) {
                             $vacationName = 'Urlaub';
                             if (isset($request['day_type']) && $request['day_type'] === 'morning') {
@@ -199,6 +213,9 @@ class CalendarController extends Controller
                             } elseif (isset($request['day_type']) && $request['day_type'] === 'afternoon') {
                                 $vacationName = 'Nachmittag';
                             }
+
+                            // Nutze put() um den Mitarbeiter zu aktualisieren
+                            $employee = $mappedEmployees[$employeeIndex];
                             $employee['events'][] = [
                                 'date' => $workDay,
                                 'start_date' => $workDay,
@@ -210,6 +227,7 @@ class CalendarController extends Controller
                                 ],
                                 'notes' => $request['notes'] ?: 'Genehmigter Urlaub'
                             ];
+                            $mappedEmployees[$employeeIndex] = $employee;
                         }
                     }
                 }
@@ -294,67 +312,67 @@ class CalendarController extends Controller
     /**
      * Get all active employees
      */
-public function getEmployees()
-{
-    try {
-        $user = Auth::user();
+    public function getEmployees()
+    {
+        try {
+            $user = Auth::user();
 
-        if (!$user) {
-            return response()->json(['error' => 'User not authenticated'], 401);
+            if (!$user) {
+                return response()->json(['error' => 'User not authenticated'], 401);
+            }
+
+            // Prüfen, ob der Benutzer eine HR-Rolle hat (role_id = 1 oder 2)
+            $isHR = $user->role_id === 1 || $user->role_id === 2;
+
+            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
+            $isTeamManager = false;
+            $teamId = null;
+
+            if ($user->currentTeam) {
+                $teamId = $user->currentTeam->id;
+                $teamUserRole = DB::table('team_user')
+                    ->where('team_id', $teamId)
+                    ->where('user_id', $user->id)
+                    ->first();
+
+                $isTeamManager = $teamUserRole && $teamUserRole->role === 'Abteilungsleiter';
+            }
+
+            // Wenn weder HR noch Abteilungsleiter, Zugriff verweigern
+            if (!$isHR && !$isTeamManager) {
+                Log::warning('Unauthorized access to getEmployees', [
+                    'user_id' => $user->id,
+                    'role_id' => $user->role_id,
+                    'isHR' => $isHR,
+                    'isTeamManager' => $isTeamManager
+                ]);
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            // Mitarbeiter laden basierend auf der Rolle
+            $query = User::where('is_active', true);
+
+            // Wenn Abteilungsleiter (und nicht HR), nur das eigene Team
+            if ($isTeamManager && !$isHR) {
+                $query->where('current_team_id', $teamId);
+            }
+
+            $employees = $query->select('id', 'first_name', 'last_name', 'current_team_id')
+                ->get()
+                ->map(function ($emp) {
+                    return [
+                        'id' => $emp->id,
+                        'name' => $emp->first_name . ' ' . $emp->last_name,
+                        'team_id' => $emp->current_team_id
+                    ];
+                });
+
+            return response()->json($employees);
+        } catch (\Exception $e) {
+            Log::error('Fehler beim Abrufen der Mitarbeiterliste: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
         }
-
-        // Prüfen, ob der Benutzer eine HR-Rolle hat (role_id = 1 oder 2)
-        $isHR = $user->role_id === 1 || $user->role_id === 2;
-
-        // Prüfen, ob der Benutzer ein Abteilungsleiter ist
-        $isTeamManager = false;
-        $teamId = null;
-
-        if ($user->currentTeam) {
-            $teamId = $user->currentTeam->id;
-            $teamUserRole = DB::table('team_user')
-                ->where('team_id', $teamId)
-                ->where('user_id', $user->id)
-                ->first();
-
-            $isTeamManager = $teamUserRole && $teamUserRole->role === 'Abteilungsleiter';
-        }
-
-        // Wenn weder HR noch Abteilungsleiter, Zugriff verweigern
-        if (!$isHR && !$isTeamManager) {
-            Log::warning('Unauthorized access to getEmployees', [
-                'user_id' => $user->id,
-                'role_id' => $user->role_id,
-                'isHR' => $isHR,
-                'isTeamManager' => $isTeamManager
-            ]);
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
-        // Mitarbeiter laden basierend auf der Rolle
-        $query = User::where('is_active', true);
-
-        // Wenn Abteilungsleiter (und nicht HR), nur das eigene Team
-        if ($isTeamManager && !$isHR) {
-            $query->where('current_team_id', $teamId);
-        }
-
-        $employees = $query->select('id', 'first_name', 'last_name', 'current_team_id')
-            ->get()
-            ->map(function ($emp) {
-                return [
-                    'id' => $emp->id,
-                    'name' => $emp->first_name . ' ' . $emp->last_name,
-                    'team_id' => $emp->current_team_id
-                ];
-            });
-
-        return response()->json($employees);
-    } catch (\Exception $e) {
-        Log::error('Fehler beim Abrufen der Mitarbeiterliste: ' . $e->getMessage());
-        return response()->json(['error' => $e->getMessage()], 500);
     }
-}
 
     /**
      * Get all vacation requests for calendar display

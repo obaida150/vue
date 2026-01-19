@@ -77,7 +77,7 @@
                 <div v-else-if="hasVacationsForDay(day.date) && (props.isHrUser || props.isTeamManager)" class="vacation-info mb-1">
                     <div class="text-xs font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1">
                         <i class="pi pi-calendar text-sm"></i>
-                        Ihr Urlaub
+                        Mein Urlaub
                     </div>
                 </div>
 
@@ -90,41 +90,15 @@
                 </div>
 
                 <!-- Absence indicator for regular users -->
-                <div v-if="isUserAbsent(day.date) && !isTeamManager && !isHrUser" class="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-1">
+                <div v-if="isUserAbsent(day.date) && !isTeamManager && !props.isHrUser" class="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-1">
                     <i class="pi pi-info-circle text-sm"></i>
                     <span class="truncate">Abwesend</span>
                 </div>
 
-                <!-- HR absence entries section -->
-                <div v-if="isHrUser && getAllAbsenceEntriesForDay && getAllAbsenceEntriesForDay(day.date).length > 0" class="space-y-0.5 mb-1 flex-1 overflow-hidden">
+                <!-- Unified events section - combines both regular events and absence entries -->
+                <div v-if="day.currentMonth && (!hasVacationsForDay(day.date) || props.isHrUser || props.isTeamManager)" class="space-y-0.5 flex-1 overflow-hidden flex flex-col">
                     <div
-                        v-for="(absence, idx) in getAllAbsenceEntriesForDay(day.date).slice(0, 2)"
-                        :key="absence.id"
-                        class="text-xs p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-md cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-800/50 transition-colors border border-amber-200 dark:border-amber-700 truncate"
-                        @click.stop="$emit('event-click', absence)"
-                        :title="`${absence.employee_name || 'Unbekannt'}`"
-                    >
-                        <div class="flex items-center gap-1 min-w-0">
-                            <i class="pi pi-user-minus text-amber-600 dark:text-amber-400 text-xs flex-shrink-0"></i>
-                            <span class="font-semibold text-amber-700 dark:text-amber-300 truncate">
-                                {{ truncateText(absence.employee_name || 'Unbekannt', 12) }}
-                            </span>
-                        </div>
-                    </div>
-                    <!-- Show "and X more" for additional absence entries with click handler -->
-                    <div
-                        v-if="getAllAbsenceEntriesForDay(day.date).length > 2"
-                        class="text-xs text-center p-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-md cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-800/30 transition-colors border border-amber-100 dark:border-amber-800 font-medium text-amber-600 dark:text-amber-400"
-                        @click.stop="showAllAbsenceEntriesForDay(day.date)"
-                    >
-                        +{{ getAllAbsenceEntriesForDay(day.date).length - 2 }}
-                    </div>
-                </div>
-
-                <!-- Events section - Limit to 2 events with "and X more" functionality -->
-                <div v-else-if="day.currentMonth && (!hasVacationsForDay(day.date) || props.isHrUser || props.isTeamManager)" class="space-y-0.5 flex-1 overflow-hidden flex flex-col">
-                    <div
-                        v-for="(event, eventIndex) in getEventsForDay(day.date).slice(0, 2)"
+                        v-for="(event, eventIndex) in getCombinedEventsForDay(day.date).slice(0, 2)"
                         :key="eventIndex"
                         class="text-xs p-1.5 rounded-md cursor-pointer transition-all hover:shadow-sm border-l-3 truncate"
                         :style="{
@@ -144,11 +118,11 @@
 
                     <!-- Show "and X more events" button with popup functionality -->
                     <div
-                        v-if="getEventsForDay(day.date).length > 2"
+                        v-if="getCombinedEventsForDay(day.date).length > 2"
                         class="text-xs text-center p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-colors border border-blue-100 dark:border-blue-800 font-medium text-blue-600 dark:text-blue-400"
                         @click.stop="showAllEventsForDay(day.date)"
                     >
-                        +{{ getEventsForDay(day.date).length - 2 }} weitere
+                        +{{ getCombinedEventsForDay(day.date).length - 2 }} weitere
                     </div>
                 </div>
             </div>
@@ -326,6 +300,11 @@ const selectedDayEvents = ref([]);
 const selectedDayDate = ref(null);
 const eventSearchQuery = ref('');
 const selectedEventTypes = ref([]);
+
+const getCombinedEventsForDay = (date) => {
+    const regularEvents = props.getEventsForDay(date);
+    return regularEvents;
+};
 
 const hasVacationsForDay = (date) => {
     if (!date || !props.currentUserId) {
@@ -540,7 +519,7 @@ const handleDayClick = (date, isCurrentMonth) => {
 
 const showAllEventsForDay = (date) => {
     selectedDayDate.value = date;
-    selectedDayEvents.value = props.getEventsForDay(date);
+    selectedDayEvents.value = getCombinedEventsForDay(date);
     selectedEventTypes.value = [];
     eventSearchQuery.value = '';
     dayEventsDialogVisible.value = true;
