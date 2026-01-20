@@ -1,140 +1,142 @@
 <template>
-    <div class="w-full overflow-x-auto p-4 rounded-lg shadow-md transition-all duration-300 bg-gradient-to-br from-white via-gray-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 text-gray-800 dark:text-gray-100">
+    <!-- Calendar Header -->
+    <div class="w-full overflow-visible p-4 rounded-lg shadow-md transition-all duration-300 bg-gradient-to-br from-white via-gray-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 text-gray-800 dark:text-gray-100">
         <!-- Calendar Header -->
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
-            <div class="flex items-center gap-3">
-                <button @click="previousPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                </button>
-                <h2 class="text-xl font-bold capitalize m-0 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
-                    <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
-                    <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
-                </h2>
-                <button @click="nextPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </button>
-            </div>
-            <div class="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm">
-                <button
-                    v-for="view in ['day', 'week', 'month']"
-                    :key="view"
-                    :class="[
-                        'px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
-                        calendarView === view
-                            ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-md'
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    ]"
-                    @click="setCalendarView(view)"
-                >
-                    {{ view === 'day' ? 'Tag' : view === 'week' ? 'Woche' : 'Monat' }}
-                </button>
-            </div>
-        </div>
-
-        <!-- Filter Controls -->
-        <div class="mb-3">
-            <div class="flex flex-col md:flex-row justify-between items-center w-full gap-2">
-                <div class="w-full md:flex-1 relative">
-                    <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    </div>
-                    <input
-                        v-model="searchQuery"
-                        type="text"
-                        placeholder="Mitarbeiter suchen..."
-                        class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                    />
+        <div class="sticky top-0 z-50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-3">
+                <div class="flex items-center gap-3">
+                    <button @click="previousPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <h2 class="text-xl font-bold capitalize m-0 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
+                        <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
+                        <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
+                    </h2>
+                    <button @click="nextPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
                 </div>
-                <div class="w-full md:flex-1 relative">
-                    <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                    </div>
-                    <select
-                        v-model="selectedDepartmentFilter"
-                        class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                <div class="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm">
+                    <button
+                        v-for="view in ['day', 'week', 'month']"
+                        :key="view"
+                        :class="[
+                'px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
+                calendarView === view
+                    ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-md'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+            ]"
+                        @click="setCalendarView(view)"
                     >
-                        <option value="">Alle Abteilungen</option>
-                        <option v-for="dept in availableDepartments" :key="dept.name" :value="dept.name">
-                            {{ dept.name }}
-                        </option>
-                    </select>
-                </div>
-                <div class="w-full md:flex-1 relative">
-                    <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                    </div>
-                    <select
-                        v-model="selectedEventTypeFilter"
-                        class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                    >
-                        <option value="">Alle Status</option>
-                        <option v-for="eventType in eventTypes" :key="eventType.value" :value="eventType.value">
-                            {{ eventType.name }}
-                        </option>
-                    </select>
+                        {{ view === 'day' ? 'Tag' : view === 'week' ? 'Woche' : 'Monat' }}
+                    </button>
                 </div>
             </div>
-        </div>
 
-        <!-- Summary Cards -->
-        <div class="flex flex-col gap-3 mb-4">
-            <!-- Department Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                <div
-                    v-for="department in departmentSummary"
-                    :key="department.name"
-                    @click="toggleDepartmentFilter(department.name)"
-                    class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                    :class="selectedDepartmentFilter === department.name
-                        ? 'ring-2 ring-blue-500 ring-offset-2 shadow-md'
-                        : 'hover:border-blue-300'"
-                >
+            <!-- Filter Controls -->
+            <div class="sticky top-16 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 p-4">
+                <div class="flex flex-col md:flex-row justify-between items-center w-full gap-2">
+                    <div class="w-full md:flex-1 relative">
+                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </div>
+                        <input
+                            v-model="searchQuery"
+                            type="text"
+                            placeholder="Mitarbeiter suchen..."
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                        />
+                    </div>
+                    <div class="w-full md:flex-1 relative">
+                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                        </div>
+                        <select
+                            v-model="selectedDepartmentFilter"
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                        >
+                            <option value="">Alle Abteilungen</option>
+                            <option v-for="dept in availableDepartments" :key="dept.name" :value="dept.name">
+                                {{ dept.name }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="w-full md:flex-1 relative">
+                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        </div>
+                        <select
+                            v-model="selectedEventTypeFilter"
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                        >
+                            <option value="">Alle Status</option>
+                            <option v-for="eventType in eventTypes" :key="eventType.value" :value="eventType.value">
+                                {{ eventType.name }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="sticky top-40 z-30 flex flex-col gap-3 mb-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md p-4 border-b border-gray-200 dark:border-gray-700">
+                <!-- Department Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                     <div
-                        v-if="selectedDepartmentFilter === department.name"
-                        class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md"
+                        v-for="department in departmentSummary"
+                        :key="department.name"
+                        @click="toggleDepartmentFilter(department.name)"
+                        class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                        :class="selectedDepartmentFilter === department.name
+                ? 'ring-2 ring-blue-500 ring-offset-2 shadow-md'
+                : 'hover:border-blue-300'"
                     >
-                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
+                        <div
+                            v-if="selectedDepartmentFilter === department.name"
+                            class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md"
+                        >
+                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </div>
+                        <div class="font-semibold text-sm mb-1">{{ department.name }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ department.count }} MA</div>
                     </div>
-                    <div class="font-semibold text-sm mb-1">{{ department.name }}</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ department.count }} MA</div>
                 </div>
-            </div>
 
-            <!-- Status Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                <div
-                    v-for="status in statusSummary"
-                    :key="status.type.value"
-                    @click="toggleEventTypeFilter(status.type.value)"
-                    class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                    :class="selectedEventTypeFilter === status.type.value
-                        ? 'ring-2 ring-offset-2 shadow-md'
-                        : 'hover:border-gray-300'"
-                    :style="{
-                        borderLeftWidth: '4px',
-                        borderLeftColor: status.type.color,
-                        '--tw-ring-color': status.type.color
-                    }"
-                >
+                <!-- Status Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                     <div
-                        v-if="selectedEventTypeFilter === status.type.value"
-                        class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center shadow-md"
-                        :style="{ backgroundColor: status.type.color }"
+                        v-for="status in statusSummary"
+                        :key="status.type.value"
+                        @click="toggleEventTypeFilter(status.type.value)"
+                        class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                        :class="selectedEventTypeFilter === status.type.value
+                ? 'ring-2 ring-offset-2 shadow-md'
+                : 'hover:border-gray-300'"
+                        :style="{
+                borderLeftWidth: '4px',
+                borderLeftColor: status.type.color,
+                '--tw-ring-color': status.type.color
+            }"
                     >
-                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
+                        <div
+                            v-if="selectedEventTypeFilter === status.type.value"
+                            class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center shadow-md"
+                            :style="{ backgroundColor: status.type.color }"
+                        >
+                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </div>
+                        <div class="w-5 h-5 rounded-full mb-1.5" :style="{ backgroundColor: status.type.color }"></div>
+                        <div class="font-semibold text-sm mb-1">{{ status.type.name }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ status.count }} MA</div>
                     </div>
-                    <div class="w-5 h-5 rounded-full mb-1.5" :style="{ backgroundColor: status.type.color }"></div>
-                    <div class="font-semibold text-sm mb-1">{{ status.type.name }}</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ status.count }} MA</div>
                 </div>
             </div>
         </div>
-
         <!-- View Components -->
         <CalendarDayView
             v-if="calendarView === 'day'"
@@ -151,8 +153,8 @@
 
         <!-- Enhanced Week View with Compact User Display -->
         <div v-else-if="calendarView === 'week'" class="overflow-x-auto">
-            <table class="w-full border-collapse min-w-[800px]">
-                <thead>
+            <table class= "w-full border-collapse min-w-[800px]">
+                <thead class="sticky top-0 z-40">
                 <tr>
                     <th class="p-2 text-left font-semibold text-sm border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 sticky left-0 z-10">
                         Tag

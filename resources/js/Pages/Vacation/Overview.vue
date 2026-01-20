@@ -177,8 +177,8 @@
 
                             <div class="p-6 flex-1 flex flex-col">
                                 <DataTable
-                                    :value="myVacationRequests"
-                                    :paginator="myVacationRequests.length > 10"
+                                    :value="filteredVacationRequests"
+                                    :paginator="filteredVacationRequests.length > 10"
                                     :rows="10"
                                     :rowsPerPageOptions="[5, 10, 20]"
                                     dataKey="id"
@@ -191,9 +191,17 @@
                                     :globalFilterFields="['startDate', 'endDate', 'status', 'approvedBy', 'rejectedBy']"
                                 >
                                     <template #header>
-                                        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 bg-white dark:bg-gray-700/50 rounded-lg">
                                             <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">Meine Urlaubsanträge</h3>
-                                            <div class="flex items-center gap-3">
+                                            <div class="flex flex-col sm:flex-row items-center gap-3">
+                                                <Select
+                                                    v-model="selectedRequestYear"
+                                                    :options="vacationRequestYears"
+                                                    optionLabel="name"
+                                                    optionValue="value"
+                                                    placeholder="Jahr auswählen"
+                                                    class="sm:w-32 dark:bg-gray-700 dark:border-gray-600"
+                                                />
                                                 <span class="p-input-icon-left">
                                                     <i class="pi pi-search text-gray-400" />
                                                     <InputText
@@ -488,6 +496,10 @@ const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
 })
 
+// Jahres-Filter für Urlaubsanträge
+const selectedRequestYear = ref(new Date().getFullYear())
+const vacationRequestYears = ref([])
+
 // Für die Urlaubsstatistik
 const selectedStatYear = ref(new Date().getFullYear())
 const availableYears = ref([])
@@ -558,6 +570,14 @@ const vacationUsagePercentage = computed(() => {
     // Stellen Sie sicher, dass wir nicht durch Null teilen und begrenzen Sie den Prozentsatz auf maximal 100%
     if (totalAvailable <= 0) return 0
     return Math.min(Math.round((used / totalAvailable) * 100), 100)
+})
+
+// Gefilterte Urlaubsanträge nach ausgewähltem Jahr
+const filteredVacationRequests = computed(() => {
+    return myVacationRequests.value.filter(request => {
+        const requestYear = dayjs(request.startDate).year()
+        return requestYear === selectedRequestYear.value
+    })
 })
 
 // Urlaubsanträge
@@ -797,12 +817,34 @@ const fetchVacationData = async () => {
             yearlyStats.value = response.data.yearlyStats[selectedStatYear.value] || yearlyStats.value
         }
 
-        if (response.data.monthlyStats) {
-            const monthlyData = response.data.monthlyStats[selectedStatYear.value] || Array(12).fill(0)
-            monthlyChartData.value.datasets[0].data = monthlyData
-        }
+        // Sicherstellen, dass yearlyStats/details für das ausgewählte Jahr vorhanden sind bevor verwendet wird
+        if (
+            response.data.yearlyStats &&
+            response.data.yearlyStats[selectedStatYear.value] &&
+            Array.isArray(response.data.yearlyStats[selectedStatYear.value].details)
+        ) {
+            const monthlyData = Array(12).fill(0)
 
-        // updateCalendarEvents(); // Wird jetzt durch den Watcher ausgelöst
+            response.data.yearlyStats[selectedStatYear.value].details.forEach((detail) => {
+                if (detail.status === "approved") {
+                    const periodParts = (detail.period || "").split(" - ")
+                    if (periodParts.length === 2) {
+                        const startDateParts = periodParts[0].split(".")
+                        if (startDateParts.length === 3) {
+                            const month = parseInt(startDateParts[1], 10) - 1
+                            const daysToAdd = Number(detail.actualDays ?? detail.days ?? 0)
+                            if (!Number.isNaN(month) && month >= 0 && month < 12) {
+                                monthlyData[month] += daysToAdd
+                            }
+                        }
+                    }
+                }
+            })
+            monthlyChartData.value.datasets[0].data = monthlyData
+        } else if (response.data.monthlyStats && Array.isArray(response.data.monthlyStats)) {
+            // Fallback: falls die API bereits aggregierte monthlyStats liefert
+            monthlyChartData.value.datasets[0].data = response.data.monthlyStats.slice(0, 12)
+        }
     } catch (error) {
         console.error("Fehler beim Laden der Urlaubsdaten:", error)
         toast.add({
@@ -853,6 +895,10 @@ const updateYearlyStats = async () => {
     }
 }
 
+const updateMonthlyChart = () => {
+    // Implementierung der updateMonthlyChart Funktion
+}
+
 let toast
 try {
     toast = useToast()
@@ -886,14 +932,38 @@ onMounted(() => {
     const currentYear = new Date().getFullYear()
     for (let year = currentYear - 5; year <= currentYear; year++) {
         availableYears.value.push({ name: year.toString(), value: year })
+        vacationRequestYears.value.push({ name: year.toString(), value: year })
     }
     selectedStatYear.value = currentYear
+    selectedRequestYear.value = currentYear
 })
 
 // Watch for changes in vacation requests or holidays to update the calendar
 watch([myVacationRequests, holidays], () => {
     updateCalendarEvents();
+
+    // Aktualisiere verfügbare Jahre basierend auf den Urlaubsanträgen
+const yearsInRequests = new Set()
+myVacationRequests.value.forEach(request => {
+    const year = dayjs(request.startDate).year()
+    yearsInRequests.add(year)
+})
+
+    // Stelle sicher, dass das aktuelle Jahr immer vorhanden ist
+    const currentYear = new Date().getFullYear()
+    yearsInRequests.add(currentYear)
+
+    // Sortiere und aktualisiere die verfügbaren Jahre
+    vacationRequestYears.value = Array.from(yearsInRequests)
+        .sort((a, b) => b - a)
+        .map(year => ({ name: year.toString(), value: year }))
 }, { deep: true }); // Deep watch for array content changes
+
+// Watcher für Jahresauswahl der Statistik
+watch(() => selectedStatYear.value, () => {
+    updateYearlyStats()
+    updateMonthlyChart()
+})
 
 watch(selectedStatYear, (newYear) => {
     updateYearlyStats()
