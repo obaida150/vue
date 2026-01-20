@@ -56,14 +56,6 @@ return new class extends Migration
                 'updated_at' => now()
             ],
             [
-                'name' => 'Urlaub',
-                'color' => '#9C27B0',
-                'description' => 'Genehmigter Urlaub',
-                'requires_approval' => true,
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
                 'name' => 'Sonstiges',
                 'color' => '#607D8B',
                 'description' => 'Sonstige Ereignisse',

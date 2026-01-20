@@ -80,49 +80,96 @@ const allVacationRequests = ref([]);
 const allEmployees = ref([]);
 
 const homeofficeChartData = computed(() => {
-    const labels = selectedMonth.value
-        ? Array.from({ length: getDaysInMonth(selectedYear.value, selectedMonth.value) }, (_, i) => i + 1)
-        : months.value.map(m => m.name);
+    if (selectedMonth.value) {
+        const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
+        const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-    return {
-        labels,
-        datasets: [
-            {
-                label: 'Homeoffice Tage',
-                backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                borderColor: 'rgb(59, 130, 246)',
-                data: statistics.value.homeoffice.monthly
-            }
-        ]
-    };
+        return {
+            labels,
+            datasets: [
+                {
+                    label: 'Homeoffice Tage',
+                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    data: statistics.value.homeoffice.monthly
+                }
+            ]
+        };
+    } else {
+        return {
+            labels: months.value.filter(m => m.value !== null).map(m => m.name),
+            datasets: [
+                {
+                    label: 'Homeoffice Tage',
+                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    data: statistics.value.homeoffice.monthly
+                }
+            ]
+        };
+    }
 });
 
 const absenceChartData = computed(() => {
-    return {
-        labels: months.value.map(m => m.name),
-        datasets: [
-            {
-                label: 'Abwesenheitstage',
-                backgroundColor: 'rgba(245, 158, 11, 0.5)',
-                borderColor: 'rgb(245, 158, 11)',
-                data: statistics.value.absence.monthly
-            }
-        ]
-    };
+    if (selectedMonth.value) {
+        const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
+        const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+        return {
+            labels,
+            datasets: [
+                {
+                    label: 'Abwesenheitstage',
+                    backgroundColor: 'rgba(245, 158, 11, 0.5)',
+                    borderColor: 'rgb(245, 158, 11)',
+                    data: statistics.value.absence.monthly
+                }
+            ]
+        };
+    } else {
+        return {
+            labels: months.value.filter(m => m.value !== null).map(m => m.name),
+            datasets: [
+                {
+                    label: 'Abwesenheitstage',
+                    backgroundColor: 'rgba(245, 158, 11, 0.5)',
+                    borderColor: 'rgb(245, 158, 11)',
+                    data: statistics.value.absence.monthly
+                }
+            ]
+        };
+    }
 });
 
 const fieldServiceChartData = computed(() => {
-    return {
-        labels: months.value.map(m => m.name),
-        datasets: [
-            {
-                label: 'Außendiensttage',
-                backgroundColor: 'rgba(139, 92, 246, 0.5)',
-                borderColor: 'rgb(139, 92, 246)',
-                data: statistics.value.fieldService.monthly
-            }
-        ]
-    };
+    if (selectedMonth.value) {
+        const daysInMonth = getDaysInMonth(selectedYear.value, selectedMonth.value);
+        const labels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+        return {
+            labels,
+            datasets: [
+                {
+                    label: 'Außendiensttage',
+                    backgroundColor: 'rgba(139, 92, 246, 0.5)',
+                    borderColor: 'rgb(139, 92, 246)',
+                    data: statistics.value.fieldService.monthly
+                }
+            ]
+        };
+    } else {
+        return {
+            labels: months.value.filter(m => m.value !== null).map(m => m.name),
+            datasets: [
+                {
+                    label: 'Außendiensttage',
+                    backgroundColor: 'rgba(139, 92, 246, 0.5)',
+                    borderColor: 'rgb(139, 92, 246)',
+                    data: statistics.value.fieldService.monthly
+                }
+            ]
+        };
+    }
 });
 
 const chartOptions = {
@@ -155,7 +202,10 @@ function getDaysInMonth(year, month) {
 
 function formatDate(dateString) {
     const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE');
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
 }
 
 function getStatusSeverity(status) {
@@ -470,23 +520,21 @@ async function loadEmployeeData() {
 async function loadVacationData() {
     try {
         const isCurrentUser = selectedEmployee.value.id === currentUser.value.id;
+        let requests = [];
 
         if (isCurrentUser) {
             const response = await axios.get(`/api/vacation/yearly/${selectedYear.value}`);
             const vacationStats = response.data.stats;
 
             statistics.value.vacation.total = vacationStats.totalEntitlement;
-            statistics.value.vacation.used = vacationStats.used;
-        } else {
-            const totalEntitlement = 30;
 
+            const userResponse = await axios.get('/api/vacation/user');
+            requests = userResponse.data.requests || [];
+        } else {
             const allRequestsResponse = await axios.get('/api/vacation/all-requests');
             const allRequests = allRequestsResponse.data || [];
-            const employeeRequests = allRequests.filter(req => {
-                if (!req.start_date || !req.user_id) {
-                    console.warn('Ungültiger Urlaubsantrag:', req);
-                    return false;
-                }
+            requests = allRequests.filter(req => {
+                if (!req.start_date || !req.user_id) return false;
 
                 const reqUserId = typeof req.user_id === 'string' ? parseInt(req.user_id, 10) : req.user_id;
                 const empId = typeof selectedEmployee.value.id === 'string' ?
@@ -496,52 +544,102 @@ async function loadVacationData() {
                 try {
                     startYear = new Date(req.start_date).getFullYear();
                 } catch (e) {
-                    console.warn('Ungültiges Startdatum:', req.start_date);
                     return false;
                 }
 
                 return reqUserId === empId && startYear === selectedYear.value;
             });
 
-            const usedDays = employeeRequests
-                .filter(req => req.status === 'approved')
-                .reduce((sum, req) => {
-                    return sum + getActualDays(req);
-                }, 0);
-
-            statistics.value.vacation.total = totalEntitlement;
-            statistics.value.vacation.used = usedDays;
-
-            vacationData.value = employeeRequests.map(req => ({
-                start_date: req.start_date,
-                end_date: req.end_date,
-                days: req.days,
-                status: req.status,
-                notes: req.notes || '',
-                dayType: req.day_type
-            }));
-
-            return;
+            statistics.value.vacation.total = 30;
         }
 
-        const userResponse = await axios.get('/api/vacation/user');
-        const requests = userResponse.data.requests;
+        // Berechne genutzte Urlaubstage basierend auf Jahr und optional Monat
+        let usedDays = 0;
 
-        const filteredRequests = requests.filter(req => {
-            if (!req.startDate) return false;
-
-            const startYear = new Date(req.startDate).getFullYear();
-            return startYear === selectedYear.value;
+        const approvedRequests = requests.filter(req => {
+            const status = req.status;
+            return status === 'approved';
         });
 
-        vacationData.value = filteredRequests.map(req => ({
-            start_date: req.startDate,
-            end_date: req.endDate,
-            days: req.days,
-            status: req.status,
-            notes: req.notes || '',
-            dayType: req.dayType
-        }));
+        approvedRequests.forEach(req => {
+            const startDate = new Date(req.start_date || req.startDate);
+            const endDate = new Date(req.end_date || req.endDate);
+
+            let currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                const dayOfWeek = currentDate.getDay();
+                const currentYear = currentDate.getFullYear();
+                const currentMonth = currentDate.getMonth() + 1;
+
+                if (dayOfWeek !== 0 && dayOfWeek !== 6 && currentYear === selectedYear.value) {
+                    // Wenn ein Monat ausgewählt ist, nur Tage dieses Monats zählen
+                    if (selectedMonth.value === null || currentMonth === selectedMonth.value) {
+                        usedDays++;
+                    }
+                }
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+        });
+
+        // Berücksichtige halbe Tage
+        approvedRequests.forEach(req => {
+            const dayType = req.dayType || req.day_type;
+            if (dayType && dayType !== 'full_day') {
+                const startDate = new Date(req.start_date || req.startDate);
+                const endDate = new Date(req.end_date || req.endDate);
+
+                if (startDate.getTime() === endDate.getTime()) {
+                    const currentMonth = startDate.getMonth() + 1;
+                    if (startDate.getFullYear() === selectedYear.value) {
+                        if (selectedMonth.value === null || currentMonth === selectedMonth.value) {
+                            usedDays -= 0.5; // Korrigiere für halben Tag
+                        }
+                    }
+                }
+            }
+        });
+
+        statistics.value.vacation.used = usedDays;
+
+        // Vacation data für Tabelle
+       // Vacation data für Tabelle - gefiltert nach Jahr und optional Monat
+       vacationData.value = requests
+           .filter(req => {
+               const startDate = new Date(req.start_date || req.startDate);
+               const endDate = new Date(req.end_date || req.endDate);
+
+               // Prüfe ob der Antrag im ausgewählten Jahr liegt
+               const startsInYear = startDate.getFullYear() === selectedYear.value;
+               const endsInYear = endDate.getFullYear() === selectedYear.value;
+               const spansYear = startDate.getFullYear() <= selectedYear.value && endDate.getFullYear() >= selectedYear.value;
+
+               if (!startsInYear && !endsInYear && !spansYear) {
+                   return false;
+               }
+
+               // Wenn ein Monat ausgewählt ist, prüfe ob der Antrag in diesem Monat liegt
+               if (selectedMonth.value !== null) {
+                   const startsInMonth = startDate.getFullYear() === selectedYear.value &&
+                                         (startDate.getMonth() + 1) === selectedMonth.value;
+                   const endsInMonth = endDate.getFullYear() === selectedYear.value &&
+                                       (endDate.getMonth() + 1) === selectedMonth.value;
+                   const spansMonth = startDate <= new Date(selectedYear.value, selectedMonth.value - 1, 1) &&
+                                      endDate >= new Date(selectedYear.value, selectedMonth.value, 0);
+
+                   return startsInMonth || endsInMonth || spansMonth;
+               }
+
+               return true;
+           })
+           .map(req => ({
+               start_date: req.start_date || req.startDate,
+               end_date: req.end_date || req.endDate,
+               days: req.days,
+               status: req.status,
+               notes: req.notes || '',
+               dayType: req.dayType || req.day_type
+           }));
+
     } catch (error) {
         console.error('Fehler beim Laden der Urlaubsdaten:', error);
         toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Urlaubsdaten', life: 3000 });
@@ -554,7 +652,7 @@ async function loadEventsData() {
         const eventTypes = eventTypesResponse.data;
 
         const homeofficeTypeId = eventTypes.find(type => type.name === 'Homeoffice')?.id;
-        const absenceTypeId = eventTypes.find(type => type.name === 'Abwesend')?.id;
+        const absenceTypeId = eventTypes.find(type => type.name === 'Krank')?.id;
         const fieldServiceTypeId = eventTypes.find(type => type.name === 'Außendienst')?.id;
 
         const params = {
@@ -674,7 +772,7 @@ const vacationChartData = computed(() => {
             ]
         };
     } else {
-        const labels = months.value.map(m => m.name);
+        const labels = months.value.filter(m => m.value !== null).map(m => m.name);
         const monthlyData = Array(12).fill(0);
 
         vacationData.value
