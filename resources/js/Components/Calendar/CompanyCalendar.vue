@@ -2,7 +2,7 @@
     <!-- Calendar Header -->
     <div class="w-full overflow-visible p-4 rounded-lg shadow-md transition-all duration-300 bg-gradient-to-br from-white via-gray-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 text-gray-800 dark:text-gray-100">
         <!-- Calendar Header -->
-        <div class="sticky top-0 z-50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
+        <div class="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-3">
                 <div class="flex items-center gap-3">
                     <button @click="previousPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
@@ -35,7 +35,7 @@
             </div>
 
             <!-- Filter Controls -->
-            <div class="sticky top-16 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 p-4">
+            <div class="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 p-4">
                 <div class="flex flex-col md:flex-row justify-between items-center w-full gap-2">
                     <div class="w-full md:flex-1 relative">
                         <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -80,7 +80,7 @@
             </div>
 
             <!-- Summary Cards -->
-            <div class="sticky top-40 z-30 flex flex-col gap-3 mb-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md p-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex flex-col gap-3 mb-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md p-4 border-b border-gray-200 dark:border-gray-700">
                 <!-- Department Cards -->
                 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                     <div
@@ -154,9 +154,9 @@
         <!-- Enhanced Week View with Compact User Display -->
         <div v-else-if="calendarView === 'week'" class="overflow-x-auto">
             <table class= "w-full border-collapse min-w-[800px]">
-                <thead class="sticky top-0 z-40">
+                <thead class="">
                 <tr>
-                    <th class="p-2 text-left font-semibold text-sm border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 sticky left-0 z-10">
+                    <th class="p-2 text-left font-semibold text-sm border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700">
                         Tag
                     </th>
                     <th
@@ -181,7 +181,7 @@
                             day.isWeekend ? 'bg-gray-100 dark:bg-gray-800/50' : ''
                         ]"
                 >
-                    <td class="p-2 border border-gray-300 dark:border-gray-600 sticky left-0 z-10 bg-white dark:bg-gray-900">
+                    <td class="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900">
                         <div class="flex flex-col">
                             <span class="font-bold text-sm">{{ day.dayName }}</span>
                             <span class="text-xs text-gray-600 dark:text-gray-400">{{ formatDayMonth(day.date) }}</span>
@@ -337,7 +337,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, shallowRef } from 'vue'
 import dayjs from 'dayjs'
 import 'dayjs/locale/de'
 import weekOfYear from 'dayjs/plugin/weekOfYear'
@@ -349,7 +349,6 @@ import HolidayService from '@/Services/holiday-service'
 import axios from 'axios'
 import OverlayPanel from 'primevue/overlaypanel'
 
-// Child components
 import CalendarDayView from './CalendarDayView.vue'
 import CalendarWeekView from './CalendarWeekView.vue'
 import CalendarMonthView from './CalendarMonthView.vue'
@@ -369,7 +368,6 @@ const selectedDepartmentFilter = ref('')
 const selectedEventTypeFilter = ref('')
 const isLoading = ref(false)
 
-// Dialog state
 const employeeDayDialogVisible = ref(false)
 const selectedEmployeeForDay = ref(null)
 const selectedDateForDialog = ref(null)
@@ -377,9 +375,9 @@ const selectedDateForDialog = ref(null)
 const userPopover = ref()
 const selectedGroupForPopover = ref(null)
 
-// Data
-const employees = ref([])
-const availableDepartments = ref([])
+// Data - shallowRef für bessere Performance bei großen Arrays
+const employees = shallowRef([])
+const availableDepartments = shallowRef([])
 const eventTypes = ref([
     { name: 'Homeoffice', value: 'homeoffice', color: '#4CAF50' },
     { name: 'Büro', value: 'office', color: '#2196F3' },
@@ -389,8 +387,56 @@ const eventTypes = ref([
     { name: 'Geburtstag', value: 'birthday', color: '#FFD700' },
     { name: 'Sonstiges', value: 'other', color: '#607D8B' }
 ])
-const holidays = ref([])
+const holidays = shallowRef([])
 const weekdaysShort = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+
+// ===== OPTIMIERUNG: Event-Index für schnelle Lookups =====
+const eventIndex = computed(() => {
+    const index = new Map()
+
+    employees.value.forEach(employee => {
+        if (!employee.events) return
+
+        employee.events.forEach(event => {
+            const eventDate = event.date
+            const hasDateRange = event.start_date && event.end_date
+
+            if (hasDateRange) {
+                const startDate = dayjs(event.start_date)
+                const endDate = dayjs(event.end_date)
+                let loopDate = startDate
+
+                while (loopDate.isSameOrBefore(endDate, 'day')) {
+                    const dateStr = loopDate.format('YYYY-MM-DD')
+                    const key = `${employee.id}-${dateStr}`
+
+                    if (!index.has(key)) {
+                        index.set(key, [])
+                    }
+                    index.get(key).push(event)
+                    loopDate = loopDate.add(1, 'day')
+                }
+            } else if (eventDate) {
+                const key = `${employee.id}-${eventDate}`
+                if (!index.has(key)) {
+                    index.set(key, [])
+                }
+                index.get(key).push(event)
+            }
+        })
+    })
+
+    return index
+})
+
+// ===== OPTIMIERUNG: Vorberechneter Holiday-Set für O(1) Lookup =====
+const holidaySet = computed(() => {
+    const set = new Set()
+    holidays.value.forEach(h => {
+        set.add(dayjs(h.date || h).format('YYYY-MM-DD'))
+    })
+    return set
+})
 
 // Computed - Calendar
 const currentYear = computed(() => currentDate.value.year())
@@ -407,51 +453,111 @@ const weekEnd = computed(() => weekStart.value.add(6, 'day'))
 
 const weekDays = computed(() => {
     const days = []
-    const today = dayjs()
+    const today = dayjs().format('YYYY-MM-DD')
     for (let i = 0; i < 7; i++) {
         const date = weekStart.value.add(i, 'day')
+        const dateStr = date.format('YYYY-MM-DD')
         days.push({
             date,
+            dateStr,
             dayName: date.format('ddd'),
             dayNumber: date.date(),
-            isToday: date.format('YYYY-MM-DD') === today.format('YYYY-MM-DD'),
+            isToday: dateStr === today,
             isWeekend: date.day() === 0 || date.day() === 6
         })
     }
     return days
 })
 
-const getEmployeeMonthSummary = (employee) => {
-    const daysCount = currentDate.value.daysInMonth()
-    const summary = {
-        totalDays: 0,
-        eventsByType: {}
-    }
-
-    for (let i = 1; i <= daysCount; i++) {
-        const date = currentDate.value.startOf('month').date(i)
-        const events = getEmployeeEventsForDay(employee, date)
-
-        if (events.length > 0) {
-            summary.totalDays++
-            events.forEach(event => {
-                const typeValue = event.type?.value || event.type
-                summary.eventsByType[typeValue] = (summary.eventsByType[typeValue] || 0) + 1
-            })
-        }
-    }
-
-    return summary
-}
-
 const daysInMonth = computed(() => {
     const lastDay = currentDate.value.endOf('month')
     return Array.from({ length: lastDay.date() }, (_, i) => i + 1)
 })
 
+// ===== OPTIMIERUNG: Schnelle Event-Lookup Methode =====
+const getEmployeeEventsForDay = (employee, date) => {
+    if (!employee) return []
+
+    const dateStr = typeof date === 'string' ? date : date.format('YYYY-MM-DD')
+    const key = `${employee.id}-${dateStr}`
+    const events = eventIndex.value.get(key) || []
+
+    const dateObj = typeof date === 'string' ? dayjs(date) : date
+    const isWeekend = dateObj.day() === 0 || dateObj.day() === 6
+
+    const seenTypes = new Set()
+    const uniqueEvents = []
+
+    events.forEach(event => {
+        const typeValue = event.type?.value || event.type
+
+        if (!seenTypes.has(typeValue)) {
+            if (isWeekend) {
+                if (['sick', 'birthday', 'other', 'sonstiges', 'vacation', 'urlaub'].includes(typeValue)) {
+                    seenTypes.add(typeValue)
+                    uniqueEvents.push(event)
+                }
+            } else {
+                seenTypes.add(typeValue)
+                uniqueEvents.push(event)
+            }
+        }
+    })
+
+    return uniqueEvents
+}
+
+// ===== OPTIMIERUNG: Vorberechnete Wochendaten =====
+const weekViewData = computed(() => {
+    const data = new Map()
+
+    weekDays.value.forEach(day => {
+        const dayData = new Map()
+
+        eventTypes.value.forEach(eventType => {
+            const departmentGroups = {}
+
+            filteredEmployees.value.forEach(employee => {
+                const events = getEmployeeEventsForDay(employee, day.dateStr)
+                const hasEventType = events.some(e => (e.type?.value || e.type) === eventType.value)
+
+                if (hasEventType) {
+                    const dept = employee.department || 'Keine Abteilung'
+                    if (!departmentGroups[dept]) {
+                        departmentGroups[dept] = { department: dept, employees: [] }
+                    }
+                    departmentGroups[dept].employees.push(employee)
+                }
+            })
+
+            Object.values(departmentGroups).forEach(group => {
+                group.employees.sort((a, b) => a.name.localeCompare(b.name))
+            })
+
+            const sortedGroups = Object.values(departmentGroups).sort((a, b) =>
+                a.department.localeCompare(b.department)
+            )
+
+            dayData.set(eventType.value, sortedGroups)
+        })
+
+        data.set(day.dateStr, dayData)
+    })
+
+    return data
+})
+
+// Optimierte Methode für Template
+const getEmployeesByEventTypeAndDay = (eventType, date) => {
+    if (!date) return []
+    const dateStr = typeof date === 'string' ? date : date.format('YYYY-MM-DD')
+    return weekViewData.value.get(dateStr)?.get(eventType.value) || []
+}
+
 // Filtered employees
 const filteredEmployees = computed(() => {
     let result = employees.value
+
     if (searchQuery.value) {
         const query = searchQuery.value.toLowerCase()
         result = result.filter(emp =>
@@ -459,113 +565,73 @@ const filteredEmployees = computed(() => {
             emp.department.toLowerCase().includes(query)
         )
     }
+
     if (selectedDepartmentFilter.value) {
         result = result.filter(emp => emp.department === selectedDepartmentFilter.value)
     }
+
+    // Event-Type Filter - optimiert
     if (selectedEventTypeFilter.value) {
+        const relevantDates = calendarView.value === 'week'
+            ? weekDays.value.map(d => d.dateStr)
+            : calendarView.value === 'day'
+                ? [currentDate.value.format('YYYY-MM-DD')]
+                : daysInMonth.value.map(d => currentDate.value.startOf('month').date(d).format('YYYY-MM-DD'))
+
         result = result.filter(emp => {
-            if (calendarView.value === 'week') {
-                for (let i = 0; i < 7; i++) {
-                    const date = weekStart.value.add(i, 'day')
-                    const events = getEmployeeEventsForDay(emp, date)
-                    if (events.some(e => (e.type?.value || e.type) === selectedEventTypeFilter.value)) {
-                        return true
-                    }
-                }
-            } else if (calendarView.value === 'day') {
-                const events = getEmployeeEventsForDay(emp, currentDate.value)
+            return relevantDates.some(dateStr => {
+                const events = getEmployeeEventsForDay(emp, dateStr)
                 return events.some(e => (e.type?.value || e.type) === selectedEventTypeFilter.value)
-            } else {
-                const daysCount = currentDate.value.daysInMonth()
-                for (let i = 1; i <= daysCount; i++) {
-                    const date = currentDate.value.date(i)
-                    const events = getEmployeeEventsForDay(emp, date)
-                    if (events.some(e => (e.type?.value || e.type) === selectedEventTypeFilter.value)) {
-                        return true
-                    }
-                }
-            }
-            return false
+            })
         })
     }
+
     return result
 })
 
 const filteredEmployeesForDay = computed(() => {
+    const dateStr = currentDate.value.format('YYYY-MM-DD')
     return filteredEmployees.value.filter(emp =>
-        getEmployeeEventsForDay(emp, currentDate.value).length > 0
+        getEmployeeEventsForDay(emp, dateStr).length > 0
     )
 })
 
-// Summary Cards
+// Summary Cards - optimiert mit Memoization
 const departmentSummary = computed(() => {
     const deptCounts = {}
+    const relevantDates = calendarView.value === 'day'
+        ? [currentDate.value.format('YYYY-MM-DD')]
+        : calendarView.value === 'week'
+            ? weekDays.value.map(d => d.dateStr)
+            : daysInMonth.value.map(d => currentDate.value.startOf('month').date(d).format('YYYY-MM-DD'))
 
-    if (calendarView.value === 'day') {
-        employees.value.forEach(emp => {
-            const events = getEmployeeEventsForDay(emp, currentDate.value)
-            if (events.length > 0) {
-                const dept = emp.department || 'Keine Abteilung'
-                deptCounts[dept] = (deptCounts[dept] || 0) + 1
-            }
-        })
-    } else if (calendarView.value === 'week') {
-        employees.value.forEach(emp => {
-            let hasEventInWeek = false
-            weekDays.value.forEach(day => {
-                const events = getEmployeeEventsForDay(emp, day.date)
-                if (events.length > 0) hasEventInWeek = true
-            })
-            if (hasEventInWeek) {
-                const dept = emp.department || 'Keine Abteilung'
-                deptCounts[dept] = (deptCounts[dept] || 0) + 1
-            }
-        })
-    } else {
-        const daysCount = currentDate.value.daysInMonth()
-        employees.value.forEach(emp => {
-            let hasEventInMonth = false
-            for (let i = 1; i <= daysCount; i++) {
-                const day = currentDate.value.startOf('month').add(i - 1, 'day')
-                const events = getEmployeeEventsForDay(emp, day)
-                if (events.length > 0) {
-                    hasEventInMonth = true
-                    break
-                }
-            }
-            if (hasEventInMonth) {
-                const dept = emp.department || 'Keine Abteilung'
-                deptCounts[dept] = (deptCounts[dept] || 0) + 1
-            }
-        })
-    }
+    employees.value.forEach(emp => {
+        const hasEvent = relevantDates.some(dateStr =>
+            getEmployeeEventsForDay(emp, dateStr).length > 0
+        )
 
-    return Object.entries(deptCounts).map(([name, count]) => ({ name, count }))
+        if (hasEvent) {
+            const dept = emp.department || 'Keine Abteilung'
+            deptCounts[dept] = (deptCounts[dept] || 0) + 1
+        }
+    })
+
+    return Object.entries(deptCounts)
+        .map(([name, count]) => ({ name, count }))
         .sort((a, b) => a.name.localeCompare(b.name))
 })
 
 const statusSummary = computed(() => {
     const typeCounts = {}
-    const relevantDates = []
-
-    if (calendarView.value === 'day') {
-        relevantDates.push(currentDate.value)
-    } else if (calendarView.value === 'week') {
-        for (let i = 0; i < 7; i++) {
-            relevantDates.push(weekStart.value.add(i, 'day'))
-        }
-    } else {
-        const daysCount = currentDate.value.daysInMonth()
-        for (let i = 1; i <= daysCount; i++) {
-            relevantDates.push(currentDate.value.startOf('month').add(i - 1, 'day'))
-        }
-    }
-
-    // console.log(' statusSummary - view:', calendarView.value, 'dates:', relevantDates.map(d => d.format('YYYY-MM-DD')))
+    const relevantDates = calendarView.value === 'day'
+        ? [currentDate.value.format('YYYY-MM-DD')]
+        : calendarView.value === 'week'
+            ? weekDays.value.map(d => d.dateStr)
+            : daysInMonth.value.map(d => currentDate.value.startOf('month').date(d).format('YYYY-MM-DD'))
 
     employees.value.forEach(emp => {
-        relevantDates.forEach(date => {
-            const events = getEmployeeEventsForDay(emp, date)
+        relevantDates.forEach(dateStr => {
+            const events = getEmployeeEventsForDay(emp, dateStr)
             events.forEach(event => {
                 const typeValue = event.type?.value || event.type
                 if (typeValue) {
@@ -578,33 +644,23 @@ const statusSummary = computed(() => {
         })
     })
 
-    // console.log(' statusSummary - typeCounts:', Object.keys(typeCounts))
-
-    return Object.entries(typeCounts).map(([value, data]) => ({
-        type: data.type,
-        count: data.employees.size
-    })).sort((a, b) => {
-        const order = ['homeoffice', 'office', 'field', 'sick', 'vacation', 'birthday', 'other']
-        return order.indexOf(a.type?.value || a.type) - order.indexOf(b.type?.value || b.type)
-    })
+    const order = ['homeoffice', 'office', 'field', 'sick', 'vacation', 'birthday', 'other']
+    return Object.entries(typeCounts)
+        .map(([value, data]) => ({ type: data.type, count: data.employees.size }))
+        .sort((a, b) => order.indexOf(a.type?.value) - order.indexOf(b.type?.value))
 })
 
-const allActiveEventTypes = computed(() => {
-    return eventTypes.value
-})
+const allActiveEventTypes = computed(() => eventTypes.value)
 
-// Active event types for week
 const activeEventTypesForWeek = computed(() => {
     const activeTypes = new Set()
 
     weekDays.value.forEach(day => {
         employees.value.forEach(employee => {
-            const events = getEmployeeEventsForDay(employee, day.date)
+            const events = getEmployeeEventsForDay(employee, day.dateStr)
             events.forEach(event => {
                 const typeValue = event.type?.value || event.type
-                if (typeValue) {
-                    activeTypes.add(typeValue)
-                }
+                if (typeValue) activeTypes.add(typeValue)
             })
         })
     })
@@ -618,123 +674,39 @@ const activeEventTypesForWeek = computed(() => {
     return result
 })
 
-// Active event types for day
-const activeEventTypesForDay = (date) => {
-    if (!date) return []
-    const typesSet = new Set()
-    const types = []
+const getEmployeeMonthSummary = (employee) => {
+    const daysCount = currentDate.value.daysInMonth()
+    const summary = { totalDays: 0, eventsByType: {} }
 
-    filteredEmployees.value.forEach(employee => {
-        const events = getEmployeeEventsForDay(employee, date)
-        events.forEach(event => {
-            if (!typesSet.has(event.type.value)) {
-                typesSet.add(event.type.value)
-                types.push(event.type)
-            }
-        })
-    })
+    for (let i = 1; i <= daysCount; i++) {
+        const dateStr = currentDate.value.startOf('month').date(i).format('YYYY-MM-DD')
+        const events = getEmployeeEventsForDay(employee, dateStr)
 
-    const order = ['homeoffice', 'office', 'field', 'sick', 'vacation', 'birthday', 'other']
-    types.sort((a, b) => {
-        const indexA = order.indexOf(a.value)
-        const indexB = order.indexOf(b.value)
-        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB)
-    })
-
-    return types
-}
-
-// Methods - Events
-const getEmployeeEventsForDay = (employee, date) => {
-    if (!employee?.events || !Array.isArray(employee.events)) return []
-
-    const dateStr = date.format('YYYY-MM-DD')
-    const isWeekend = date.day() === 0 || date.day() === 6
-    const seenTypes = new Set()
-    const uniqueEvents = []
-
-    employee.events.forEach(event => {
-        const eventDate = event.date
-        const hasDateRange = event.start_date && event.end_date
-
-        let matchesDay = false
-
-        if (eventDate === dateStr) {
-            matchesDay = true
-        } else if (hasDateRange) {
-            const startDate = dayjs(event.start_date)
-            const endDate = dayjs(event.end_date)
-            matchesDay = date.isSameOrAfter(startDate, 'day') && date.isSameOrBefore(endDate, 'day')
+        if (events.length > 0) {
+            summary.totalDays++
+            events.forEach(event => {
+                const typeValue = event.type?.value || event.type
+                summary.eventsByType[typeValue] = (summary.eventsByType[typeValue] || 0) + 1
+            })
         }
+    }
 
-        if (matchesDay) {
-            const typeValue = event.type?.value || event.type
-
-            if (!seenTypes.has(typeValue)) {
-                if (isWeekend) {
-                    if (['sick', 'birthday', 'other', 'sonstiges', 'vacation', 'urlaub'].includes(typeValue)) {
-                        seenTypes.add(typeValue)
-                        uniqueEvents.push(event)
-                    }
-                } else {
-                    seenTypes.add(typeValue)
-                    uniqueEvents.push(event)
-                }
-            }
-        }
-    })
-
-    return uniqueEvents
+    return summary
 }
 
 const getEmployeeEventsForMonthDay = (employee, dayNum) => {
-    const date = currentDate.value.startOf('month').date(dayNum)
-    return getEmployeeEventsForDay(employee, date)
+    const dateStr = currentDate.value.startOf('month').date(dayNum).format('YYYY-MM-DD')
+    return getEmployeeEventsForDay(employee, dateStr)
 }
 
-const getEmployeesByEventTypeAndDay = (eventType, date) => {
-    if (!date) return []
-
-    const departmentGroups = {}
-
-    filteredEmployees.value.forEach(employee => {
-        const events = getEmployeeEventsForDay(employee, date)
-        const hasEventType = events.some(e => (e.type?.value || e.type) === eventType.value)
-
-        if (hasEventType) {
-            const dept = employee.department || 'Keine Abteilung'
-            if (!departmentGroups[dept]) {
-                departmentGroups[dept] = { department: dept, employees: [] }
-            }
-            departmentGroups[dept].employees.push(employee)
-        }
-    })
-
-    Object.values(departmentGroups).forEach(group => {
-        group.employees.sort((a, b) => a.name.localeCompare(b.name))
-    })
-
-    return Object.values(departmentGroups).sort((a, b) =>
-        a.department.localeCompare(b.department)
-    )
+// Holiday methods - optimiert
+const isHoliday = (date) => {
+    const dateStr = typeof date === 'string' ? date : date.format('YYYY-MM-DD')
+    return holidaySet.value.has(dateStr)
 }
 
-const getEmployeesCountByEventTypeAndDay = (eventType, date) => {
-    if (!date) return 0
-    const groups = getEmployeesByEventTypeAndDay(eventType, date)
-    return groups.reduce((sum, group) => sum + group.employees.length, 0)
-}
-
-// Holiday methods
-const isHoliday = (date) => HolidayService.isHoliday(date, holidays.value)
 const getHolidayName = (date) => HolidayService.getHolidayName(date, holidays.value)
 const isHolidayInMonth = (dayNum) => isHoliday(currentDate.value.startOf('month').date(dayNum))
-
-const hasHolidaysInCurrentPeriod = () => {
-    if (calendarView.value === 'day') return isHoliday(currentDate.value)
-    if (calendarView.value === 'week') return weekDays.value.some(day => isHoliday(day.date))
-    return daysInMonth.value.some(dayNum => isHolidayInMonth(dayNum))
-}
 
 // Month helpers
 const isToday = (dayNum) => {
@@ -766,13 +738,19 @@ const getInitials = (name) => {
     return name.split(' ').map(part => part.charAt(0)).join('').toUpperCase()
 }
 
+// Cached color map
+const colorCache = new Map()
 const getInitialsColor = (name) => {
-    if (!name) return 'hsl(0, 70%, 60%)' // Default color for undefined names
+    if (!name) return 'hsl(0, 70%, 60%)'
+    if (colorCache.has(name)) return colorCache.get(name)
+
     let hash = 0
     for (let i = 0; i < name.length; i++) {
         hash = name.charCodeAt(i) + ((hash << 5) - hash)
     }
-    return `hsl(${hash % 360}, 70%, 60%)`
+    const color = `hsl(${hash % 360}, 70%, 60%)`
+    colorCache.set(name, color)
+    return color
 }
 
 // Navigation
@@ -792,19 +770,11 @@ const nextPeriod = () => {
 
 // Filter toggles
 const toggleDepartmentFilter = (departmentName) => {
-    if (selectedDepartmentFilter.value === departmentName) {
-        selectedDepartmentFilter.value = ''
-    } else {
-        selectedDepartmentFilter.value = departmentName
-    }
+    selectedDepartmentFilter.value = selectedDepartmentFilter.value === departmentName ? '' : departmentName
 }
 
 const toggleEventTypeFilter = (eventTypeValue) => {
-    if (selectedEventTypeFilter.value === eventTypeValue) {
-        selectedEventTypeFilter.value = ''
-    } else {
-        selectedEventTypeFilter.value = eventTypeValue
-    }
+    selectedEventTypeFilter.value = selectedEventTypeFilter.value === eventTypeValue ? '' : eventTypeValue
 }
 
 // Dialog
@@ -814,7 +784,7 @@ const openEmployeeDayDialog = (employee, date) => {
     employeeDayDialogVisible.value = true
 }
 
-const toggleUserPopover = (event, group, eventType, date, groupIndex) => {
+const toggleUserPopover = (event, group) => {
     selectedGroupForPopover.value = group
     userPopover.value.toggle(event)
 }
@@ -823,77 +793,50 @@ const toggleUserPopover = (event, group, eventType, date, groupIndex) => {
 const fetchCalendarData = async () => {
     isLoading.value = true
     try {
-        const response = await VacationService.getCompanyCalendarData()
-        employees.value = response.data.employees || []
-        availableDepartments.value = response.data.departments || []
+        const [calendarResponse, vacationResponse] = await Promise.all([
+            VacationService.getCompanyCalendarData(),
+            axios.get('/api/vacation/all-requests').catch(() => ({ data: [] }))
+        ])
 
-        if (response.data.eventTypes) {
-            eventTypes.value = response.data.eventTypes
+        const loadedEmployees = calendarResponse.data.employees || []
+        availableDepartments.value = calendarResponse.data.departments || []
+
+        if (calendarResponse.data.eventTypes) {
+            eventTypes.value = calendarResponse.data.eventTypes
         }
 
-        try {
-            const vacationResponse = await axios.get('/api/vacation/all-requests')
-            // console.log(' Vacation API Response:', vacationResponse.data)
+        // Vacation data processing
+        const approvedVacations = (vacationResponse.data || []).filter(v => v.status === 'approved')
+        const vacationType = eventTypes.value.find(t =>
+            t.value === 'vacation' || t.value === 'urlaub'
+        ) || { name: 'Urlaub', value: 'vacation', color: '#9C27B0' }
 
-            const approvedVacations = vacationResponse.data.filter(v => v.status === 'approved')
-            // console.log(' Approved vacations:', approvedVacations)
+        approvedVacations.forEach(vacation => {
+            const employee = loadedEmployees.find(emp => emp.id === vacation.user_id)
+            if (employee) {
+                if (!employee.events) employee.events = []
 
-            const vacationType = eventTypes.value.find(t =>
-                t.value === 'vacation' || t.value === 'urlaub' || t.name?.toLowerCase() === 'urlaub'
-            ) || { name: 'Urlaub', value: 'vacation', color: '#9C27B0' }
-
-            // console.log(' Using vacation type:', vacationType)
-
-            approvedVacations.forEach(vacation => {
-                const employee = employees.value.find(emp => emp.id === vacation.user_id)
-                if (employee) {
-                    if (!employee.events) {
-                        employee.events = []
-                    }
-
-                    const startDate = dayjs(vacation.start_date)
-                    const endDate = dayjs(vacation.end_date)
-                    let loopDate = startDate
-
-                    while (loopDate.isSameOrBefore(endDate, 'day')) {
-                        const vacationEvent = {
-                            id: `vacation-${vacation.id}-${loopDate.format('YYYY-MM-DD')}`,
-                            user_id: vacation.user_id,
-                            date: loopDate.format('YYYY-MM-DD'),
-                            start_date: vacation.start_date,
-                            end_date: vacation.end_date,
-                            type: vacationType,
-                            notes: vacation.notes || `Urlaub (${startDate.format('DD.MM.')} - ${endDate.format('DD.MM.YYYY')})`
-                        }
-
-                        const isDuplicate = employee.events.some(e =>
-                            e.id === vacationEvent.id ||
-                            ((e.type?.value === 'vacation' || e.type?.value === 'urlaub') && e.date === vacationEvent.date)
-                        )
-
-                        if (!isDuplicate) {
-                            employee.events.push(vacationEvent)
-                        }
-
-                        loopDate = loopDate.add(1, 'day')
-                    }
-
-                    // console.log(' Added vacation events for employee:', employee.name, employee.events.filter(e => e.type?.value === 'vacation' || e.type?.value === 'urlaub'))
+                const vacationEvent = {
+                    id: `vacation-${vacation.id}`,
+                    user_id: vacation.user_id,
+                    start_date: vacation.start_date,
+                    end_date: vacation.end_date,
+                    type: vacationType,
+                    notes: vacation.notes || 'Urlaub'
                 }
-            })
 
-            // console.log(' All employees with events:', employees.value.map(e => ({
-            //     id: e.id,
-            //     name: e.name,
-            //     eventsCount: e.events?.length || 0,
-            //     vacationEvents: e.events?.filter(ev => ev.type?.value === 'vacation' || ev.type?.value === 'urlaub') || []
-            // })))
+                const isDuplicate = employee.events.some(e => e.id === vacationEvent.id)
+                if (!isDuplicate) {
+                    employee.events.push(vacationEvent)
+                }
+            }
+        })
 
-        } catch (e) {
-            console.error(' Error loading vacation requests:', e)
-        }
+        // Trigger reactivity mit neuem Array
+        employees.value = [...loadedEmployees]
+
     } catch (error) {
-        console.error(' Error loading calendar data:', error)
+        console.error('Error loading calendar data:', error)
     } finally {
         isLoading.value = false
     }

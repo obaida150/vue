@@ -5,7 +5,7 @@
         <Banner />
 
 <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
-    <nav class="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+    <nav class="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                 <!-- Primary Navigation Menu -->
                 <div class="max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between h-16">
