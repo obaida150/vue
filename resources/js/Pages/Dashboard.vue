@@ -78,6 +78,168 @@ const vacationData = ref([]);
 const teamVacationOverview = ref([]);
 const allVacationRequests = ref([]);
 const allEmployees = ref([]);
+const sickDaysOverview = ref([]);
+const showSickDaysAnalysis = ref(false);
+
+// Neue Funktion zum Laden der Kranktage-Übersicht
+async function loadSickDaysOverview() {
+    try {
+        if (!isHR.value) return;
+
+        const eventTypesResponse = await axios.get('/api/event-types');
+        const eventTypes = eventTypesResponse.data;
+        const sickTypeId = eventTypes.find(type => type.name === 'Krank')?.id;
+
+        if (!sickTypeId) {
+            console.warn('Krank-Event-Typ nicht gefunden');
+            return;
+        }
+
+        let employees = [...allEmployees.value];
+
+        // Nach Abteilung filtern wenn ausgewählt
+        if (selectedDepartment.value && selectedDepartment.value.id !== null) {
+            employees = employees.filter(emp => emp.team_id === selectedDepartment.value.id);
+        }
+
+        const params = {
+            start_date: `${selectedYear.value}-01-01`,
+            end_date: `${selectedYear.value}-12-31`
+        };
+
+        const eventsResponse = await axios.get('/api/events', { params });
+        const allEvents = eventsResponse.data;
+
+        const sickEvents = allEvents.filter(event => event.event_type_id === sickTypeId);
+
+        const teamNames = {
+            1: 'IT',
+            2: 'Schaden',
+            3: 'Vertrieb',
+            4: 'Personal',
+            5: 'Betrieb',
+            6: 'Geschäftsleitung',
+            7: 'Azubis'
+        };
+
+        const sickData = [];
+
+        for (const employee of employees) {
+            const employeeSickEvents = sickEvents.filter(event => event.user_id === employee.id);
+
+            let totalSickDays = 0;
+            const monthlySickDays = Array(12).fill(0);
+
+            employeeSickEvents.forEach(event => {
+                const startDate = new Date(event.start_date);
+                const endDate = new Date(event.end_date);
+
+                let currentDate = new Date(startDate);
+                while (currentDate <= endDate) {
+                    const dayOfWeek = currentDate.getDay();
+                    const currentYear = currentDate.getFullYear();
+                    const currentMonth = currentDate.getMonth();
+
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6 && currentYear === selectedYear.value) {
+                        // Wenn Monat ausgewählt, nur diesen zählen
+                        if (selectedMonth.value === null || (currentMonth + 1) === selectedMonth.value) {
+                            totalSickDays++;
+                        }
+                        monthlySickDays[currentMonth]++;
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            });
+
+            let teamName = 'Keine Abteilung';
+            if (employee.team && employee.team.name) {
+                teamName = employee.team.name;
+            } else if (employee.team_id) {
+                const department = availableDepartments.value.find(dept => dept.id === employee.team_id);
+                teamName = department?.name || teamNames[employee.team_id] || `Team ${employee.team_id}`;
+            }
+
+            sickData.push({
+                id: employee.id,
+                name: employee.name,
+                abteilung: teamName,
+                sickDays: totalSickDays,
+                monthlySickDays: monthlySickDays,
+                lastSickDate: employeeSickEvents.length > 0
+                    ? employeeSickEvents.sort((a, b) => new Date(b.end_date) - new Date(a.end_date))[0].end_date
+                    : null
+            });
+        }
+
+        // Nach Kranktagen sortieren (absteigend)
+        sickData.sort((a, b) => b.sickDays - a.sickDays);
+
+        sickDaysOverview.value = sickData;
+    } catch (error) {
+        console.error('Fehler beim Laden der Kranktage-Übersicht:', error);
+        toast.add({ severity: 'error', summary: 'Fehler', detail: 'Fehler beim Laden der Kranktage-Daten', life: 3000 });
+    }
+}
+
+// Computed für Kranktage-Statistiken
+const sickDaysStats = computed(() => {
+    if (sickDaysOverview.value.length === 0) {
+        return { total: 0, average: 0, highest: null };
+    }
+
+    const total = sickDaysOverview.value.reduce((sum, emp) => sum + emp.sickDays, 0);
+    const average = (total / sickDaysOverview.value.length).toFixed(1);
+    const highest = sickDaysOverview.value[0];
+
+    return { total, average, highest };
+});
+
+// Computed für Kranktage Chart
+const sickDaysChartData = computed(() => {
+    const topEmployees = sickDaysOverview.value.slice(0, 10);
+
+    return {
+        labels: topEmployees.map(emp => emp.name),
+        datasets: [
+            {
+                label: 'Kranktage',
+                backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                borderColor: 'rgb(239, 68, 68)',
+                borderWidth: 1,
+                data: topEmployees.map(emp => emp.sickDays)
+            }
+        ]
+    };
+});
+
+const sickDaysChartOptions = {
+    indexAxis: 'y',
+    plugins: {
+        legend: {
+            display: false
+        }
+    },
+    scales: {
+        x: {
+            beginAtZero: true,
+            ticks: {
+                stepSize: 1
+            }
+        }
+    },
+    responsive: true,
+    maintainAspectRatio: false
+};
+
+
+watch(showSickDaysAnalysis, (newValue) => {
+    if (newValue && isHR.value) {
+        loadSickDaysOverview();
+    }
+});
+
+
+
 
 const homeofficeChartData = computed(() => {
     if (selectedMonth.value) {
@@ -939,6 +1101,10 @@ function updateData() {
     if (userRole.value <= 3 && showTeamOverview.value) {
         loadTeamVacationOverview();
     }
+    // Kranktage-Analyse aktualisieren wenn aktiv
+    if (isHR.value && showSickDaysAnalysis.value) {
+        loadSickDaysOverview();
+    }
 }
 
 watch(selectedEmployee, (newValue) => {
@@ -1175,6 +1341,124 @@ onMounted(() => {
                             <div class="bg-white dark:bg-gray-700 rounded-xl shadow-md p-3">
                                 <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Urlaub Übersicht</h2>
                                 <Chart type="bar" :data="vacationChartData" :options="chartOptions" class="h-48" />
+                            </div>
+                        </div>
+                        <!-- Kranktage-Analyse Section (nur für HR) -->
+                        <div v-if="isHR" class="mt-4 bg-white dark:bg-gray-700 rounded-xl shadow-md overflow-hidden">
+                            <div class="px-4 py-3 bg-gradient-to-r from-red-50 to-orange-50 dark:from-gray-600 dark:to-gray-700 border-b border-gray-200 dark:border-gray-600">
+                                <div class="flex items-center justify-between">
+                                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                                        <i class="pi pi-heart text-red-500 mr-2"></i>
+                                        Kranktage-Analyse {{ selectedYear }}
+                                        <span v-if="selectedMonth" class="text-sm font-normal text-gray-600 dark:text-gray-400">
+                                            - {{ getMonthName(selectedMonth) }}
+                                        </span>
+                                    </h2>
+                                    <div class="flex items-center bg-white dark:bg-gray-700 rounded-lg px-3 py-1 shadow-sm">
+                                        <span class="text-xs text-gray-600 dark:text-gray-400 mr-2">Ausblenden</span>
+                                        <ToggleSwitch v-model="showSickDaysAnalysis" />
+                                        <span class="text-xs text-gray-600 dark:text-gray-400 ml-2">Anzeigen</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="showSickDaysAnalysis" class="p-4">
+                                <!-- Kranktage Statistik Cards -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                                    <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-md p-3 text-white">
+                                        <div class="flex items-center">
+                                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
+                                                <i class="pi pi-chart-bar text-xl"></i>
+                                            </div>
+                                            <div class="ml-3">
+                                                <dt class="text-xs font-medium text-red-100">Gesamt Kranktage</dt>
+                                                <dd class="text-2xl font-bold">{{ sickDaysStats.total }}</dd>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-md p-3 text-white">
+                                        <div class="flex items-center">
+                                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
+                                                <i class="pi pi-percentage text-xl"></i>
+                                            </div>
+                                            <div class="ml-3">
+                                                <dt class="text-xs font-medium text-orange-100">Durchschnitt pro MA</dt>
+                                                <dd class="text-2xl font-bold">{{ sickDaysStats.average }}</dd>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-md p-3 text-white">
+                                        <div class="flex items-center">
+                                            <div class="bg-white/20 backdrop-blur-sm rounded-lg p-2">
+                                                <i class="pi pi-user text-xl"></i>
+                                            </div>
+                                            <div class="ml-3">
+                                                <dt class="text-xs font-medium text-amber-100">Höchste Kranktage</dt>
+                                                <dd class="text-lg font-bold truncate" :title="sickDaysStats.highest?.name">
+                                                    {{ sickDaysStats.highest?.name || '-' }}
+                                                    <span class="text-sm font-normal">({{ sickDaysStats.highest?.sickDays || 0 }} Tage)</span>
+                                                </dd>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <!-- Kranktage Chart -->
+                                    <div class="bg-gray-50 dark:bg-gray-600 rounded-xl p-4">
+                                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                                            Top 10 Mitarbeiter nach Kranktagen
+                                        </h3>
+                                        <Chart
+                                            type="bar"
+                                            :data="sickDaysChartData"
+                                            :options="sickDaysChartOptions"
+                                            class="h-64"
+                                        />
+                                    </div>
+
+                                    <!-- Kranktage Tabelle -->
+                                    <div class="bg-gray-50 dark:bg-gray-600 rounded-xl p-4">
+                                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                                            Detaillierte Übersicht
+                                        </h3>
+                                        <DataTable
+                                            :value="sickDaysOverview"
+                                            :paginator="true"
+                                            :rows="10"
+                                            stripedRows
+                                            responsiveLayout="scroll"
+                                            class="p-datatable-sm text-sm"
+                                            sortField="sickDays"
+                                            :sortOrder="-1"
+                                        >
+                                            <Column field="name" header="Mitarbeiter" :sortable="true"></Column>
+                                            <Column field="abteilung" header="Abteilung" :sortable="true"></Column>
+                                            <Column field="sickDays" header="Kranktage" :sortable="true">
+                                                <template #body="slotProps">
+                                                    <span
+                                                        :class="{
+                                                            'text-green-600 dark:text-green-400': slotProps.data.sickDays <= 5,
+                                                            'text-yellow-600 dark:text-yellow-400': slotProps.data.sickDays > 5 && slotProps.data.sickDays <= 15,
+                                                            'text-red-600 dark:text-red-400': slotProps.data.sickDays > 15
+                                                        }"
+                                                        class="font-semibold"
+                                                    >
+                                                        {{ slotProps.data.sickDays }}
+                                                    </span>
+                                                </template>
+                                            </Column>
+                                            <Column field="lastSickDate" header="Letzte Krankmeldung" :sortable="true">
+                                                <template #body="slotProps">
+                                                    <span v-if="slotProps.data.lastSickDate">
+                                                        {{ formatDate(slotProps.data.lastSickDate) }}
+                                                    </span>
+                                                    <span v-else class="text-gray-400">-</span>
+                                                </template>
+                                            </Column>
+                                        </DataTable>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
