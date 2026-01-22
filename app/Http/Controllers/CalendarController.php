@@ -82,7 +82,7 @@ class CalendarController extends Controller
                                 'value' => 'birthday',
                                 'color' => '#FF4500' // Orange-Rot für Geburtstage
                             ],
-                            'notes' => $user->full_name . ' hat Geburtstag! (' . ($user->birth_date->age + 1) . ' Jahre)'
+                            'notes' => $user->full_name . ' hat Geburtstag! '
                         ];
                     }
 
@@ -96,7 +96,7 @@ class CalendarController extends Controller
                             'value' => 'birthday',
                             'color' => '#FF4500' // Orange-Rot für Geburtstage
                         ],
-                        'notes' => $user->full_name . ' hat Geburtstag! (' . $user->birth_date->age . ' Jahre)'
+                        'notes' => $user->full_name . ' hat Geburtstag! '
                     ];
                 }
 

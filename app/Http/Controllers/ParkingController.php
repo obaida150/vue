@@ -358,26 +358,36 @@ public function createReservation(Request $request): JsonResponse
     /**
      * Cancel a reservation
      */
-    public function cancelReservation(ParkingReservation $reservation): JsonResponse
-    {
-        try {
-            // Check if user owns this reservation
-            if ($reservation->user_id !== auth()->id()) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
-
-            if ($reservation->status === 'cancelled') {
-                return response()->json(['error' => 'Reservation is already cancelled'], 400);
-            }
-
-            $reservation->update(['status' => 'cancelled']);
-
-            return response()->json(['message' => 'Reservation cancelled successfully']);
-        } catch (\Exception $e) {
-            Log::error('Error cancelling reservation: ' . $e->getMessage());
-            return response()->json(['error' => 'Unable to cancel reservation', 'message' => $e->getMessage()], 500);
+public function cancelReservation(ParkingReservation $reservation): JsonResponse
+{
+    try {
+        if ($reservation->user_id !== auth()->id()) {
+            return response()->json(['error' => 'Nicht autorisiert'], 403);
         }
+
+        // Reservierung laden bevor sie gelöscht/storniert wird
+        $reservation->load(['parkingSpot.parkingLocation']);
+        $user = auth()->user();
+
+        // Status auf cancelled setzen oder löschen
+        $reservation->update(['status' => 'cancelled']);
+        // oder: $reservation->delete();
+
+        // Mail-Benachrichtigung für Stornierung senden
+        try {
+            Mail::to($user->email)->send(new ParkingReservationMail($reservation, $user, 'cancelled'));
+            Log::info('[Parking] Cancellation mail sent for reservation: ' . $reservation->id);
+        } catch (\Exception $e) {
+            Log::error('[Parking] Failed to send cancellation mail: ' . $e->getMessage());
+        }
+
+        return response()->json(['message' => 'Reservierung storniert'], 200);
+
+    } catch (\Exception $e) {
+        Log::error('Error cancelling reservation: ' . $e->getMessage());
+        return response()->json(['error' => 'Stornierung fehlgeschlagen'], 500);
     }
+}
 
     /**
      * Get current reservations (for admin)
