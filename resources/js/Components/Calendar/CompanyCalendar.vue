@@ -1,340 +1,662 @@
+<!--<template>-->
+<!--    &lt;!&ndash; Calendar Header &ndash;&gt;-->
+<!--    <div class="w-full overflow-visible p-4 rounded-lg shadow-md transition-all duration-300 bg-gradient-to-br from-white via-gray-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 text-gray-800 dark:text-gray-100">-->
+<!--        &lt;!&ndash; Calendar Header &ndash;&gt;-->
+<!--        <div class="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">-->
+<!--            <div class="flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-3">-->
+<!--                <div class="flex items-center gap-3">-->
+<!--                    <button @click="previousPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">-->
+<!--                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>-->
+<!--                    </button>-->
+<!--                    <h2 class="text-xl font-bold capitalize m-0 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">-->
+<!--                        <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>-->
+<!--                        <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>-->
+<!--                        <span v-else>{{ currentMonthName }} {{ currentYear }}</span>-->
+<!--                    </h2>-->
+<!--                    <button @click="nextPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">-->
+<!--                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>-->
+<!--                    </button>-->
+<!--                </div>-->
+<!--                <div class="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm">-->
+<!--                    <button-->
+<!--                        v-for="view in ['day', 'week', 'month']"-->
+<!--                        :key="view"-->
+<!--                        :class="[-->
+<!--                'px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200',-->
+<!--                calendarView === view-->
+<!--                    ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-md'-->
+<!--                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'-->
+<!--            ]"-->
+<!--                        @click="setCalendarView(view)"-->
+<!--                    >-->
+<!--                        {{ view === 'day' ? 'Tag' : view === 'week' ? 'Woche' : 'Monat' }}-->
+<!--                    </button>-->
+<!--                </div>-->
+<!--            </div>-->
+
+<!--            &lt;!&ndash; Filter Controls &ndash;&gt;-->
+<!--            <div class="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 p-4">-->
+<!--                <div class="flex flex-col md:flex-row justify-between items-center w-full gap-2">-->
+<!--                    <div class="w-full md:flex-1 relative">-->
+<!--                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">-->
+<!--                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>-->
+<!--                        </div>-->
+<!--                        <input-->
+<!--                            v-model="searchQuery"-->
+<!--                            type="text"-->
+<!--                            placeholder="Mitarbeiter suchen..."-->
+<!--                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"-->
+<!--                        />-->
+<!--                    </div>-->
+<!--                    <div class="w-full md:flex-1 relative">-->
+<!--                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">-->
+<!--                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>-->
+<!--                        </div>-->
+<!--                        <select-->
+<!--                            v-model="selectedDepartmentFilter"-->
+<!--                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"-->
+<!--                        >-->
+<!--                            <option value="">Alle Abteilungen</option>-->
+<!--                            <option v-for="dept in availableDepartments" :key="dept.name" :value="dept.name">-->
+<!--                                {{ dept.name }}-->
+<!--                            </option>-->
+<!--                        </select>-->
+<!--                    </div>-->
+<!--                    <div class="w-full md:flex-1 relative">-->
+<!--                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">-->
+<!--                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>-->
+<!--                        </div>-->
+<!--                        <select-->
+<!--                            v-model="selectedEventTypeFilter"-->
+<!--                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"-->
+<!--                        >-->
+<!--                            <option value="">Alle Status</option>-->
+<!--                            <option v-for="eventType in eventTypes" :key="eventType.value" :value="eventType.value">-->
+<!--                                {{ eventType.name }}-->
+<!--                            </option>-->
+<!--                        </select>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+
+<!--            &lt;!&ndash; Summary Cards &ndash;&gt;-->
+<!--            <div class="flex flex-col gap-3 mb-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md p-4 border-b border-gray-200 dark:border-gray-700">-->
+<!--                &lt;!&ndash; Department Cards &ndash;&gt;-->
+<!--                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">-->
+<!--                    <div-->
+<!--                        v-for="department in departmentSummary"-->
+<!--                        :key="department.name"-->
+<!--                        @click="toggleDepartmentFilter(department.name)"-->
+<!--                        class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"-->
+<!--                        :class="selectedDepartmentFilter === department.name-->
+<!--                ? 'ring-2 ring-blue-500 ring-offset-2 shadow-md'-->
+<!--                : 'hover:border-blue-300'"-->
+<!--                    >-->
+<!--                        <div-->
+<!--                            v-if="selectedDepartmentFilter === department.name"-->
+<!--                            class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md"-->
+<!--                        >-->
+<!--                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">-->
+<!--                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>-->
+<!--                            </svg>-->
+<!--                        </div>-->
+<!--                        <div class="font-semibold text-sm mb-1">{{ department.name }}</div>-->
+<!--                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ department.count }} MA</div>-->
+<!--                    </div>-->
+<!--                </div>-->
+
+<!--                &lt;!&ndash; Status Cards &ndash;&gt;-->
+<!--                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">-->
+<!--                    <div-->
+<!--                        v-for="status in statusSummary"-->
+<!--                        :key="status.type.value"-->
+<!--                        @click="toggleEventTypeFilter(status.type.value)"-->
+<!--                        class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"-->
+<!--                        :class="selectedEventTypeFilter === status.type.value-->
+<!--                ? 'ring-2 ring-offset-2 shadow-md'-->
+<!--                : 'hover:border-gray-300'"-->
+<!--                        :style="{-->
+<!--                borderLeftWidth: '4px',-->
+<!--                borderLeftColor: status.type.color,-->
+<!--                '&#45;&#45;tw-ring-color': status.type.color-->
+<!--            }"-->
+<!--                    >-->
+<!--                        <div-->
+<!--                            v-if="selectedEventTypeFilter === status.type.value"-->
+<!--                            class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center shadow-md"-->
+<!--                            :style="{ backgroundColor: status.type.color }"-->
+<!--                        >-->
+<!--                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">-->
+<!--                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>-->
+<!--                            </svg>-->
+<!--                        </div>-->
+<!--                        <div class="w-5 h-5 rounded-full mb-1.5" :style="{ backgroundColor: status.type.color }"></div>-->
+<!--                        <div class="font-semibold text-sm mb-1">{{ status.type.name }}</div>-->
+<!--                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ status.count }} MA</div>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        &lt;!&ndash; View Components &ndash;&gt;-->
+<!--        <CalendarDayView-->
+<!--            v-if="calendarView === 'day'"-->
+<!--            :current-date="currentDate"-->
+<!--            :filtered-employees="filteredEmployeesForDay"-->
+<!--            :is-holiday="isHoliday"-->
+<!--            :get-holiday-name="getHolidayName"-->
+<!--            :get-employee-events-for-day="getEmployeeEventsForDay"-->
+<!--            :get-initials="getInitials"-->
+<!--            :get-initials-color="getInitialsColor"-->
+<!--            :format-date="formatDate"-->
+<!--            :event-types="eventTypes"-->
+<!--        />-->
+
+<!--        &lt;!&ndash; Enhanced Week View with Compact User Display &ndash;&gt;-->
+<!--        <div v-else-if="calendarView === 'week'" class="overflow-x-auto">-->
+<!--            <table class= "w-full border-collapse min-w-[800px]">-->
+<!--                <thead class="">-->
+<!--                <tr>-->
+<!--                    <th class="p-2 text-left font-semibold text-sm border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700">-->
+<!--                        Tag-->
+<!--                    </th>-->
+<!--                    <th-->
+<!--                        v-for="eventType in activeEventTypesForWeek"-->
+<!--                        :key="eventType.value"-->
+<!--                        class="p-2 text-center font-semibold text-sm border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700"-->
+<!--                    >-->
+<!--                        <div class="flex items-center justify-center gap-2">-->
+<!--                            <div class="w-3 h-3 rounded-full shadow-sm" :style="{ backgroundColor: eventType.color }"></div>-->
+<!--                            <span>{{ eventType.name }}</span>-->
+<!--                        </div>-->
+<!--                    </th>-->
+<!--                </tr>-->
+<!--                </thead>-->
+<!--                <tbody>-->
+<!--                <tr-->
+<!--                    v-for="day in weekDays"-->
+<!--                    :key="day.date.format('YYYY-MM-DD')"-->
+<!--                    :class="[-->
+<!--                            'transition-colors duration-150',-->
+<!--                            day.isToday ? 'bg-blue-100 dark:bg-blue-900/30' : '',-->
+<!--                            day.isWeekend ? 'bg-gray-100 dark:bg-gray-800/50' : ''-->
+<!--                        ]"-->
+<!--                >-->
+<!--                    <td class="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900">-->
+<!--                        <div class="flex flex-col">-->
+<!--                            <span class="font-bold text-sm">{{ day.dayName }}</span>-->
+<!--                            <span class="text-xs text-gray-600 dark:text-gray-400">{{ formatDayMonth(day.date) }}</span>-->
+<!--                            <span-->
+<!--                                v-if="isHoliday(day.date)"-->
+<!--                                class="text-xs font-semibold text-red-600 dark:text-red-400 mt-1"-->
+<!--                            >-->
+<!--                                    {{ getHolidayName(day.date) }}-->
+<!--                                </span>-->
+<!--                        </div>-->
+<!--                    </td>-->
+<!--                    <td-->
+<!--                        v-for="eventType in activeEventTypesForWeek"-->
+<!--                        :key="eventType.value"-->
+<!--                        class="p-2 border border-gray-300 dark:border-gray-600 align-top"-->
+<!--                    >-->
+<!--                        <div-->
+<!--                            v-if="getEmployeesByEventTypeAndDay(eventType, day.date).length > 0"-->
+<!--                            class="space-y-2"-->
+<!--                        >-->
+<!--                            &lt;!&ndash; Show department groups &ndash;&gt;-->
+<!--                            <div-->
+<!--                                v-for="(group, groupIndex) in getEmployeesByEventTypeAndDay(eventType, day.date)"-->
+<!--                                :key="group.department"-->
+<!--                            >-->
+<!--                                &lt;!&ndash; Department label &ndash;&gt;-->
+<!--                                <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">-->
+<!--                                    {{ group.department }}-->
+<!--                                </div>-->
+
+<!--                                &lt;!&ndash; Compact employee display &ndash;&gt;-->
+<!--                                <div class="flex flex-wrap gap-1 items-center">-->
+<!--                                    &lt;!&ndash; Show first 3 employees &ndash;&gt;-->
+<!--                                    <div-->
+<!--                                        v-for="(employee, idx) in group.employees.slice(0, 2)"-->
+<!--                                        :key="employee.id"-->
+<!--                                        class="flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow duration-150"-->
+<!--                                    >-->
+<!--                                        <div-->
+<!--                                            class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"-->
+<!--                                            :style="{ backgroundColor: getInitialsColor(employee.name) }"-->
+<!--                                        >-->
+<!--                                            {{ getInitials(employee.name) }}-->
+<!--                                        </div>-->
+<!--                                        <span class="text-xs whitespace-nowrap">{{ employee.name }}</span>-->
+<!--                                    </div>-->
+
+<!--                                    &lt;!&ndash; Show "+X mehr" button if more than 3 employees &ndash;&gt;-->
+<!--                                    <button-->
+<!--                                        v-if="group.employees.length > 2"-->
+<!--                                        @click="toggleUserPopover($event, group, eventType, day.date, groupIndex)"-->
+<!--                                        class="px-2 py-1 text-xs font-medium bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-md shadow-sm hover:from-blue-600 hover:to-blue-700 transition-all duration-150 hover:shadow-md"-->
+<!--                                    >-->
+<!--                                        +{{ group.employees.length - 2 }} mehr-->
+<!--                                    </button>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </td>-->
+<!--                </tr>-->
+<!--                </tbody>-->
+<!--            </table>-->
+<!--        </div>-->
+
+<!--        <CalendarMonthView-->
+<!--            v-else-if="calendarView === 'month'"-->
+<!--            :current-date="currentDate"-->
+<!--            :days-in-month="daysInMonth"-->
+<!--            :filtered-employees="filteredEmployees"-->
+<!--            :is-today="isToday"-->
+<!--            :is-holiday-in-month="isHolidayInMonth"-->
+<!--            :is-weekend-day="isWeekendDay"-->
+<!--            :get-month-start-day="getMonthStartDay"-->
+<!--            :get-employee-events-for-month-day="getEmployeeEventsForMonthDay"-->
+<!--            :get-employee-month-summary="getEmployeeMonthSummary"-->
+<!--            :get-initials="getInitials"-->
+<!--            :get-initials-color="getInitialsColor"-->
+<!--            :weekdays-short="weekdaysShort"-->
+<!--        />-->
+
+<!--        &lt;!&ndash; Legend &ndash;&gt;-->
+<!--        <div class="mt-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-800 shadow-sm">-->
+<!--            <div class="font-bold text-sm mb-2">Legende:</div>-->
+<!--            <div class="flex flex-wrap gap-3">-->
+<!--                <div-->
+<!--                    v-for="type in allActiveEventTypes"-->
+<!--                    :key="type.value"-->
+<!--                    class="flex items-center gap-2"-->
+<!--                >-->
+<!--                    <div class="w-3 h-3 rounded-full shadow-sm" :style="{ backgroundColor: type.color }"></div>-->
+<!--                    <span class="text-xs">{{ type.name }}</span>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+
+<!--        &lt;!&ndash; Employee Day Details Dialog &ndash;&gt;-->
+<!--        <CalendarEmployeeDialog-->
+<!--            v-if="employeeDayDialogVisible"-->
+<!--            :employee="selectedEmployeeForDay"-->
+<!--            :date="selectedDateForDialog"-->
+<!--            :get-employee-events-for-day="getEmployeeEventsForDay"-->
+<!--            :get-initials="getInitials"-->
+<!--            :get-initials-color="getInitialsColor"-->
+<!--            :format-date="formatDate"-->
+<!--            @close="employeeDayDialogVisible = false"-->
+<!--        />-->
+
+<!--        &lt;!&ndash; Loading Overlay &ndash;&gt;-->
+<!--        <div v-if="isLoading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">-->
+<!--            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl text-center">-->
+<!--                <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500 mx-auto mb-4"></div>-->
+<!--                <p class="text-base font-medium bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Daten werden geladen...</p>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Added OverlayPanel for showing all users &ndash;&gt;-->
+<!--    <OverlayPanel ref="userPopover" :dismissable="true" class="w-80">-->
+<!--        <div v-if="selectedGroupForPopover" class="space-y-3">-->
+<!--            <div class="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-gray-700">-->
+<!--                <h3 class="font-bold text-sm text-gray-800 dark:text-gray-200">-->
+<!--                    {{ selectedGroupForPopover.department }}-->
+<!--                </h3>-->
+<!--                <div class="text-xs text-gray-500 dark:text-gray-400">-->
+<!--                    {{ selectedGroupForPopover.employees.length }} Mitarbeiter-->
+<!--                </div>-->
+<!--            </div>-->
+
+<!--            <div class="max-h-64 overflow-y-auto space-y-2">-->
+<!--                <div-->
+<!--                    v-for="employee in selectedGroupForPopover.employees"-->
+<!--                    :key="employee.id"-->
+<!--                    class="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"-->
+<!--                >-->
+<!--                    <div-->
+<!--                        class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"-->
+<!--                        :style="{ backgroundColor: getInitialsColor(employee.name) }"-->
+<!--                    >-->
+<!--                        {{ getInitials(employee.name) }}-->
+<!--                    </div>-->
+<!--                    <div class="flex-1 min-w-0">-->
+<!--                        <div class="text-sm font-medium text-gray-800 dark:text-gray-200">-->
+<!--                            {{ employee.name }}-->
+<!--                        </div>-->
+<!--                        <div class="text-xs text-gray-500 dark:text-gray-400">-->
+<!--                            {{ employee.department }}-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </OverlayPanel>-->
+<!--</template>-->
 <template>
-    <!-- Calendar Header -->
-    <div class="w-full overflow-visible p-4 rounded-lg shadow-md transition-all duration-300 bg-gradient-to-br from-white via-gray-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 text-gray-800 dark:text-gray-100">
-        <!-- Calendar Header -->
-        <div class="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-3">
-                <div class="flex items-center gap-3">
-                    <button @click="previousPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                    </button>
-                    <h2 class="text-xl font-bold capitalize m-0 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                        <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
-                        <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
-                        <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
-                    </h2>
-                    <button @click="nextPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    </button>
-                </div>
-                <div class="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm">
-                    <button
-                        v-for="view in ['day', 'week', 'month']"
-                        :key="view"
-                        :class="[
-                'px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
-                calendarView === view
-                    ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-md'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-            ]"
-                        @click="setCalendarView(view)"
-                    >
-                        {{ view === 'day' ? 'Tag' : view === 'week' ? 'Woche' : 'Monat' }}
-                    </button>
-                </div>
-            </div>
+     <!-- Calendar Header -->
+     <div class="w-full overflow-visible p-4 rounded-lg shadow-md transition-all duration-300 bg-gradient-to-br from-white via-gray-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 text-gray-800 dark:text-gray-100">
+     <!-- Calendar Header -->
+     <div class="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
+     <div class="flex flex-col md:flex-row justify-between items-start md:items-center p-4 gap-3">
+     <div class="flex items-center gap-3">
+     <button @click="previousPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
+         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+     </button>
+     <h2 class="text-xl font-bold capitalize m-0 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+     <span v-if="calendarView === 'day'">{{ formatDate(currentDate) }}</span>
+     <span v-else-if="calendarView === 'week'">KW {{ currentWeekNumber }} ({{ formatDateRange(weekStart, weekEnd) }})</span>
+     <span v-else>{{ currentMonthName }} {{ currentYear }}</span>
+     </h2>
+     <button @click="nextPeriod" class="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
+         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+     </button>
+     </div>
+     <div class="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm">
+     <button v-for="view in ['day', 'week', 'month']"
+     :key="view"
+     :class="[
+     'px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200',
+     calendarView === view ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-md'
+     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+     ]"
+     @click="setCalendarView(view)"
+     >
+     {{ view === 'day' ? 'Tag' : view === 'week' ? 'Woche' : 'Monat' }}
+     </button>
 
-            <!-- Filter Controls -->
-            <div class="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 p-4">
-                <div class="flex flex-col md:flex-row justify-between items-center w-full gap-2">
-                    <div class="w-full md:flex-1 relative">
-                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                        </div>
-                        <input
-                            v-model="searchQuery"
-                            type="text"
-                            placeholder="Mitarbeiter suchen..."
-                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                        />
-                    </div>
-                    <div class="w-full md:flex-1 relative">
-                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                        </div>
-                        <select
-                            v-model="selectedDepartmentFilter"
-                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                        >
-                            <option value="">Alle Abteilungen</option>
-                            <option v-for="dept in availableDepartments" :key="dept.name" :value="dept.name">
-                                {{ dept.name }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="w-full md:flex-1 relative">
-                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                        </div>
-                        <select
-                            v-model="selectedEventTypeFilter"
-                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                        >
-                            <option value="">Alle Status</option>
-                            <option v-for="eventType in eventTypes" :key="eventType.value" :value="eventType.value">
-                                {{ eventType.name }}
-                            </option>
-                        </select>
-                    </div>
-                </div>
-            </div>
+     <!-- Kompakt-Toggle -->
+     <button class="px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200"
+     :class="compactWeekView ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-md'
+     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'"
+     @click="compactWeekView = !compactWeekView"
+     >
+     Kompakt </button>
+     </div>
+     </div>
 
-            <!-- Summary Cards -->
-            <div class="flex flex-col gap-3 mb-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md p-4 border-b border-gray-200 dark:border-gray-700">
-                <!-- Department Cards -->
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    <div
-                        v-for="department in departmentSummary"
-                        :key="department.name"
-                        @click="toggleDepartmentFilter(department.name)"
-                        class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                        :class="selectedDepartmentFilter === department.name
-                ? 'ring-2 ring-blue-500 ring-offset-2 shadow-md'
-                : 'hover:border-blue-300'"
-                    >
-                        <div
-                            v-if="selectedDepartmentFilter === department.name"
-                            class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md"
-                        >
-                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        </div>
-                        <div class="font-semibold text-sm mb-1">{{ department.name }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ department.count }} MA</div>
-                    </div>
-                </div>
+     <!-- Filter Controls -->
+     <div class="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 p-4">
+     <div class="flex flex-col md:flex-row justify-between items-center w-full gap-2">
+     <div class="w-full md:flex-1 relative">
+     <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="002424"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2121l-6-6m2-5a77011-14077001140z"/></svg>
+     </div>
+     <input v-model="searchQuery"
+     type="text"
+     placeholder="Mitarbeiter suchen..."
+     class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+     />
+     </div>
+     <div class="w-full md:flex-1 relative">
+     <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="002424"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1921V5a22000-2-2H7a22000-22v16m140h2m-20h-5m-90H3m20h5M97h1m-14h1m4-4h1m-14h1m-510v-5a110011-1h2a1100111v5m-40h4"/></svg>
+     </div>
+     <select v-model="selectedDepartmentFilter"
+     class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+     >
+     <option value="">Alle Abteilungen</option>
+     <option v-for="dept in availableDepartments" :key="dept.name" :value="dept.name">
+     {{ dept.name }}
+     </option>
+     </select>
+     </div>
+     <div class="w-full md:flex-1 relative">
+     <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="002424"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M95H7a22000-22v12a2200022h10a220002-2V7a22000-2-2h-2M95a2200022h2a220002-2M95a220012-2h2a2200122"/></svg>
+     </div>
+     <select v-model="selectedEventTypeFilter"
+     class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+     >
+     <option value="">Alle Status</option>
+     <option v-for="eventType in eventTypes" :key="eventType.value" :value="eventType.value">
+     {{ eventType.name }}
+     </option>
+     </select>
+     </div>
+     </div>
+     </div>
 
-                <!-- Status Cards -->
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    <div
-                        v-for="status in statusSummary"
-                        :key="status.type.value"
-                        @click="toggleEventTypeFilter(status.type.value)"
-                        class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                        :class="selectedEventTypeFilter === status.type.value
-                ? 'ring-2 ring-offset-2 shadow-md'
-                : 'hover:border-gray-300'"
-                        :style="{
-                borderLeftWidth: '4px',
-                borderLeftColor: status.type.color,
-                '--tw-ring-color': status.type.color
-            }"
-                    >
-                        <div
-                            v-if="selectedEventTypeFilter === status.type.value"
-                            class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center shadow-md"
-                            :style="{ backgroundColor: status.type.color }"
-                        >
-                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        </div>
-                        <div class="w-5 h-5 rounded-full mb-1.5" :style="{ backgroundColor: status.type.color }"></div>
-                        <div class="font-semibold text-sm mb-1">{{ status.type.name }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ status.count }} MA</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- View Components -->
-        <CalendarDayView
-            v-if="calendarView === 'day'"
-            :current-date="currentDate"
-            :filtered-employees="filteredEmployeesForDay"
-            :is-holiday="isHoliday"
-            :get-holiday-name="getHolidayName"
-            :get-employee-events-for-day="getEmployeeEventsForDay"
-            :get-initials="getInitials"
-            :get-initials-color="getInitialsColor"
-            :format-date="formatDate"
-            :event-types="eventTypes"
-        />
+     <!-- Summary Cards -->
+     <div class="flex flex-col gap-3 mb-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md p-4 border-b border-gray-200 dark:border-gray-700">
+     <!-- Department Cards -->
+     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+     <div v-for="department in departmentSummary"
+     :key="department.name"
+     @click="toggleDepartmentFilter(department.name)"
+     class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center border-l-4 border-l-blue-500 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+     :class="selectedDepartmentFilter === department.name ? 'ring-2 ring-blue-500 ring-offset-2 shadow-md'
+     : 'hover:border-blue-300'"
+     >
+     <div v-if="selectedDepartmentFilter === department.name"
+     class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md"
+     >
+     <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="002424">
+     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M513l44L197"></path>
+     </svg>
+     </div>
+     <div class="font-semibold text-sm mb-1">{{ department.name }}</div>
+     <div class="text-xs text-gray-500 dark:text-gray-400">{{ department.count }} MA</div>
+     </div>
+     </div>
 
-        <!-- Enhanced Week View with Compact User Display -->
-        <div v-else-if="calendarView === 'week'" class="overflow-x-auto">
-            <table class= "w-full border-collapse min-w-[800px]">
-                <thead class="">
-                <tr>
-                    <th class="p-2 text-left font-semibold text-sm border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700">
-                        Tag
-                    </th>
-                    <th
-                        v-for="eventType in activeEventTypesForWeek"
-                        :key="eventType.value"
-                        class="p-2 text-center font-semibold text-sm border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700"
-                    >
-                        <div class="flex items-center justify-center gap-2">
-                            <div class="w-3 h-3 rounded-full shadow-sm" :style="{ backgroundColor: eventType.color }"></div>
-                            <span>{{ eventType.name }}</span>
-                        </div>
-                    </th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr
-                    v-for="day in weekDays"
-                    :key="day.date.format('YYYY-MM-DD')"
-                    :class="[
-                            'transition-colors duration-150',
-                            day.isToday ? 'bg-blue-100 dark:bg-blue-900/30' : '',
-                            day.isWeekend ? 'bg-gray-100 dark:bg-gray-800/50' : ''
-                        ]"
-                >
-                    <td class="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900">
-                        <div class="flex flex-col">
-                            <span class="font-bold text-sm">{{ day.dayName }}</span>
-                            <span class="text-xs text-gray-600 dark:text-gray-400">{{ formatDayMonth(day.date) }}</span>
-                            <span
-                                v-if="isHoliday(day.date)"
-                                class="text-xs font-semibold text-red-600 dark:text-red-400 mt-1"
-                            >
-                                    {{ getHolidayName(day.date) }}
-                                </span>
-                        </div>
-                    </td>
-                    <td
-                        v-for="eventType in activeEventTypesForWeek"
-                        :key="eventType.value"
-                        class="p-2 border border-gray-300 dark:border-gray-600 align-top"
-                    >
-                        <div
-                            v-if="getEmployeesByEventTypeAndDay(eventType, day.date).length > 0"
-                            class="space-y-2"
-                        >
-                            <!-- Show department groups -->
-                            <div
-                                v-for="(group, groupIndex) in getEmployeesByEventTypeAndDay(eventType, day.date)"
-                                :key="group.department"
-                            >
-                                <!-- Department label -->
-                                <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                                    {{ group.department }}
-                                </div>
+     <!-- Status Cards -->
+     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+     <div v-for="status in statusSummary"
+     :key="status.type.value"
+     @click="toggleEventTypeFilter(status.type.value)"
+     class="relative p-3 rounded-lg border shadow-sm cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col items-center text-center bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+     :class="selectedEventTypeFilter === status.type.value ? 'ring-2 ring-offset-2 shadow-md'
+     : 'hover:border-gray-300'"
+     :style="{
+     borderLeftWidth: '4px',
+     borderLeftColor: status.type.color,
+     '--tw-ring-color': status.type.color }"
+     >
+     <div v-if="selectedEventTypeFilter === status.type.value"
+     class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center shadow-md"
+     :style="{ backgroundColor: status.type.color }"
+     >
+     <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="002424">
+     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M513l44L197"></path>
+     </svg>
+     </div>
+     <div class="w-5 h-5 rounded-full mb-1.5" :style="{ backgroundColor: status.type.color }"></div>
+     <div class="font-semibold text-sm mb-1">{{ status.type.name }}</div>
+     <div class="text-xs text-gray-500 dark:text-gray-400">{{ status.count }} MA</div>
+     </div>
+     </div>
+     </div>
+     </div>
 
-                                <!-- Compact employee display -->
-                                <div class="flex flex-wrap gap-1 items-center">
-                                    <!-- Show first 3 employees -->
-                                    <div
-                                        v-for="(employee, idx) in group.employees.slice(0, 2)"
-                                        :key="employee.id"
-                                        class="flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow duration-150"
-                                    >
-                                        <div
-                                            class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                                            :style="{ backgroundColor: getInitialsColor(employee.name) }"
-                                        >
-                                            {{ getInitials(employee.name) }}
-                                        </div>
-                                        <span class="text-xs whitespace-nowrap">{{ employee.name }}</span>
-                                    </div>
+     <!-- View Components -->
+     <CalendarDayView v-if="calendarView === 'day'"
+     :current-date="currentDate"
+     :filtered-employees="filteredEmployeesForDay"
+     :is-holiday="isHoliday"
+     :get-holiday-name="getHolidayName"
+     :get-employee-events-for-day="getEmployeeEventsForDay"
+     :get-initials="getInitials"
+     :get-initials-color="getInitialsColor"
+     :format-date="formatDate"
+     :event-types="eventTypes"
+     />
 
-                                    <!-- Show "+X mehr" button if more than 3 employees -->
-                                    <button
-                                        v-if="group.employees.length > 2"
-                                        @click="toggleUserPopover($event, group, eventType, day.date, groupIndex)"
-                                        class="px-2 py-1 text-xs font-medium bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-md shadow-sm hover:from-blue-600 hover:to-blue-700 transition-all duration-150 hover:shadow-md"
-                                    >
-                                        +{{ group.employees.length - 2 }} mehr
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
+     <!-- Enhanced Week View with Compact User Display -->
+     <div v-else-if="calendarView === 'week'" class="overflow-x-auto">
+     <table class="w-full border-collapse min-w-[800px]">
+     <thead class="">
+     <tr>
+     <th class="p-2 text-left font-semibold text-sm border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700">
+     Tag </th>
+     <th v-for="eventType in activeEventTypesForWeek"
+     :key="eventType.value"
+     class="p-2 text-center font-semibold text-sm border border-gray-300 dark:border-gray-600 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700"
+     >
+     <div class="flex items-center justify-center gap-2">
+     <div class="w-3 h-3 rounded-full shadow-sm" :style="{ backgroundColor: eventType.color }"></div>
+     <span>{{ eventType.name }}</span>
+     </div>
+     </th>
+     </tr>
+     </thead>
+     <tbody>
+     <tr v-for="day in weekDays"
+     :key="day.date.format('YYYY-MM-DD')"
+     :class="[
+     'transition-colors duration-150',
+     day.isToday ? 'bg-blue-100 dark:bg-blue-900/30' : '',
+     day.isWeekend ? 'bg-gray-100 dark:bg-gray-800/50' : ''
+     ]"
+     >
+     <td class="p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900">
+     <div class="flex flex-col">
+     <span class="font-bold text-sm">{{ day.dayName }}</span>
+     <span class="text-xs text-gray-600 dark:text-gray-400">{{ formatDayMonth(day.date) }}</span>
+     <span v-if="isHoliday(day.date)"
+     class="text-xs font-semibold text-red-600 dark:text-red-400 mt-1"
+     >
+     {{ getHolidayName(day.date) }}
+     </span>
+     </div>
+     </td>
+     <td v-for="eventType in activeEventTypesForWeek"
+     :key="eventType.value"
+     class="p-2 border border-gray-300 dark:border-gray-600 align-top"
+     >
+     <div v-if="compactWeekView">
+     <div class="flex items-center gap-2 text-xs font-semibold">
+     <span class="inline-flex w-3 h-3 rounded-full" :style="{ backgroundColor: eventType.color }"></span>
+     {{ getEventCountByDay(eventType, day.date) }} Mitarbeiter </div>
+     <button v-if="getEventCountByDay(eventType, day.date) >0"
+     @click="openCompactPopover($event, eventType, day.date)"
+     class="mt-1 px-2 py-1 text-xs font-medium bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-md shadow-sm hover:from-blue-600 hover:to-blue-700 transition-all duration-150 hover:shadow-md"
+     >
+     Details </button>
+     </div>
+     <div v-else>
+     <div v-if="getEmployeesByEventTypeAndDay(eventType, day.date).length >0"
+     class="space-y-2"
+     >
+     <div v-for="(group, groupIndex) in getEmployeesByEventTypeAndDay(eventType, day.date)"
+     :key="group.department"
+     >
+     <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+     {{ group.department }}
+     </div>
+     <div class="flex flex-wrap gap-1 items-center">
+     <div v-for="(employee, idx) in group.employees.slice(0,2)"
+     :key="employee.id"
+     class="flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow duration-150"
+     >
+     <div class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+     :style="{ backgroundColor: getInitialsColor(employee.name) }"
+     >
+     {{ getInitials(employee.name) }}
+     </div>
+     <span class="text-xs whitespace-nowrap">{{ employee.name }}</span>
+     </div>
+     <button v-if="group.employees.length >2"
+     @click="toggleUserPopover($event, group, eventType, day.date, groupIndex)"
+     class="px-2 py-1 text-xs font-medium bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-md shadow-sm hover:from-blue-600 hover:to-blue-700 transition-all duration-150 hover:shadow-md"
+     >
+     +{{ group.employees.length -2 }} mehr </button>
+     </div>
+     </div>
+     </div>
+     </div>
+     </td>
+     </tr>
+     </tbody>
+     </table>
+     </div>
 
-        <CalendarMonthView
-            v-else-if="calendarView === 'month'"
-            :current-date="currentDate"
-            :days-in-month="daysInMonth"
-            :filtered-employees="filteredEmployees"
-            :is-today="isToday"
-            :is-holiday-in-month="isHolidayInMonth"
-            :is-weekend-day="isWeekendDay"
-            :get-month-start-day="getMonthStartDay"
-            :get-employee-events-for-month-day="getEmployeeEventsForMonthDay"
-            :get-employee-month-summary="getEmployeeMonthSummary"
-            :get-initials="getInitials"
-            :get-initials-color="getInitialsColor"
-            :weekdays-short="weekdaysShort"
-        />
+     <CalendarMonthView v-else-if="calendarView === 'month'"
+     :current-date="currentDate"
+     :days-in-month="daysInMonth"
+     :filtered-employees="filteredEmployees"
+     :is-today="isToday"
+     :is-holiday-in-month="isHolidayInMonth"
+     :is-weekend-day="isWeekendDay"
+     :get-month-start-day="getMonthStartDay"
+     :get-employee-events-for-month-day="getEmployeeEventsForMonthDay"
+     :get-employee-month-summary="getEmployeeMonthSummary"
+     :get-initials="getInitials"
+     :get-initials-color="getInitialsColor"
+     :weekdays-short="weekdaysShort"
+     />
 
-        <!-- Legend -->
-        <div class="mt-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-800 shadow-sm">
-            <div class="font-bold text-sm mb-2">Legende:</div>
-            <div class="flex flex-wrap gap-3">
-                <div
-                    v-for="type in allActiveEventTypes"
-                    :key="type.value"
-                    class="flex items-center gap-2"
-                >
-                    <div class="w-3 h-3 rounded-full shadow-sm" :style="{ backgroundColor: type.color }"></div>
-                    <span class="text-xs">{{ type.name }}</span>
-                </div>
-            </div>
-        </div>
+     <!-- Legende -->
+     <div class="mt-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-800 shadow-sm">
+     <div class="font-bold text-sm mb-2">Legende:</div>
+     <div class="flex flex-wrap gap-3">
+     <div v-for="type in allActiveEventTypes"
+     :key="type.value"
+     class="flex items-center gap-2"
+     >
+     <div class="w-3 h-3 rounded-full shadow-sm" :style="{ backgroundColor: type.color }"></div>
+     <span class="text-xs">{{ type.name }}</span>
+     </div>
+     </div>
+     </div>
 
-        <!-- Employee Day Details Dialog -->
-        <CalendarEmployeeDialog
-            v-if="employeeDayDialogVisible"
-            :employee="selectedEmployeeForDay"
-            :date="selectedDateForDialog"
-            :get-employee-events-for-day="getEmployeeEventsForDay"
-            :get-initials="getInitials"
-            :get-initials-color="getInitialsColor"
-            :format-date="formatDate"
-            @close="employeeDayDialogVisible = false"
-        />
+     <!-- Employee Day Details Dialog -->
+     <CalendarEmployeeDialog v-if="employeeDayDialogVisible"
+     :employee="selectedEmployeeForDay"
+     :date="selectedDateForDialog"
+     :get-employee-events-for-day="getEmployeeEventsForDay"
+     :get-initials="getInitials"
+     :get-initials-color="getInitialsColor"
+     :format-date="formatDate"
+     @close="employeeDayDialogVisible = false"
+     />
 
-        <!-- Loading Overlay -->
-        <div v-if="isLoading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500 mx-auto mb-4"></div>
-                <p class="text-base font-medium bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Daten werden geladen...</p>
-            </div>
-        </div>
-    </div>
+     <!-- Loading Overlay -->
+     <div v-if="isLoading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl text-center">
+     <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-500 mx-auto mb-4"></div>
+     <p class="text-base font-medium bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Daten werden geladen...</p>
+     </div>
+     </div>
+     </div>
 
-    <!-- Added OverlayPanel for showing all users -->
-    <OverlayPanel ref="userPopover" :dismissable="true" class="w-80">
-        <div v-if="selectedGroupForPopover" class="space-y-3">
-            <div class="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="font-bold text-sm text-gray-800 dark:text-gray-200">
-                    {{ selectedGroupForPopover.department }}
-                </h3>
-                <div class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ selectedGroupForPopover.employees.length }} Mitarbeiter
-                </div>
-            </div>
+     <!-- Added OverlayPanel for showing all users -->
+     <OverlayPanel ref="userPopover" :dismissable="true" class="w-80">
+     <div v-if="selectedGroupForPopover" class="space-y-3">
+     <div class="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-gray-700">
+     <h3 class="font-bold text-sm text-gray-800 dark:text-gray-200">
+     {{ selectedGroupForPopover.department }}
+     </h3>
+     <div class="text-xs text-gray-500 dark:text-gray-400">
+     {{ selectedGroupForPopover.employees.length }} Mitarbeiter </div>
+     </div>
 
-            <div class="max-h-64 overflow-y-auto space-y-2">
-                <div
-                    v-for="employee in selectedGroupForPopover.employees"
-                    :key="employee.id"
-                    class="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
-                >
-                    <div
-                        class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                        :style="{ backgroundColor: getInitialsColor(employee.name) }"
-                    >
-                        {{ getInitials(employee.name) }}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm font-medium text-gray-800 dark:text-gray-200">
-                            {{ employee.name }}
-                        </div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ employee.department }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </OverlayPanel>
-</template>
+     <div class="max-h-64 overflow-y-auto space-y-2">
+     <div v-for="employee in selectedGroupForPopover.employees"
+     :key="employee.id"
+     class="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
+     >
+     <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+     :style="{ backgroundColor: getInitialsColor(employee.name) }"
+     >
+     {{ getInitials(employee.name) }}
+     </div>
+     <div class="flex-1 min-w-0">
+     <div class="text-sm font-medium text-gray-800 dark:text-gray-200">
+     {{ employee.name }}
+     </div>
+     <div class="text-xs text-gray-500 dark:text-gray-400">
+     {{ employee.department }}
+     </div>
+     </div>
+     </div>
+     </div>
+     </div>
+     </OverlayPanel>
+    </template>
+
 
 <script setup>
 import { ref, computed, onMounted, watch, shallowRef } from 'vue'
@@ -595,6 +917,22 @@ const filteredEmployeesForDay = computed(() => {
         getEmployeeEventsForDay(emp, dateStr).length > 0
     )
 })
+
+const compactWeekView = ref(true)
+
+const getEventCountByDay = (eventType, date) => {
+ return getEmployeesByEventTypeAndDay(eventType, date)
+ .reduce((sum, group) => sum + group.employees.length,0)
+}
+
+const openCompactPopover = (event, eventType, date) => {
+ const groups = getEmployeesByEventTypeAndDay(eventType, date)
+ const flatGroup = {
+ department: `${eventType.name} • ${dayjs(date).format('DD.MM.')}`,
+ employees: groups.flatMap(g => g.employees),
+ }
+ toggleUserPopover(event, flatGroup)
+}
 
 // Summary Cards - optimiert mit Memoization
 const departmentSummary = computed(() => {

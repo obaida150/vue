@@ -1,6 +1,7 @@
 <template>
     <div class="w-full flex flex-col">
-        <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 shadow-md">
+        <!-- Modern gradient header with better styling - STICKY -->
+        <div class="sticky top-16 z-30 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 shadow-md">
             <h3 class="text-xl font-semibold text-white text-center">
                 {{ formatDate(currentDate) }}
                 <span v-if="isHoliday(currentDate)" class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500 text-white">
@@ -24,7 +25,7 @@
                         class="flex flex-col border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm flex-1 min-w-[250px]"
                     >
                         <!-- Event Header -->
-                        <div class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-3 border-b border-gray-200 dark:border-gray-700 font-semibold">
+                        <div class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-3 border-b border-gray-200 dark:border-gray-700 font-semibold sticky top-0 z-10">
                             <div
                                 class="px-3 py-1.5 rounded-lg text-sm text-white font-medium text-center"
                                 :style="{ backgroundColor: eventType.color }"
@@ -51,7 +52,7 @@
                                     :key="employee.id"
                                     class="px-3 py-2 border-b border-gray-100 dark:border-gray-800 last:border-b-0 hover:bg-blue-50 dark:hover:bg-gray-800 transition-colors duration-150"
                                 >
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 mb-1">
                                         <div
                                             class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
                                             :style="{ backgroundColor: getInitialsColor(employee.name) }"
@@ -59,6 +60,9 @@
                                             {{ getInitials(employee.name) }}
                                         </div>
                                         <span class="text-sm font-medium truncate">{{ employee.name }}</span>
+                                    </div>
+                                    <div v-if="getEmployeeEventNotes(employee, currentDate, eventType)" class="text-xs text-gray-600 dark:text-gray-400 pl-10 italic">
+                                        {{ getEmployeeEventNotes(employee, currentDate, eventType) }}
                                     </div>
                                 </div>
                             </div>
@@ -123,5 +127,11 @@ const hasEmployeeEventType = (employee, currentDate, eventType) => {
     return props.getEmployeeEventsForDay(employee, currentDate).some(
         event => event.type.name === eventType.name
     )
+}
+
+const getEmployeeEventNotes = (employee, currentDate, eventType) => {
+    const events = props.getEmployeeEventsForDay(employee, currentDate)
+    const event = events.find(e => e.type.name === eventType.name)
+    return event?.notes || null
 }
 </script>
