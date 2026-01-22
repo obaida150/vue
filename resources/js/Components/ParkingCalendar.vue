@@ -214,15 +214,22 @@
 
         <!-- Week View -->
         <div v-if="currentView === 'week'" class="space-y-4">
-            <div class="text-center text-gray-500">
-                Wochenansicht - Coming Soon
-            </div>
+            <WeekView
+                :parking-spots="parkingSpots"
+                :reservations="reservations"
+                :current-date="currentDate"
+                @spot-selected="(spot) => emit('spot-selected', spot)"
+                @date-changed="(date) => { currentDate = new Date(date + 'T00:00:00'); emitDateChange() }"
+                @quick-reserve="(data) => emit('quick-reserve', data)"
+            />
         </div>
     </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { usePage } from '@inertiajs/vue3'
+import WeekView from './Parkingcalendar/WeekView.vue'
 
 const props = defineProps({
     parkingSpots: {
@@ -239,6 +246,7 @@ const emit = defineEmits(['spot-selected', 'date-changed', 'quick-reserve'])
 
 const currentView = ref('day')
 const currentDate = ref(new Date())
+const page = usePage()
 
 const timeSlots = [
     {
@@ -271,7 +279,19 @@ const formatPeriodTitle = () => {
             year: 'numeric'
         })
     }
-    return 'Woche'
+    // Wochenansicht: Zeige KW und Datumsbereich
+    const weekStart = getWeekStart(currentDate.value)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekEnd.getDate() + 6)
+
+    return `${weekStart.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - ${weekEnd.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+}
+
+const getWeekStart = (date) => {
+    const d = new Date(date)
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    return new Date(d.setDate(diff))
 }
 
 const formatDayTitle = (date) => {
@@ -291,12 +311,22 @@ const goToToday = () => {
 const previousPeriod = () => {
     if (currentView.value === 'day') {
         previousDay()
+    } else if (currentView.value === 'week') {
+        const newDate = new Date(currentDate.value)
+        newDate.setDate(newDate.getDate() - 7)
+        currentDate.value = newDate
+        emitDateChange()
     }
 }
 
 const nextPeriod = () => {
     if (currentView.value === 'day') {
         nextDay()
+    } else if (currentView.value === 'week') {
+        const newDate = new Date(currentDate.value)
+        newDate.setDate(newDate.getDate() + 7)
+        currentDate.value = newDate
+        emitDateChange()
     }
 }
 
@@ -320,12 +350,36 @@ const emitDateChange = () => {
 }
 
 const getSpotReservationsForDate = (spot) => {
-    const dateStr = currentDate.value.toISOString().split('T')[0]
+    const dateStr = formatDateForComparison(currentDate.value)
     return props.reservations.filter(res =>
         res.parking_spot_id === spot.id &&
-        res.reservation_date.split('T')[0] === dateStr &&
+        formatDateForComparison(new Date(res.reservation_date)) === dateStr &&
         ['pending', 'confirmed'].includes(res.status)
     ).sort((a, b) => a.start_time.localeCompare(b.start_time))
+}
+
+const getUserReservationsForSpotAndDate = (spot) => {
+    const dateStr = formatDateForComparison(currentDate.value)
+    const userId = page.props.auth?.user?.id
+
+    if (!userId) return []
+
+    const userReservations = props.reservations.filter(res =>
+        res.parking_spot_id === spot.id &&
+        formatDateForComparison(new Date(res.reservation_date)) === dateStr &&
+        res.user_id === userId &&
+        ['pending', 'confirmed'].includes(res.status)
+    )
+
+    return userReservations
+}
+
+const formatDateForComparison = (date) => {
+    // Konvertiere zu lokales Datum Format (YYYY-MM-DD) ohne Zeitzone
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
 }
 
 const getAvailableTimeSlots = (spot) => {
@@ -341,19 +395,43 @@ const getAvailableTimeSlots = (spot) => {
     const dayStart = '06:00'
     const dayEnd = '18:00'
 
+    // Hilfsfunktion: Normalisiere Zeit zu HH:MM
+    const normalizeTime = (time) => time.substring(0, 5)
+
     const sortedReservations = [...reservations].sort((a, b) =>
         a.start_time.localeCompare(b.start_time)
     )
 
+    // Merge overlapping reservations first
+    const mergedReservations = []
+    for (const res of sortedReservations) {
+        const normalizedRes = {
+            start_time: normalizeTime(res.start_time),
+            end_time: normalizeTime(res.end_time)
+        }
+        if (mergedReservations.length === 0) {
+            mergedReservations.push(normalizedRes)
+        } else {
+            const lastMerged = mergedReservations[mergedReservations.length - 1]
+            if (normalizedRes.start_time < lastMerged.end_time) {
+                if (normalizedRes.end_time > lastMerged.end_time) {
+                    lastMerged.end_time = normalizedRes.end_time
+                }
+            } else {
+                mergedReservations.push(normalizedRes)
+            }
+        }
+    }
+
     // Slot vor der ersten Reservierung
-    if (sortedReservations[0].start_time > dayStart) {
-        slots.push(`${dayStart} - ${sortedReservations[0].start_time}`)
+    if (mergedReservations[0].start_time > dayStart) {
+        slots.push(`${dayStart} - ${mergedReservations[0].start_time}`)
     }
 
     // Slots zwischen Reservierungen
-    for (let i = 0; i < sortedReservations.length - 1; i++) {
-        const currentEnd = sortedReservations[i].end_time
-        const nextStart = sortedReservations[i + 1].start_time
+    for (let i = 0; i < mergedReservations.length - 1; i++) {
+        const currentEnd = mergedReservations[i].end_time
+        const nextStart = mergedReservations[i + 1].start_time
 
         if (currentEnd < nextStart) {
             slots.push(`${currentEnd} - ${nextStart}`)
@@ -361,12 +439,16 @@ const getAvailableTimeSlots = (spot) => {
     }
 
     // Slot nach der letzten Reservierung
-    const lastReservation = sortedReservations[sortedReservations.length - 1]
+    const lastReservation = mergedReservations[mergedReservations.length - 1]
     if (lastReservation.end_time < dayEnd) {
         slots.push(`${lastReservation.end_time} - ${dayEnd}`)
     }
 
-    return slots
+    // Filter out invalid slots
+    return slots.filter(slot => {
+        const parts = slot.split(' - ')
+        return parts.length === 2 && parts[0] !== parts[1]
+    })
 }
 
 const getSpotStatusColor = (spot) => {
@@ -396,8 +478,13 @@ const getAvailabilityText = (spot) => {
 
     const reservations = getSpotReservationsForDate(spot)
     const availableSlots = getAvailableTimeSlots(spot)
+    const userReservations = getUserReservationsForSpotAndDate(spot)
 
     if (reservations.length === 0) return 'Verfügbar'
+
+    // "Von Ihnen reserviert" nur wenn User ALLE Slots belegt hat (keine verfügbaren Slots)
+    if (availableSlots.length === 0 && userReservations.length > 0) return 'Von Ihnen reserviert'
+
     if (availableSlots.length > 0) return 'Teilweise verfügbar'
     return 'Belegt'
 }
@@ -407,8 +494,15 @@ const getAvailabilityBadgeClasses = (spot) => {
 
     const reservations = getSpotReservationsForDate(spot)
     const availableSlots = getAvailableTimeSlots(spot)
+    const userReservations = getUserReservationsForSpotAndDate(spot)
 
     if (reservations.length === 0) return 'bg-green-100 text-green-700'
+
+    // Blau für "Von Ihnen reserviert" nur wenn User ALLE Slots belegt hat
+    if (availableSlots.length === 0 && userReservations.length > 0) {
+        return 'bg-blue-100 text-blue-700'
+    }
+
     if (availableSlots.length > 0) return 'bg-yellow-100 text-yellow-700'
     return 'bg-red-100 text-red-700'
 }
