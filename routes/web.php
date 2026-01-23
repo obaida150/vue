@@ -13,6 +13,7 @@ use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VacationWishController;
+use App\Http\Controllers\RoomStatusController;
 use App\Http\Controllers\ParkingController;
 use App\Http\Controllers\OutlookController;
 use App\Models\VacationRequest;
@@ -228,7 +229,6 @@ Route::middleware([
     Route::post('/events/approve/{id}', [EventController::class, 'approveEvent'])->name('api.events.approve');
     Route::post('/events/reject/{id}', [EventController::class, 'rejectEvent'])->name('api.events.reject');
     Route::get('/events/pending', [EventController::class, 'getPendingEvents'])->name('api.events.pending');
-
     // Ereignistypen API
     Route::get('/event-types', [EventTypeController::class, 'index'])->name('api.event-types.index');
 
@@ -274,46 +274,45 @@ Route::middleware([
 
     // Feiertage API
     Route::get('/holidays/{year?}', [VacationWishController::class, 'getHolidays'])->name('api.holidays');
-
-    // Berichtsheft API
-    Route::get('/reports', [App\Http\Controllers\ReportController::class, 'index'])->name('api.reports.index');
-    Route::post('/reports', [App\Http\Controllers\ReportController::class, 'store'])->name('api.reports.store');
-    Route::get('/reports/{id}', [App\Http\Controllers\ReportController::class, 'show'])->name('api.reports.show');
-    Route::put('/reports/{id}', [App\Http\Controllers\ReportController::class, 'update'])->name('api.reports.update');
-    Route::delete('/reports/{id}', [App\Http\Controllers\ReportController::class, 'destroy'])->name('api.reports.destroy');
-    Route::get('/reports/{id}/pdf', [App\Http\Controllers\ReportController::class, 'downloadPdf'])->name('api.reports.pdf');
-    Route::get('/instructors', [App\Http\Controllers\ReportController::class, 'getInstructors'])->name('api.instructors');
-
-    // Fächer API
-    Route::get('/subjects', [App\Http\Controllers\SubjectController::class, 'index'])->name('api.subjects.index');
-    Route::post('/subjects', [App\Http\Controllers\SubjectController::class, 'store'])->name('api.subjects.store');
-    Route::put('/subjects/{id}', [App\Http\Controllers\SubjectController::class, 'update'])->name('api.subjects.update');
-    Route::delete('/subjects/{id}', [App\Http\Controllers\SubjectController::class, 'destroy'])->name('api.subjects.destroy');
-    Route::get('/subjects/year/{year}', [App\Http\Controllers\SubjectController::class, 'getByYear'])->name('api.subjects.by-year');
-
-    // Parkplatz API - VEREINFACHT (ohne Admin-Genehmigungen)
-    Route::prefix('parking')->group(function () {
-        // Benutzer-API
-        Route::get('/locations', [ParkingController::class, 'getLocations'])->name('api.parking.locations');
-        Route::get('/availability', [ParkingController::class, 'getAvailability'])->name('api.parking.availability');
-        Route::get('/my-reservations', [ParkingController::class, 'getMyReservations'])->name('api.parking.my-reservations');
-        Route::post('/reserve', [ParkingController::class, 'createReservation'])->name('api.parking.reserve');
-        Route::delete('/reservations/{reservation}', [ParkingController::class, 'cancelReservation'])->name('api.parking.cancel-reservation');
-        Route::get('/spots', [ParkingController::class, 'getAllSpots'])->name('api.parking.spots');
-        Route::get('/reservations/current', [ParkingController::class, 'getCurrentReservations'])->name('api.parking.current-reservations');
-        Route::post('/spots/{spot}/toggle', [ParkingController::class, 'toggleSpotStatus'])->name('api.parking.toggle-spot');
-
-        // Admin-API für CRUD-Operationen
-        Route::get('/spaces', [ParkingController::class, 'getSpaces'])->name('api.parking.spaces');
-        Route::post('/locations', [ParkingController::class, 'storeLocation'])->name('api.parking.locations.store');
-        Route::put('/locations/{location}', [ParkingController::class, 'updateLocation'])->name('api.parking.locations.update');
-        Route::delete('/locations/{location}', [ParkingController::class, 'destroyLocation'])->name('api.parking.locations.destroy');
-        Route::get('/locations/{location}/spaces', [ParkingController::class, 'getSpacesByLocation'])->name('api.parking.locations.spaces');
-        Route::post('/spaces', [ParkingController::class, 'storeSpace'])->name('api.parking.spaces.store');
-        Route::put('/spaces/{space}', [ParkingController::class, 'updateSpace'])->name('api.parking.spaces.update');
-        Route::delete('/spaces/{space}', [ParkingController::class, 'destroySpace'])->name('api.parking.spaces.destroy');
-    });
 });
+// Berichtsheft API
+Route::get('/reports', [App\Http\Controllers\ReportController::class, 'index'])->name('api.reports.index');
+Route::post('/reports', [App\Http\Controllers\ReportController::class, 'store'])->name('api.reports.store');
+Route::get('/reports/{id}', [App\Http\Controllers\ReportController::class, 'show'])->name('api.reports.show');
+Route::put('/reports/{id}', [App\Http\Controllers\ReportController::class, 'update'])->name('api.reports.update');
+Route::delete('/reports/{id}', [App\Http\Controllers\ReportController::class, 'destroy'])->name('api.reports.destroy');
+Route::get('/reports/{id}/pdf', [App\Http\Controllers\ReportController::class, 'downloadPdf'])->name('api.reports.pdf');
+Route::get('/instructors', [App\Http\Controllers\ReportController::class, 'getInstructors'])->name('api.instructors');
+
+// Fächer API
+Route::get('/subjects', [App\Http\Controllers\SubjectController::class, 'index'])->name('api.subjects.index');
+Route::post('/subjects', [App\Http\Controllers\SubjectController::class, 'store'])->name('api.subjects.store');
+Route::put('/subjects/{id}', [App\Http\Controllers\SubjectController::class, 'update'])->name('api.subjects.update');
+Route::delete('/subjects/{id}', [App\Http\Controllers\SubjectController::class, 'destroy'])->name('api.subjects.destroy');
+Route::get('/subjects/year/{year}', [App\Http\Controllers\SubjectController::class, 'getByYear'])->name('api.subjects.by-year');
+
+// Parkplatz API - VEREINFACHT (ohne Admin-Genehmigungen)
+Route::prefix('parking')->group(function () {
+    // Benutzer-API
+    Route::get('/locations', [ParkingController::class, 'getLocations'])->name('api.parking.locations');
+    Route::get('/availability', [ParkingController::class, 'getAvailability'])->name('api.parking.availability');
+    Route::get('/my-reservations', [ParkingController::class, 'getMyReservations'])->name('api.parking.my-reservations');
+    Route::post('/reserve', [ParkingController::class, 'createReservation'])->name('api.parking.reserve');
+    Route::delete('/reservations/{reservation}', [ParkingController::class, 'cancelReservation'])->name('api.parking.cancel-reservation');
+    Route::get('/spots', [ParkingController::class, 'getAllSpots'])->name('api.parking.spots');
+    Route::get('/reservations/current', [ParkingController::class, 'getCurrentReservations'])->name('api.parking.current-reservations');
+    Route::post('/spots/{spot}/toggle', [ParkingController::class, 'toggleSpotStatus'])->name('api.parking.toggle-spot');
+    // Admin-API für CRUD-Operationen
+    Route::get('/spaces', [ParkingController::class, 'getSpaces'])->name('api.parking.spaces');
+    Route::post('/locations', [ParkingController::class, 'storeLocation'])->name('api.parking.locations.store');
+    Route::put('/locations/{location}', [ParkingController::class, 'updateLocation'])->name('api.parking.locations.update');
+    Route::delete('/locations/{location}', [ParkingController::class, 'destroyLocation'])->name('api.parking.locations.destroy');
+    Route::get('/locations/{location}/spaces', [ParkingController::class, 'getSpacesByLocation'])->name('api.parking.locations.spaces');
+    Route::post('/spaces', [ParkingController::class, 'storeSpace'])->name('api.parking.spaces.store');
+    Route::put('/spaces/{space}', [ParkingController::class, 'updateSpace'])->name('api.parking.spaces.update');
+    Route::delete('/spaces/{space}', [ParkingController::class, 'destroySpace'])->name('api.parking.spaces.destroy');
+});
+
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/vacation/hr-entry', [VacationController::class, 'showHrEntry'])->name('vacation.hr.entry');

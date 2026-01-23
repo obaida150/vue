@@ -10,6 +10,7 @@ use App\Http\Controllers\TeamController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\RoomStatusController;
 
 /*
 |--------------------------------------------------------------------------
@@ -122,72 +123,72 @@ Route::middleware('auth:sanctum')->group(function () {
 // php
 // php
 // php
-Route::post('/events', function(Request $request) {
-    try {
-        $user = auth('sanctum')->user() ?: Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Nicht authentifiziert'], 401);
+    Route::post('/events', function(Request $request) {
+        try {
+            $user = auth('sanctum')->user() ?: Auth::user();
+            if (!$user) {
+                return response()->json(['error' => 'Nicht authentifiziert'], 401);
+            }
+
+            Log::info('Creating event with data:', [
+                'request_data' => $request->all(),
+                'user_id' => $user->id
+            ]);
+
+            // Sicherstellen, dass alle erforderlichen Parameter vorhanden sind
+            if (!$request->filled('title') || !$request->filled('start_date') || !$request->filled('end_date')) {
+                return response()->json(['error' => 'Fehlende erforderliche Felder'], 422);
+            }
+
+            $eventTypeName = $request->input('event_type', 'Sonstiges');
+            Log::info('Looking for event type:', ['name' => $eventTypeName]);
+
+            $eventType = EventType::where('name', $eventTypeName)->first();
+            if (!$eventType) {
+                $eventType = EventType::whereRaw('LOWER(name) = ?', [strtolower($eventTypeName)])->first();
+            }
+            if (!$eventType) {
+                $eventType = EventType::firstOrCreate(
+                    ['name' => 'Sonstiges'],
+                    ['color' => '#607D8B', 'requires_approval' => false]
+                );
+            }
+
+            // Neues Ereignis erstellen
+            $event = new Event();
+            $event->user_id = $user->id;
+            $event->created_by = $user->id;
+            $event->event_type_id = $eventType->id;
+            $event->title = $request->input('title');
+            $event->description = $request->input('description', '');
+            $event->start_date = $request->input('start_date');
+            $event->end_date = $request->input('end_date');
+            $event->is_all_day = $request->boolean('is_all_day', false);
+            $event->status = $eventType->requires_approval ? 'pending' : 'approved';
+
+            if ($user->current_team_id) {
+                $event->team_id = $user->current_team_id;
+            }
+
+            Log::info('About to save event', ['event_data' => $event->toArray()]);
+            $event->save();
+            Log::info('Event saved successfully', ['id' => $event->id]);
+
+            return response()->json([
+                'message' => 'Ereignis erfolgreich erstellt',
+                'event' => $event
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error('API Create Error: ' . $e->getMessage(), [
+                'request_data' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
         }
-
-        Log::info('Creating event with data:', [
-            'request_data' => $request->all(),
-            'user_id' => $user->id
-        ]);
-
-        // Sicherstellen, dass alle erforderlichen Parameter vorhanden sind
-        if (!$request->filled('title') || !$request->filled('start_date') || !$request->filled('end_date')) {
-            return response()->json(['error' => 'Fehlende erforderliche Felder'], 422);
-        }
-
-        $eventTypeName = $request->input('event_type', 'Sonstiges');
-        Log::info('Looking for event type:', ['name' => $eventTypeName]);
-
-        $eventType = EventType::where('name', $eventTypeName)->first();
-        if (!$eventType) {
-            $eventType = EventType::whereRaw('LOWER(name) = ?', [strtolower($eventTypeName)])->first();
-        }
-        if (!$eventType) {
-            $eventType = EventType::firstOrCreate(
-                ['name' => 'Sonstiges'],
-                ['color' => '#607D8B', 'requires_approval' => false]
-            );
-        }
-
-        // Neues Ereignis erstellen
-        $event = new Event();
-        $event->user_id = $user->id;
-        $event->created_by = $user->id;
-        $event->event_type_id = $eventType->id;
-        $event->title = $request->input('title');
-        $event->description = $request->input('description', '');
-        $event->start_date = $request->input('start_date');
-        $event->end_date = $request->input('end_date');
-        $event->is_all_day = $request->boolean('is_all_day', false);
-        $event->status = $eventType->requires_approval ? 'pending' : 'approved';
-
-        if ($user->current_team_id) {
-            $event->team_id = $user->current_team_id;
-        }
-
-        Log::info('About to save event', ['event_data' => $event->toArray()]);
-        $event->save();
-        Log::info('Event saved successfully', ['id' => $event->id]);
-
-        return response()->json([
-            'message' => 'Ereignis erfolgreich erstellt',
-            'event' => $event
-        ], 201);
-    } catch (\Exception $e) {
-        Log::error('API Create Error: ' . $e->getMessage(), [
-            'request_data' => $request->all(),
-            'trace' => $e->getTraceAsString()
-        ]);
-        return response()->json([
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ], 500);
-    }
-});
+    });
 
     // Simple update route without CSRF protection
     Route::put('/events/{id}', function(Request $request, $id) {
@@ -511,3 +512,5 @@ Route::post('/events', function(Request $request) {
     Route::post('/vacation/hr/store-for-employee', [VacationController::class, 'storeForEmployee'])->name('vacation.hr.store');
 });
 
+// Room Status API - without authentication
+Route::get('/room-status', [RoomStatusController::class, 'api']);

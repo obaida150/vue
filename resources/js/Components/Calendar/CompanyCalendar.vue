@@ -672,7 +672,6 @@ import axios from 'axios'
 import OverlayPanel from 'primevue/overlaypanel'
 
 import CalendarDayView from './CalendarDayView.vue'
-import CalendarWeekView from './CalendarWeekView.vue'
 import CalendarMonthView from './CalendarMonthView.vue'
 import CalendarEmployeeDialog from './CalendarEmployeeDialog.vue'
 

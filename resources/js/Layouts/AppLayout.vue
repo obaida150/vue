@@ -4,8 +4,8 @@
 
         <Banner />
 
-<div class="min-h-screen bg-gray-100 dark:bg-gray-900">
-    <nav class="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+        <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
+            <nav class="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                 <!-- Primary Navigation Menu -->
                 <div class="max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between h-16">
@@ -51,6 +51,11 @@
                                 <NavLink href="/vacation" :active="$page.component === 'Vacation'">
                                     Mein Urlaub
                                 </NavLink>
+                                <a href="#"
+                                   @click.prevent="openRoomStatusPopup"
+                                   class="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-700 focus:outline-none focus:text-gray-700 dark:focus:text-gray-300 focus:border-gray-300 dark:focus:border-gray-700 transition duration-150 ease-in-out">
+                                    Raumstatus
+                                </a>
                                 <NavLink v-if="user && (user.role_id === 1 || user.role_id === 2 || user.role_id === 3)" href="/vacation/management" :active="$page.component === 'VacationManagement'">
                                     Urlaubsverwaltung
                                 </NavLink>
@@ -431,6 +436,7 @@
         </div>
     </div>
     <BirthdayNotification />
+    <RoomStatusModal ref="roomStatusModal" />
 </template>
 
 <script>
@@ -443,6 +449,7 @@ import NavLink from '@/Components/NavLink.vue'
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue'
 import ApplicationMark from '@/Components/ApplicationMark.vue'
 import BirthdayNotification from '@/Components/Notifications/BirthdayNotification.vue'
+import RoomStatusModal from '@/Components/RoomStatusModal.vue'
 import Button from "primevue/button";
 // import ThemeSwitcher from "@/Components/ThemeSwitcher.vue";
 
@@ -455,6 +462,7 @@ export default defineComponent({
         // ThemeSwitcher,
         Button,
         BirthdayNotification,
+        RoomStatusModal,
         Head,
         Link,
         Banner,
@@ -486,7 +494,9 @@ export default defineComponent({
                 preserveState: false,
             })
         },
-
+        openRoomStatusPopup() {
+            this.$refs.roomStatusModal.open()
+        },
         logout() {
             this.$inertia.post('/logout');
         },

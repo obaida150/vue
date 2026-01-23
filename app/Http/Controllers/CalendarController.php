@@ -9,7 +9,6 @@ use App\Models\EventType;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use App\Models\VacationRequest;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
 class CalendarController extends Controller
@@ -20,23 +19,15 @@ class CalendarController extends Controller
     public function getCompanyData()
     {
         try {
-            // Debug-Logging
-            Log::info('CalendarController::getCompanyData wurde aufgerufen');
-
-            // Mitarbeiter mit ihren Teams (Abteilungen) laden
             $employees = User::with(['currentTeam', 'events.eventType'])
                 ->where('is_active', true)
                 ->get();
 
-            Log::info('Mitarbeiter geladen: ' . $employees->count());
-
             $mappedEmployees = $employees->map(function ($user) {
-                // Ereignisse für den Mitarbeiter mappen
                 $events = [];
 
                 if ($user->events && $user->events->isNotEmpty()) {
                     $events = $user->events->map(function ($event) {
-                        // Prüfen, ob eventType existiert
                         if (!$event->eventType) {
                             return null;
                         }
@@ -55,7 +46,6 @@ class CalendarController extends Controller
                     })->filter()->toArray();
                 }
 
-                // Geburtstag als Ereignis hinzufügen, wenn vorhanden
                 if ($user->birth_date) {
                     $currentYear = Carbon::now()->year;
                     $birthdayThisYear = Carbon::createFromDate(
@@ -64,7 +54,6 @@ class CalendarController extends Controller
                         $user->birth_date->day
                     );
 
-                    // Wenn der Geburtstag dieses Jahr bereits vorbei ist, zeige auch den nächsten an
                     if ($birthdayThisYear->isPast()) {
                         $nextYear = $currentYear + 1;
                         $birthdayNextYear = Carbon::createFromDate(
@@ -80,13 +69,12 @@ class CalendarController extends Controller
                             'type' => [
                                 'name' => 'Geburtstag',
                                 'value' => 'birthday',
-                                'color' => '#FF4500' // Orange-Rot für Geburtstage
+                                'color' => '#FF4500'
                             ],
                             'notes' => $user->full_name . ' hat Geburtstag! '
                         ];
                     }
 
-                    // Aktuelles Jahr Geburtstag
                     $events[] = [
                         'date' => $birthdayThisYear->format('Y-m-d'),
                         'start_date' => $birthdayThisYear->format('Y-m-d'),
@@ -94,7 +82,7 @@ class CalendarController extends Controller
                         'type' => [
                             'name' => 'Geburtstag',
                             'value' => 'birthday',
-                            'color' => '#FF4500' // Orange-Rot für Geburtstage
+                            'color' => '#FF4500'
                         ],
                         'notes' => $user->full_name . ' hat Geburtstag! '
                     ];
@@ -111,7 +99,6 @@ class CalendarController extends Controller
                 ];
             });
 
-            // Teams (Abteilungen) laden
             $departments = Team::where('personal_team', false)->get()->map(function ($team) {
                 return [
                     'id' => $team->id,
@@ -119,7 +106,6 @@ class CalendarController extends Controller
                 ];
             });
 
-            // Event-Typen laden und Geburtstag hinzufügen
             $eventTypes = [];
             try {
                 $eventTypes = EventType::all()->map(function ($type) {
@@ -130,8 +116,6 @@ class CalendarController extends Controller
                     ];
                 })->toArray();
             } catch (\Exception $e) {
-                Log::error('Fehler beim Laden der EventTypes: ' . $e->getMessage());
-                // Fallback für EventTypes
                 $eventTypes = [
                     ['name' => 'Homeoffice', 'value' => 'homeoffice', 'color' => '#4CAF50'],
                     ['name' => 'Büro', 'value' => 'office', 'color' => '#2196F3'],
@@ -142,7 +126,6 @@ class CalendarController extends Controller
                 ];
             }
 
-            // Geburtstags-Eventtyp hinzufügen, falls noch nicht vorhanden
             $hasBirthdayType = collect($eventTypes)->contains('value', 'birthday');
             if (!$hasBirthdayType) {
                 $eventTypes[] = [
@@ -152,7 +135,6 @@ class CalendarController extends Controller
                 ];
             }
 
-            // Urlaubs-Eventtyp hinzufügen, falls noch nicht vorhanden
             $hasVacationType = collect($eventTypes)->contains('value', 'vacation');
             if (!$hasVacationType) {
                 $eventTypes[] = [
@@ -162,22 +144,19 @@ class CalendarController extends Controller
                 ];
             }
 
-            // Urlaubsanträge laden
             try {
                 $vacationRequests = VacationRequest::with(['user', 'user.currentTeam'])
                     ->where('status', 'approved')
                     ->get()
                     ->map(function ($request) {
-                        // Berechne die tatsächlichen Arbeitstage (Mo-Fr) im Urlaubszeitraum
                         $startDate = Carbon::parse($request->start_date);
                         $endDate = Carbon::parse($request->end_date);
                         $workDays = [];
 
                         $currentDate = $startDate->copy();
                         while ($currentDate->lte($endDate)) {
-                            // Nur Werktage (Mo-Fr) hinzufügen
                             $dayOfWeek = $currentDate->dayOfWeek;
-                            if ($dayOfWeek !== 0 && $dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
+                            if ($dayOfWeek !== 0 && $dayOfWeek !== 6) {
                                 $workDays[] = $currentDate->format('Y-m-d');
                             }
                             $currentDate->addDay();
@@ -188,8 +167,8 @@ class CalendarController extends Controller
                             'user_id' => $request->user_id,
                             'start_date' => $request->start_date->format('Y-m-d'),
                             'end_date' => $request->end_date->format('Y-m-d'),
-                            'work_days' => $workDays, // Liste der tatsächlichen Arbeitstage
-                            'day_type' => $request->day_type, // Hinzufügen des day_type
+                            'work_days' => $workDays,
+                            'day_type' => $request->day_type,
                             'days' => $request->days,
                             'notes' => $request->notes,
                             'status' => $request->status,
@@ -198,9 +177,7 @@ class CalendarController extends Controller
                         ];
                     });
 
-                // Für jeden Urlaubsantrag die Werktage berechnen und als separate Ereignisse hinzufügen
                 foreach ($vacationRequests as $request) {
-                    // Finde den Index des entsprechenden Mitarbeiters
                     $employeeIndex = $mappedEmployees->search(function ($item) use ($request) {
                         return $item['id'] === $request['user_id'];
                     });
@@ -214,7 +191,6 @@ class CalendarController extends Controller
                                 $vacationName = 'Nachmittag';
                             }
 
-                            // Nutze put() um den Mitarbeiter zu aktualisieren
                             $employee = $mappedEmployees[$employeeIndex];
                             $employee['events'][] = [
                                 'date' => $workDay,
@@ -232,7 +208,7 @@ class CalendarController extends Controller
                     }
                 }
             } catch (\Exception $e) {
-                Log::error('Fehler beim Laden der Urlaubsanträge: ' . $e->getMessage());
+                // Urlaubsanträge konnten nicht geladen werden
             }
 
             return response()->json([
@@ -242,8 +218,6 @@ class CalendarController extends Controller
                 'currentUserTeamId' => Auth::user()->currentTeam ? Auth::user()->currentTeam->id : null
             ]);
         } catch (\Exception $e) {
-            Log::error('Fehler im CalendarController: ' . $e->getMessage());
-            Log::error($e->getTraceAsString());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -260,7 +234,6 @@ class CalendarController extends Controller
                 return response()->json(['error' => 'Benutzer nicht authentifiziert'], 401);
             }
 
-            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
             $isTeamManager = false;
             $teamId = null;
             $teamMembers = [];
@@ -268,7 +241,6 @@ class CalendarController extends Controller
             if ($user->currentTeam) {
                 $teamId = $user->currentTeam->id;
 
-                // Prüfen, ob der Benutzer die Rolle "Abteilungsleiter" in der team_user Tabelle hat
                 $teamUserRole = DB::table('team_user')
                     ->where('team_id', $teamId)
                     ->where('user_id', $user->id)
@@ -276,7 +248,6 @@ class CalendarController extends Controller
 
                 $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
 
-                // Wenn Abteilungsleiter, hole die Teammitglieder
                 if ($isTeamManager) {
                     $teamMembers = User::whereHas('teams', function($query) use ($teamId) {
                         $query->where('teams.id', $teamId);
@@ -301,10 +272,9 @@ class CalendarController extends Controller
                 'is_team_manager' => $isTeamManager,
                 'team_id' => $teamId,
                 'team_members' => $teamMembers,
-                'has_hr_permissions' => $user->has_hr_permissions ?? false, // Neues Feld
+                'has_hr_permissions' => $user->has_hr_permissions ?? false,
             ]);
         } catch (\Exception $e) {
-            Log::error('Fehler beim Abrufen der Benutzerrolle: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -321,10 +291,8 @@ class CalendarController extends Controller
                 return response()->json(['error' => 'User not authenticated'], 401);
             }
 
-            // Prüfen, ob der Benutzer eine HR-Rolle hat (role_id = 1 oder 2)
             $isHR = $user->role_id === 1 || $user->role_id === 2;
 
-            // Prüfen, ob der Benutzer ein Abteilungsleiter ist
             $isTeamManager = false;
             $teamId = null;
 
@@ -338,21 +306,12 @@ class CalendarController extends Controller
                 $isTeamManager = $teamUserRole && $teamUserRole->role === 'Abteilungsleiter';
             }
 
-            // Wenn weder HR noch Abteilungsleiter, Zugriff verweigern
             if (!$isHR && !$isTeamManager) {
-                Log::warning('Unauthorized access to getEmployees', [
-                    'user_id' => $user->id,
-                    'role_id' => $user->role_id,
-                    'isHR' => $isHR,
-                    'isTeamManager' => $isTeamManager
-                ]);
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
-            // Mitarbeiter laden basierend auf der Rolle
             $query = User::where('is_active', true);
 
-            // Wenn Abteilungsleiter (und nicht HR), nur das eigene Team
             if ($isTeamManager && !$isHR) {
                 $query->where('current_team_id', $teamId);
             }
@@ -369,7 +328,6 @@ class CalendarController extends Controller
 
             return response()->json($employees);
         } catch (\Exception $e) {
-            Log::error('Fehler beim Abrufen der Mitarbeiterliste: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -380,14 +338,11 @@ class CalendarController extends Controller
     public function getAllVacationRequests()
     {
         try {
-            Log::info('CalendarController::getAllVacationRequests wurde aufgerufen');
-
             $user = Auth::user();
             if (!$user) {
                 return response()->json(['error' => 'User not authenticated'], 401);
             }
 
-            // Prüfen, ob der Benutzer die HR-Rolle hat oder ein Abteilungsleiter ist
             $isHR = $user->role_id === 2;
             $isTeamManager = false;
             $teamId = null;
@@ -401,15 +356,9 @@ class CalendarController extends Controller
                 $isTeamManager = ($teamUserRole === 'Abteilungsleiter');
             }
 
-//            if (!$isHR && !$isTeamManager) {
-//                return response()->json(['error' => 'Unauthorized'], 403);
-//            }
-
-            // Urlaubsanträge laden basierend auf der Rolle
             $query = VacationRequest::with(['user', 'user.currentTeam'])
                 ->where('status', 'approved');
 
-            // Wenn der Benutzer ein Abteilungsleiter ist, nur Anträge aus seinem Team laden
             if ($isTeamManager && !$isHR) {
                 $query->whereHas('user', function($q) use ($teamId) {
                     $q->whereHas('teams', function($teamQuery) use ($teamId) {
@@ -419,16 +368,14 @@ class CalendarController extends Controller
             }
 
             $vacationRequests = $query->get()->map(function ($request) {
-                // Berechne die tatsächlichen Arbeitstage (Mo-Fr) im Urlaubszeitraum
                 $startDate = Carbon::parse($request->start_date);
                 $endDate = Carbon::parse($request->end_date);
                 $workDays = [];
 
                 $currentDate = $startDate->copy();
                 while ($currentDate->lte($endDate)) {
-                    // Nur Werktage (Mo-Fr) hinzufügen
                     $dayOfWeek = $currentDate->dayOfWeek;
-                    if ($dayOfWeek !== 0 && $dayOfWeek !== 6) { // Nicht Sonntag und nicht Samstag
+                    if ($dayOfWeek !== 0 && $dayOfWeek !== 6) {
                         $workDays[] = $currentDate->format('Y-m-d');
                     }
                     $currentDate->addDay();
@@ -441,7 +388,7 @@ class CalendarController extends Controller
                     'end_date' => $request->end_date->format('Y-m-d'),
                     'work_days' => $workDays,
                     'days' => $request->days,
-                    'day_type' => $request->day_type ?? 'full_day', //
+                    'day_type' => $request->day_type ?? 'full_day',
                     'notes' => $request->notes,
                     'status' => $request->status,
                     'employee_name' => $request->user ? $request->user->full_name : 'Unbekannt',
@@ -449,13 +396,9 @@ class CalendarController extends Controller
                 ];
             });
 
-            Log::info('Urlaubsanträge geladen: ' . $vacationRequests->count());
-
             return response()->json($vacationRequests);
 
         } catch (\Exception $e) {
-            Log::error('Fehler beim Laden der Urlaubsanträge: ' . $e->getMessage());
-            Log::error($e->getTraceAsString());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
