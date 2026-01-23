@@ -507,86 +507,290 @@ export default defineComponent({
 
 <style scoped>
 .modern-datatable {
-    border-radius: 0.5rem;
+    border-radius: 1rem;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
+/* Header */
 :deep(.modern-datatable .p-datatable-header) {
-    background-color: var(--surface-section);
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border: none;
-    padding: 1.25rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
 }
 
+.dark :deep(.modern-datatable .p-datatable-header) {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-bottom: 1px solid #334155;
+}
+
+/* Table Header */
 :deep(.modern-datatable .p-datatable-thead > tr > th) {
-    background-color: var(--surface-section);
-    padding: 1rem;
-    font-weight: 600;
-    color: var(--text-color-secondary);
-    border-color: var(--surface-border);
+    background-color: #f8fafc;
+    padding: 1rem 1.25rem;
+    font-weight: 700;
+    color: #64748b;
+    border: none;
+    border-bottom: 2px solid #e2e8f0;
     text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    transition: background-color 0.2s ease;
 }
 
+.dark :deep(.modern-datatable .p-datatable-thead > tr > th) {
+    background-color: #1e293b;
+    color: #94a3b8;
+    border-bottom: 2px solid #334155;
+}
+
+:deep(.modern-datatable .p-datatable-thead > tr > th:hover) {
+    background-color: #f1f5f9;
+}
+
+.dark :deep(.modern-datatable .p-datatable-thead > tr > th:hover) {
+    background-color: #334155;
+}
+
+/* Table Body */
 :deep(.modern-datatable .p-datatable-tbody > tr) {
-    transition: all 0.2s;
-    border-color: var(--surface-border);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
 }
 
 :deep(.modern-datatable .p-datatable-tbody > tr > td) {
-    padding: 1rem;
-    border-color: var(--surface-border);
-}
-
-:deep(.modern-datatable .p-datatable-tbody > tr:hover) {
-    background-color: var(--surface-hover);
-}
-
-:deep(.modern-datatable .p-paginator) {
-    padding: 1rem;
-    background-color: var(--surface-section);
+    padding: 1.25rem;
     border: none;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.dark :deep(.modern-datatable .p-datatable-tbody > tr > td) {
+    border-bottom: 1px solid #1e293b;
+}
+
+:deep(.modern-datatable .p-datatable-tbody > tr:last-child > td) {
+    border-bottom: none;
+}
+
+/* Row Hover Effect */
+:deep(.modern-datatable .p-datatable-tbody > tr:hover) {
+    background: linear-gradient(90deg, #eff6ff 0%, #f0f9ff 50%, #ecfeff 100%) !important;
+    transform: scale(1.002);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+}
+
+.dark :deep(.modern-datatable .p-datatable-tbody > tr:hover) {
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(14, 165, 233, 0.08) 100%) !important;
+}
+
+/* Striped Rows */
+:deep(.modern-datatable .p-datatable-tbody > tr:nth-child(even)) {
+    background-color: #fafbfc;
+}
+
+.dark :deep(.modern-datatable .p-datatable-tbody > tr:nth-child(even)) {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Sortable Header Icons */
+:deep(.modern-datatable .p-sortable-column .p-sortable-column-icon) {
+    color: #cbd5e1;
+    margin-left: 0.5rem;
+    transition: color 0.2s ease;
+}
+
+:deep(.modern-datatable .p-sortable-column:hover .p-sortable-column-icon) {
+    color: #3b82f6;
+}
+
+:deep(.modern-datatable .p-sortable-column.p-highlight .p-sortable-column-icon) {
+    color: #3b82f6;
+}
+
+/* Paginator */
+:deep(.modern-datatable .p-paginator) {
+    padding: 1.25rem 1.5rem;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    gap: 0.5rem;
+}
+
+.dark :deep(.modern-datatable .p-paginator) {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border-top: 1px solid #334155;
+}
+
+:deep(.modern-datatable .p-paginator .p-paginator-pages .p-paginator-page) {
+    min-width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    margin: 0 0.15rem;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+:deep(.modern-datatable .p-paginator .p-paginator-pages .p-paginator-page:hover) {
+    background-color: #eff6ff;
+    color: #3b82f6;
+}
+
+:deep(.modern-datatable .p-paginator .p-paginator-pages .p-paginator-page.p-highlight) {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Filter Input */
+:deep(.modern-datatable .p-column-filter) {
+    border-radius: 0.5rem;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+:deep(.modern-datatable .p-column-filter:focus) {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Empty State */
+:deep(.modern-datatable .p-datatable-emptymessage td) {
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
+/* Loading Overlay */
+:deep(.modern-datatable .p-datatable-loading-overlay) {
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(4px);
+}
+
+.dark :deep(.modern-datatable .p-datatable-loading-overlay) {
+    background-color: rgba(15, 23, 42, 0.8);
 }
 
 /* Modern Dialog Styles */
 :deep(.modern-dialog) {
-    border-radius: 0.75rem;
+    border-radius: 1rem;
     overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 :deep(.modern-dialog .p-dialog-header) {
-    padding: 1.5rem;
-    background-color: var(--surface-card);
-    border-bottom: 1px solid var(--surface-border);
+    padding: 1.75rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.dark :deep(.modern-dialog .p-dialog-header) {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-bottom: 1px solid #334155;
 }
 
 :deep(.modern-dialog .p-dialog-title) {
-    font-weight: 600;
-    font-size: 1.25rem;
+    font-weight: 700;
+    font-size: 1.35rem;
+    background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.dark :deep(.modern-dialog .p-dialog-title) {
+    background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 :deep(.modern-dialog .p-dialog-content) {
     padding: 0;
-    background-color: var(--surface-card);
+    background-color: #ffffff;
+}
+
+.dark :deep(.modern-dialog .p-dialog-content) {
+    background-color: #0f172a;
 }
 
 :deep(.modern-dialog .p-dialog-footer) {
-    padding: 0 1.5rem 1.5rem 1.5rem;
-    background-color: var(--surface-card);
+    padding: 0 1.75rem 1.75rem 1.75rem;
+    background-color: #ffffff;
     border-top: none;
 }
 
-/* Dark mode adjustments */
-:deep(.dark .p-datatable .p-datatable-thead > tr > th) {
-    background-color: var(--surface-card);
+.dark :deep(.modern-dialog .p-dialog-footer) {
+    background-color: #0f172a;
 }
 
-:deep(.dark .p-datatable .p-datatable-tbody > tr:nth-child(even)) {
-    background-color: rgba(255, 255, 255, 0.02);
+/* Dialog Close Button */
+:deep(.modern-dialog .p-dialog-header-icon) {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
 }
 
-:deep(.dark .p-datatable .p-datatable-tbody > tr:hover) {
-    background-color: rgba(255, 255, 255, 0.05);
+:deep(.modern-dialog .p-dialog-header-icon:hover) {
+    background-color: #fee2e2;
+    color: #ef4444;
+}
+
+/* Avatar Enhancement */
+:deep(.p-avatar) {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+}
+
+/* Tag Enhancement */
+:deep(.p-tag) {
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.025em;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Button Enhancements */
+:deep(.p-button-rounded) {
+    transition: all 0.2s ease;
+}
+
+:deep(.p-button-rounded:hover) {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Input Text Enhancement */
+:deep(.p-inputtext) {
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+:deep(.p-inputtext:focus) {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Search Icon Container */
+:deep(.p-input-icon-left > i) {
+    color: #94a3b8;
+}
+
+/* Column Filter Menu */
+:deep(.p-column-filter-menu-button) {
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+}
+
+:deep(.p-column-filter-menu-button:hover) {
+    background-color: #eff6ff;
+    color: #3b82f6;
+}
+
+:deep(.p-column-filter-menu-button.p-column-filter-menu-button-active) {
+    background-color: #3b82f6;
+    color: white;
 }
 </style>

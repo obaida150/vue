@@ -52,7 +52,7 @@
                                 <div class="flex justify-between items-center w-full">
                                     <h3 class="text-xl font-bold text-gray-800 dark:text-gray-200">Urlaub-Info-Liste</h3>
                                     <span class="p-input-icon-left ml-auto">
-                                        <i class="pi pi-search" />
+                                        <i class="pi pi-search p-2" />
                                         <InputText v-model="filters['global'].value" placeholder="Suchen..." class="p-inputtext-sm" />
                                     </span>
                                 </div>
@@ -517,88 +517,193 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* Modernisierte Styles für die DataTable / Dialog (nur Styling, keine Funktionalität geändert) */
+
 .modern-datatable {
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    background-clip: padding-box;
 }
 
+/* Header */
 :deep(.modern-datatable .p-datatable-header) {
-    background-color: var(--surface-section);
-    border: none;
-    padding: 1.25rem;
+    background: linear-gradient(90deg, #ffffff 0%, #f8fafc 100%);
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e6eef6;
 }
 
+/* Table Header */
 :deep(.modern-datatable .p-datatable-thead > tr > th) {
-    background-color: var(--surface-section);
-    padding: 1rem;
-    font-weight: 600;
-    color: var(--text-color-secondary);
-    border-color: var(--surface-border);
+    background-color: #f8fafc;
+    padding: 0.85rem 1rem;
+    font-weight: 700;
+    color: #64748b; /* text-secondary */
+    border: none;
+    border-bottom: 2px solid #e2e8f0; /* surface-border */
     text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    vertical-align: middle;
 }
 
+/* Table Body */
 :deep(.modern-datatable .p-datatable-tbody > tr) {
-    transition: all 0.2s;
-    border-color: var(--surface-border);
+    transition: background-color 0.18s ease, transform 0.18s ease;
+    background-color: #ffffff;
 }
 
 :deep(.modern-datatable .p-datatable-tbody > tr > td) {
-    padding: 1rem;
-    border-color: var(--surface-border);
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid #f1f5f9; /* surface-border light */
+    vertical-align: middle;
 }
 
+/* Row Hover */
 :deep(.modern-datatable .p-datatable-tbody > tr:hover) {
-    background-color: var(--surface-hover);
+    background: linear-gradient(90deg, #f1f9ff 0%, #eefcff 100%);
+    transform: translateZ(0);
+    box-shadow: 0 8px 20px rgba(14, 165, 233, 0.06);
 }
 
+/* Striped rows */
+:deep(.modern-datatable .p-datatable-tbody > tr:nth-child(even)) {
+    background-color: #fbfdff;
+}
+
+/* Sort icons */
+:deep(.modern-datatable .p-sortable-column .p-sortable-column-icon) {
+    color: #cbd5e1;
+    margin-left: 0.45rem;
+    transition: color 0.15s;
+}
+:deep(.modern-datatable .p-sortable-column:hover .p-sortable-column-icon),
+:deep(.modern-datatable .p-sortable-column.p-highlight .p-sortable-column-icon) {
+    color: #2563eb;
+}
+
+/* Paginator */
 :deep(.modern-datatable .p-paginator) {
-    padding: 1rem;
-    background-color: var(--surface-section);
-    border: none;
+    padding: 0.9rem 1rem;
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    border-top: 1px solid #e6eef6;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+:deep(.modern-datatable .p-paginator .p-paginator-pages .p-paginator-page) {
+    min-width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.5rem;
+    margin: 0 0.1rem;
+    transition: all 0.15s;
+    font-weight: 600;
+}
+:deep(.modern-datatable .p-paginator .p-paginator-pages .p-paginator-page:hover) {
+    background-color: #e6f0ff;
+    color: #1e40af;
+}
+:deep(.modern-datatable .p-paginator .p-paginator-pages .p-paginator-page.p-highlight) {
+    background: linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);
+    color: #fff;
+    box-shadow: 0 8px 30px rgba(37, 99, 235, 0.18);
 }
 
-/* Modern Dialog Styles */
+/* Filters / Inputs */
+:deep(.modern-datatable .p-column-filter),
+:deep(.modern-datatable .p-inputtext),
+:deep(.modern-datatable .p-inputnumber) {
+    border-radius: 0.5rem;
+    border: 1px solid #e6eef6;
+    padding: 0.45rem 0.6rem;
+    transition: box-shadow 0.15s, border-color 0.15s;
+}
+:deep(.modern-datatable .p-column-filter:focus),
+:deep(.modern-datatable .p-inputtext:focus),
+:deep(.modern-datatable .p-inputnumber:focus) {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.08);
+}
+
+/* Empty state & loading overlay */
+:deep(.modern-datatable .p-datatable-emptymessage td) {
+    padding: 3.25rem 2rem;
+    text-align: center;
+    color: #64748b;
+}
+:deep(.modern-datatable .p-datatable-loading-overlay) {
+    background-color: rgba(255,255,255,0.85);
+    backdrop-filter: blur(3px);
+}
+
+/* Dialog (modern-dialog) */
 :deep(.modern-dialog) {
     border-radius: 0.75rem;
     overflow: hidden;
+    box-shadow: 0 20px 50px rgba(2,6,23,0.25);
 }
-
 :deep(.modern-dialog .p-dialog-header) {
-    padding: 1.5rem;
-    background-color: var(--surface-card);
-    border-bottom: 1px solid var(--surface-border);
+    padding: 1rem 1.25rem;
+    background: linear-gradient(90deg,#ffffff 0%,#f3f7fb 100%);
+    border-bottom: 1px solid #e6eef6;
 }
-
 :deep(.modern-dialog .p-dialog-title) {
-    font-weight: 600;
-    font-size: 1.25rem;
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: #0f172a;
 }
-
-:deep(.modern-dialog .p-dialog-content) {
-    padding: 0;
-    background-color: var(--surface-card);
-}
-
+:deep(.modern-dialog .p-dialog-content),
 :deep(.modern-dialog .p-dialog-footer) {
-    padding: 0 1.5rem 1.5rem 1.5rem;
-    background-color: var(--surface-card);
-    border-top: none;
+    background-color: #ffffff;
 }
 
-
-/* Dark mode adjustments */
-:deep(.dark .p-datatable .p-datatable-thead > tr > th) {
-    background-color: var(--surface-card);
+/* Avatar, Tag, Buttons */
+:deep(.p-avatar) {
+    box-shadow: 0 4px 14px rgba(2,6,23,0.08);
+    font-weight: 600;
+}
+:deep(.p-tag) {
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    box-shadow: 0 2px 8px rgba(2,6,23,0.04);
+}
+:deep(.p-button-rounded) {
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+:deep(.p-button-rounded:hover) {
+    transform: scale(1.06);
+    box-shadow: 0 8px 24px rgba(2,6,23,0.12);
 }
 
-:deep(.dark .p-datatable .p-datatable-tbody > tr:nth-child(even)) {
-    background-color: rgba(255, 255, 255, 0.02);
+/* Dark mode adjustments (class-based) */
+:deep(.dark .p-datatable .p-datatable-header),
+:deep(.dark .modern-datatable .p-datatable-header) {
+    background: linear-gradient(90deg,#0b1220 0%,#0f172a 100%);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
 }
-
+:deep(.dark .p-datatable .p-datatable-thead > tr > th),
+:deep(.dark .modern-datatable .p-datatable-thead > tr > th) {
+    background-color: transparent;
+    color: #94a3b8;
+    border-bottom: 2px solid rgba(255,255,255,0.03);
+}
+:deep(.dark .p-datatable .p-datatable-tbody > tr) {
+    background-color: transparent;
+}
+:deep(.dark .p-datatable .p-datatable-tbody > tr > td) {
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: #e6eef6;
+}
 :deep(.dark .p-datatable .p-datatable-tbody > tr:hover) {
-    background-color: rgba(255, 255, 255, 0.05);
+    background: linear-gradient(90deg, rgba(59,130,246,0.06), rgba(14,165,233,0.04));
+}
+:deep(.dark .modern-dialog .p-dialog-header),
+:deep(.dark .modern-dialog .p-dialog-content),
+:deep(.dark .modern-dialog .p-dialog-footer) {
+    background-color: #0b1220;
+    color: #e6eef6;
+    border-color: rgba(255,255,255,0.04);
 }
 </style>
