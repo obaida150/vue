@@ -12,8 +12,8 @@
                         <div class="flex">
                             <!-- Logo -->
                             <div class="shrink-0 flex items-center">
-                                <Link :href="route('dashboard')">
-                                    <ApplicationMark class="block h-9 w-auto" />
+                                <Link :href="route('dashboard')" class="flex items-center" aria-label="Dashboard">
+                                    <ApplicationMark class="w-24 h-16" />
                                 </Link>
                             </div>
 
